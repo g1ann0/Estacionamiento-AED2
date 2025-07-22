@@ -1,0 +1,28 @@
+Extenciones utilizadas para el proyecto:
+
+auto close tag
+auto rename tag
+bookmark
+DotENV
+ESLint
+GitHub Copilot
+GitHub Copilot chat
+GitLens
+HTML Boilerplate
+HTML CSS Support
+IntelliSense for CSS class names in HTML
+JavaScript (ES6) code snippets
+Live server
+Material Icon Theme
+MongoDB for VS codePath IntelliSense
+PolyKai
+Prettier - Code Formatter
+React Developer tools
+REST Client
+Spanish language
+
+Tecnologias:
+
+Node JS
+MongoDB
+
