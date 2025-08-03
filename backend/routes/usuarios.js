@@ -6,11 +6,21 @@ const {
   registrarIngreso,
   obtenerUsuario,
   modificarVehiculo,
-  eliminarVehiculo
+  eliminarVehiculo,
+  obtenerTodosUsuarios,
+  actualizarUsuario,
+  obtenerTarifasDisponibles
 } = require('../controllers/usuarioController');
 const verificarToken = require('../middlewares/authMiddleware');
 
-// Obtener datos del usuario
+// Rutas específicas primero (antes de las rutas con parámetros)
+router.get('/tarifas/disponibles', verificarToken, obtenerTarifasDisponibles); // Obtener tarifas
+
+// Rutas para admin - gestión de usuarios
+router.get('/', verificarToken, obtenerTodosUsuarios); // Obtener todos los usuarios
+router.put('/:dni', verificarToken, actualizarUsuario); // Actualizar usuario
+
+// Obtener datos del usuario específico (debe ir después de rutas específicas)
 router.get('/:dni', verificarToken, obtenerUsuario);
 
 // Recarga de saldo

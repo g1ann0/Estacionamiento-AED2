@@ -13,6 +13,11 @@ const UsuarioSchema = new mongoose.Schema({
   fechaTokenRecuperacion: { type: Date }, // Fecha del token de recuperación
   rol: { type: String, enum: ['cliente', 'admin'], default: 'cliente' },
   asociado: { type: Boolean, default: false },
+  tarifaAsignada: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'ConfiguracionPrecio',
+    default: null 
+  },
   montoDisponible: { type: Number, default: 0 },
   fechaRegistro: { type: Date, default: Date.now },
   fechaDesactivacion: { type: Date }, // Fecha cuando se desactivó el usuario

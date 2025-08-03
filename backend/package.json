@@ -10,7 +10,10 @@
     "setup:reset": "node scripts/setupSystem.js reset",
     "setup:demo": "node scripts/setupSystem.js demo",
     "seo:optimize": "node scripts/optimizeSEO.js",
-    "seo:sitemap": "node scripts/generateSitemap.js"
+    "seo:sitemap": "node scripts/generateSitemap.js",
+    "migrate:tarifas": "node scripts/migracionTarifasUsuarios.js",
+    "migrate:rollback-tarifas": "node scripts/migracionTarifasUsuarios.js rollback",
+    "verify:tarifas": "node scripts/verificarTarifas.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
