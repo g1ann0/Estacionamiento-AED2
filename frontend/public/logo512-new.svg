@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Fondo circular con gradiente -->
+  <defs>
+    <linearGradient id="bg512" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2563eb;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <circle cx="256" cy="256" r="240" fill="url(#bg512)"/>
+  
+  <!-- Auto estacionado -->
+  <g transform="translate(256,256)">
+    <!-- Cuerpo principal del auto -->
+    <rect x="-100" y="30" width="200" height="50" rx="20" fill="#ffffff"/>
+    <!-- Ventanas -->
+    <rect x="-90" y="-10" width="180" height="40" rx="15" fill="#e2e8f0"/>
+    <!-- Ruedas -->
+    <circle cx="-65" cy="90" r="20" fill="#1f2937"/>
+    <circle cx="65" cy="90" r="20" fill="#1f2937"/>
+    <!-- Detalles del auto -->
+    <rect x="85" y="35" width="20" height="40" fill="#1f2937"/>
+    <rect x="-80" y="40" width="10" height="25" fill="#fbbf24"/>
+    
+    <!-- Símbolo P grande -->
+    <text x="0" y="-60" text-anchor="middle" font-family="Arial, sans-serif" font-size="96" font-weight="bold" fill="#ffffff">P</text>
+    
+    <!-- Líneas de estacionamiento -->
+    <line x1="-150" y1="110" x2="-110" y2="110" stroke="#ffffff" stroke-width="8"/>
+    <line x1="110" y1="110" x2="150" y2="110" stroke="#ffffff" stroke-width="8"/>
+    
+    <!-- Elementos decorativos -->
+    <rect x="-120" y="-80" width="240" height="4" fill="#ffffff" opacity="0.7"/>
+    <rect x="-120" y="100" width="240" height="4" fill="#ffffff" opacity="0.7"/>
+  </g>
+</svg>
