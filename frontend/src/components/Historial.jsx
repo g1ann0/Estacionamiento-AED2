@@ -95,8 +95,15 @@ function Historial() {
         const data = await res.json();
         setUsuario(data.usuario);
         
-        // Cargar tarifa actual
-        const precio = await precioService.obtenerPrecioParaUsuario(data.usuario.asociado);
+        // Cargar tarifa actual - priorizar tarifa asignada específica
+        let precio;
+        if (data.usuario?.tarifaAsignada?.precioPorHora) {
+          console.log('Usando tarifa asignada específica:', data.usuario.tarifaAsignada.precioPorHora);
+          precio = data.usuario.tarifaAsignada.precioPorHora;
+        } else {
+          console.log('Usando tarifa por tipo de usuario asociado:', data.usuario.asociado);
+          precio = await precioService.obtenerPrecioParaUsuario(data.usuario.asociado);
+        }
         setTarifaActual(precio);
       } else if (res.status === 401) {
         logout();
@@ -133,6 +140,11 @@ function Historial() {
 
   // Función para obtener la tarifa a mostrar
   const obtenerTarifaDisplay = () => {
+    // Priorizar tarifa asignada específica
+    if (usuario?.tarifaAsignada?.precioPorHora) {
+      return usuario.tarifaAsignada.precioPorHora;
+    }
+    
     if (tarifaActual !== null) {
       return tarifaActual;
     }
@@ -383,7 +395,12 @@ function Historial() {
               </h3>
               <p style={{ margin: '5px 0 0 0', color: '#6c757d' }}>
                 Tarifa actual: ${obtenerTarifaDisplay()}/hora
-                {usuario?.asociado && <span style={{ color: '#28a745', fontWeight: 'bold' }}> (Usuario Asociado)</span>}
+                {usuario?.tarifaAsignada?.nombre && (
+                  <span style={{ color: '#007bff', fontWeight: 'bold' }}> (Tarifa: {usuario.tarifaAsignada.nombre})</span>
+                )}
+                {!usuario?.tarifaAsignada?.nombre && usuario?.asociado && (
+                  <span style={{ color: '#28a745', fontWeight: 'bold' }}> (Usuario Asociado)</span>
+                )}
               </p>
               <p style={{ margin: '5px 0 0 0', color: '#6c757d', fontSize: '0.9em' }}>
                 Registrado el: {usuario?.fechaRegistro ? new Date(usuario.fechaRegistro).toLocaleDateString('es-AR', {
