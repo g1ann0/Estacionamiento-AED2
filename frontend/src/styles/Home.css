@@ -1,0 +1,640 @@
+/* Home.css - Estilos optimizados para SEO y performance */
+
+.home-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Animación del hero */
+.hero-animation {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 10;
+}
+
+/* Contenedor del auto animado específico para Home */
+.hero-animation .animated-car-container {
+  position: relative;
+  height: 60px;
+  width: 120px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.hero-animation .animated-car {
+  position: relative;
+  z-index: 2;
+  display: inline-block;
+  animation: heroCarDriving 4s ease-in-out infinite;
+}
+
+.hero-animation .car-body {
+  font-size: 24px;
+  animation: heroCarBounce 0.6s ease-in-out infinite;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+  display: inline-block;
+  position: relative;
+}
+
+.hero-animation .car-smoke {
+  position: absolute;
+  right: -15px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 8px;
+  color: rgba(255, 255, 255, 0.7);
+  animation: heroSmokeAnimation 1s ease-out infinite;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.hero-animation .car-smoke:nth-child(2) {
+  animation-delay: 0.25s;
+  font-size: 7px;
+  right: -12px;
+}
+
+.hero-animation .car-smoke:nth-child(3) {
+  animation-delay: 0.5s;
+  font-size: 6px;
+  right: -9px;
+}
+
+.hero-animation .car-smoke:nth-child(4) {
+  animation-delay: 0.75s;
+  font-size: 5px;
+  right: -6px;
+}
+
+.hero-animation .road-lines {
+  position: absolute;
+  bottom: 8px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  z-index: 1;
+}
+
+.hero-animation .road-line {
+  position: absolute;
+  height: 1px;
+  width: 20px;
+  background-color: rgba(255, 255, 255, 0.4);
+  animation: heroRoadMoving 1.5s linear infinite;
+}
+
+.hero-animation .road-line:nth-child(1) {
+  left: -20px;
+  animation-delay: 0s;
+}
+
+.hero-animation .road-line:nth-child(2) {
+  left: -20px;
+  animation-delay: 0.5s;
+}
+
+.hero-animation .road-line:nth-child(3) {
+  left: -20px;
+  animation-delay: 1s;
+}
+
+/* Keyframes para las animaciones del hero */
+@keyframes heroCarDriving {
+  0% {
+    transform: translateX(-10px);
+  }
+  50% {
+    transform: translateX(10px);
+  }
+  100% {
+    transform: translateX(-10px);
+  }
+}
+
+@keyframes heroCarBounce {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
+}
+
+@keyframes heroSmokeAnimation {
+  0% {
+    opacity: 0.6;
+    transform: translateY(-50%) translateX(0px) scale(0.5);
+  }
+  50% {
+    opacity: 0.3;
+    transform: translateY(-60%) translateX(-5px) scale(0.8);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-70%) translateX(-10px) scale(1);
+  }
+}
+
+@keyframes heroRoadMoving {
+  0% {
+    left: -20px;
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    left: 100%;
+    opacity: 0;
+  }
+}
+
+/* Header principal */
+.home-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 80px 0;
+  text-align: center;
+  position: relative;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.home-title {
+  font-size: 3rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  line-height: 1.2;
+}
+
+.home-subtitle {
+  font-size: 1.2rem;
+  margin-bottom: 2rem;
+  opacity: 0.9;
+  line-height: 1.4;
+}
+
+.home-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.btn {
+  padding: 12px 24px;
+  border-radius: 6px;
+  text-decoration: none;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  display: inline-block;
+  border: none;
+  cursor: pointer;
+}
+
+.btn-primary {
+  background-color: #4f46e5;
+  color: white;
+}
+
+.btn-primary:hover {
+  background-color: #3730a3;
+  transform: translateY(-2px);
+}
+
+.btn-secondary {
+  background-color: transparent;
+  color: white;
+  border: 2px solid white;
+}
+
+.btn-secondary:hover {
+  background-color: white;
+  color: #4f46e5;
+}
+
+/* Contenido principal */
+.home-main {
+  flex: 1;
+  padding: 60px 0;
+}
+
+/* Sección de características */
+.features-section {
+  padding: 60px 0;
+  background-color: #f8fafc;
+}
+
+.features-section h2 {
+  text-align: center;
+  font-size: 2.5rem;
+  margin-bottom: 3rem;
+  color: #1e293b;
+}
+
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 2rem;
+  margin-top: 2rem;
+}
+
+.feature-card {
+  background: white;
+  padding: 2rem;
+  border-radius: 12px;
+  text-align: center;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.feature-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 15px 35px -3px rgba(0, 0, 0, 0.15);
+}
+
+.vehicle-feature:hover {
+  transform: translateY(-10px);
+  box-shadow: 0 20px 40px -3px rgba(102, 126, 234, 0.25);
+}
+
+.feature-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.feature-card h3 {
+  font-size: 1.5rem;
+  margin-bottom: 1rem;
+  color: #1e293b;
+}
+
+.feature-card p {
+  color: #64748b;
+  line-height: 1.6;
+}
+
+/* Animación específica para la tarjeta de vehículos */
+.vehicle-feature .vehicle-animation {
+  position: relative;
+  display: inline-block;
+}
+
+.vehicle-feature .vehicle-emoji {
+  display: inline-block;
+  animation: vehicleFloat 3s ease-in-out infinite;
+  font-size: 3rem;
+}
+
+.vehicle-feature .vehicle-particles {
+  position: absolute;
+  right: -15px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.vehicle-feature .particle {
+  position: absolute;
+  font-size: 0.8rem;
+  opacity: 0.7;
+  animation: particleFloat 2s ease-out infinite;
+}
+
+.vehicle-feature .particle:nth-child(1) {
+  animation-delay: 0s;
+  right: 0px;
+}
+
+.vehicle-feature .particle:nth-child(2) {
+  animation-delay: 0.4s;
+  right: -8px;
+  font-size: 0.7rem;
+}
+
+.vehicle-feature .particle:nth-child(3) {
+  animation-delay: 0.8s;
+  right: -16px;
+  font-size: 0.6rem;
+}
+
+.vehicle-feature:hover .vehicle-emoji {
+  animation: vehicleHover 0.6s ease-in-out;
+}
+
+.vehicle-feature:hover .particle {
+  animation-duration: 1s;
+}
+
+/* Keyframes para animaciones de vehículo */
+@keyframes vehicleFloat {
+  0%, 100% {
+    transform: translateY(0px) translateX(0px);
+  }
+  25% {
+    transform: translateY(-3px) translateX(2px);
+  }
+  50% {
+    transform: translateY(0px) translateX(4px);
+  }
+  75% {
+    transform: translateY(-2px) translateX(2px);
+  }
+}
+
+@keyframes particleFloat {
+  0% {
+    opacity: 0.7;
+    transform: translateY(0px) translateX(0px) scale(1);
+  }
+  25% {
+    opacity: 0.5;
+    transform: translateY(-4px) translateX(-3px) scale(0.9);
+  }
+  50% {
+    opacity: 0.3;
+    transform: translateY(-8px) translateX(-6px) scale(0.8);
+  }
+  75% {
+    opacity: 0.1;
+    transform: translateY(-12px) translateX(-9px) scale(0.7);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-16px) translateX(-12px) scale(0.6);
+  }
+}
+
+@keyframes vehicleHover {
+  0% {
+    transform: translateY(0px) scale(1);
+  }
+  50% {
+    transform: translateY(-8px) scale(1.15);
+  }
+  100% {
+    transform: translateY(0px) scale(1);
+  }
+}
+
+/* Sección "Cómo funciona" */
+.how-it-works {
+  padding: 60px 0;
+}
+
+.how-it-works h2 {
+  text-align: center;
+  font-size: 2.5rem;
+  margin-bottom: 3rem;
+  color: #1e293b;
+}
+
+.steps-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 2rem;
+  margin-top: 2rem;
+}
+
+.step {
+  text-align: center;
+  padding: 2rem;
+}
+
+.step-number {
+  width: 60px;
+  height: 60px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin: 0 auto 1rem;
+}
+
+.step h3 {
+  font-size: 1.5rem;
+  margin-bottom: 1rem;
+  color: #1e293b;
+}
+
+.step p {
+  color: #64748b;
+  line-height: 1.6;
+}
+
+/* Sección de beneficios */
+.benefits-section {
+  padding: 60px 0;
+  background-color: #f8fafc;
+}
+
+.benefits-section h2 {
+  text-align: center;
+  font-size: 2.5rem;
+  margin-bottom: 3rem;
+  color: #1e293b;
+}
+
+.benefits-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 3rem;
+  margin-top: 2rem;
+}
+
+.benefit {
+  background: white;
+  padding: 2rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.benefit h3 {
+  font-size: 1.5rem;
+  margin-bottom: 1.5rem;
+  color: #1e293b;
+}
+
+.benefit ul {
+  list-style: none;
+  padding: 0;
+}
+
+.benefit li {
+  padding: 0.5rem 0;
+  padding-left: 1.5rem;
+  color: #64748b;
+  position: relative;
+}
+
+.benefit li::before {
+  content: "✓";
+  position: absolute;
+  left: 0;
+  color: #10b981;
+  font-weight: bold;
+}
+
+/* Footer */
+.home-footer {
+  background-color: #1e293b;
+  color: white;
+  padding: 40px 0 20px;
+}
+
+.footer-content {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 2rem;
+  margin-bottom: 2rem;
+}
+
+.footer-section h4 {
+  font-size: 1.2rem;
+  margin-bottom: 1rem;
+  color: #f1f5f9;
+}
+
+.footer-section p {
+  color: #94a3b8;
+  line-height: 1.6;
+}
+
+.footer-section ul {
+  list-style: none;
+  padding: 0;
+}
+
+.footer-section li {
+  margin-bottom: 0.5rem;
+}
+
+.footer-section a {
+  color: #94a3b8;
+  text-decoration: none;
+  transition: color 0.3s ease;
+}
+
+.footer-section a:hover {
+  color: #f1f5f9;
+}
+
+.footer-bottom {
+  border-top: 1px solid #334155;
+  padding-top: 1rem;
+  text-align: center;
+  color: #94a3b8;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .home-title {
+    font-size: 2rem;
+  }
+  
+  .home-subtitle {
+    font-size: 1rem;
+  }
+  
+  .home-actions {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .btn {
+    width: 200px;
+  }
+  
+  .features-grid,
+  .steps-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .benefits-list {
+    grid-template-columns: 1fr;
+  }
+  
+  .container {
+    padding: 0 15px;
+  }
+  
+  /* Responsive para animación del auto */
+  .hero-animation {
+    position: static;
+    display: flex;
+    justify-content: center;
+    margin-bottom: 20px;
+  }
+  
+  .hero-animation .animated-car-container {
+    width: 100px;
+    height: 50px;
+  }
+  
+  .hero-animation .car-body {
+    font-size: 20px;
+  }
+  
+  .hero-animation .car-smoke {
+    font-size: 6px;
+  }
+  
+  /* Responsive para animación de vehículos en tarjetas */
+  .vehicle-feature .vehicle-particles {
+    right: -10px;
+  }
+  
+  .vehicle-feature .particle {
+    font-size: 0.6rem;
+  }
+  
+  .vehicle-feature .particle:nth-child(2) {
+    right: -6px;
+    font-size: 0.5rem;
+  }
+  
+  .vehicle-feature .particle:nth-child(3) {
+    right: -12px;
+    font-size: 0.4rem;
+  }
+}
+
+/* Optimizaciones de performance */
+.feature-card,
+.step,
+.benefit {
+  will-change: transform;
+}
+
+/* Lazy loading placeholder */
+.loading-placeholder {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}

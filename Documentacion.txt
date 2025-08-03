@@ -26,3 +26,268 @@ Tecnologias:
 Node JS
 MongoDB
 
+=======================================================
+COMANDOS PARA INSTALAR Y EJECUTAR EL SISTEMA
+=======================================================
+
+REQUISITOS PREVIOS:
+1. Node.js (versión 16 o superior) - https://nodejs.org/
+2. MongoDB (versión 4.4 o superior) - https://www.mongodb.com/try/download/community
+3. Git - https://git-scm.com/downloads
+
+=======================================================
+PASOS DE INSTALACIÓN:
+=======================================================
+
+1. CLONAR EL REPOSITORIO:
+   git clone https://github.com/g1ann0/estaciongian.git
+   cd estaciongian
+
+2. CONFIGURAR BASE DE DATOS:
+   - Iniciar MongoDB:
+     Windows: mongod
+     Linux/Mac: sudo systemctl start mongod
+   
+   - Crear base de datos (opcional, se crea automáticamente):
+     mongo
+     use estacionamiento_db
+     exit
+
+3. CONFIGURAR EL BACKEND:
+   cd backend
+   npm install
+   
+   - Crear archivo .env (opcional, usa valores por defecto):
+     PORT=3000
+     MONGODB_URI=mongodb://localhost:27017/estacionamiento_db
+     JWT_SECRET=tu_clave_secreta_aqui
+
+4. CONFIGURAR EL FRONTEND:
+   cd ../frontend
+   npm install
+
+=======================================================
+COMANDOS PARA EJECUTAR EL SISTEMA:
+=======================================================
+
+OPCIÓN 1 - EJECUCIÓN MANUAL (2 terminales):
+
+Terminal 1 - Backend:
+cd backend
+npm start
+(El servidor backend se ejecutará en http://localhost:3000)
+(AUTOMÁTICAMENTE creará datos iniciales si es la primera vez)
+
+Terminal 2 - Frontend:
+cd frontend
+npm start
+(La aplicación web se abrirá en http://localhost:3001)
+
+=======================================================
+
+OPCIÓN 2 - EJECUCIÓN CON UN SOLO COMANDO (desde la raíz):
+
+npm run dev
+(Ejecuta tanto backend como frontend simultáneamente)
+
+=======================================================
+USUARIOS POR DEFECTO DEL SISTEMA:
+=======================================================
+
+ADMINISTRADOR (creado automáticamente):
+- DNI: 12345678
+- Email: admin@estacionamiento.com
+- Password: admin123
+
+USUARIO DE PRUEBA (opcional):
+- DNI: 87654321
+- Email: usuario@test.com  
+- Password: user123
+
+FUNCIONALIDADES DE AUTENTICACIÓN:
+- Registro con verificación por email
+- Login con email y contraseña
+- Recuperación de contraseña (¿Olvidaste tu contraseña?)
+- Gestión de perfil de usuario (actualizar datos, cambiar contraseña, gestión de vehículos)
+- Tokens de verificación y recuperación con expiración (1 hora)
+- Envío automático de emails para verificación y recuperación
+
+CONFIGURACIONES INICIALES AUTOMÁTICAS:
+- Precios: Asociados $250/h, No asociados $500/h
+- Empresa: ESTACIONAMIENTO AE2 S.R.L.
+- CUIT: 20-12345678-9
+- Punto de venta: 00001
+- Validaciones ARCA habilitadas (15 días)
+
+=======================================================
+COMANDOS DE CONFIGURACIÓN ADICIONALES:
+=======================================================
+
+INICIALIZAR SISTEMA (primera vez):
+cd backend
+npm run setup:init
+
+CREAR DATOS DE DEMOSTRACIÓN:
+cd backend  
+npm run setup:demo
+
+RESETEAR SISTEMA COMPLETO (solo desarrollo):
+cd backend
+npm run setup:reset
+
+=======================================================
+COMANDOS ADICIONALES:
+=======================================================
+
+INSTALAR DEPENDENCIAS (si hay problemas):
+- Backend: cd backend && npm install --force
+- Frontend: cd frontend && npm install --force
+
+LIMPIAR CACHE DE NPM:
+npm cache clean --force
+
+REINSTALAR NODE_MODULES:
+- Backend: cd backend && rm -rf node_modules && npm install
+- Frontend: cd frontend && rm -rf node_modules && npm install
+
+VERIFICAR VERSIONES:
+node --version
+npm --version
+mongo --version
+
+COMANDOS DE DESARROLLO:
+
+Backend en modo desarrollo (con auto-restart):
+cd backend
+npm run dev
+
+Frontend en modo desarrollo:
+cd frontend
+npm start
+
+Construir frontend para producción:
+cd frontend
+npm run build
+
+=======================================================
+SOLUCIÓN DE PROBLEMAS COMUNES:
+=======================================================
+
+1. ERROR: Puerto 3000 en uso
+   - Windows: netstat -ano | findstr :3000
+   - Linux/Mac: lsof -i :3000
+   - Matar proceso: kill -9 [PID]
+
+2. ERROR: MongoDB no conecta
+   - Verificar que MongoDB esté ejecutándose
+   - Verificar la URL de conexión en .env
+   - Reiniciar servicio MongoDB
+
+3. ERROR: Dependencias no encontradas
+   - Ejecutar: npm install --force
+   - Verificar versión de Node.js
+
+4. ERROR: CORS o conexión frontend-backend
+   - Verificar que backend esté en puerto 3000
+   - Verificar configuración de proxy en package.json del frontend
+
+=======================================================
+ESTRUCTURA DE PUERTOS:
+=======================================================
+
+Backend API: http://localhost:3000
+Frontend Web: http://localhost:3001
+MongoDB: mongodb://localhost:27017
+
+=======================================================
+COMANDOS DE MANTENIMIENTO DE BASE DE DATOS:
+=======================================================
+
+COMANDOS DE INICIALIZACIÓN:
+- node scripts/setupSystem.js init       # Inicializar datos por defecto
+- node scripts/setupSystem.js demo       # Crear datos de demostración
+- node scripts/setupSystem.js reset      # Resetear sistema (solo desarrollo)
+
+COMANDOS DE MIGRACIÓN:
+- node scripts/setupSystem.js migrate              # Migrar usuarios y transacciones
+- node scripts/setupSystem.js migrate-users        # Migrar solo usuarios
+- node scripts/setupSystem.js migrate-transactions # Migrar solo transacciones
+
+COMANDOS DE LIMPIEZA:
+- node scripts/clean.js                           # Limpieza rápida total
+- node scripts/setupSystem.js clean               # Limpiar base de datos
+- node scripts/setupSystem.js clean-init          # Limpiar e inicializar
+
+⚠️  IMPORTANTE: Los comandos de limpieza eliminan TODOS los datos.
+
+=======================================================
+GESTIÓN DE USUARIOS (ACTIVACIÓN/DESACTIVACIÓN):
+=======================================================
+
+El sistema implementa un control de activación/desactivación de usuarios:
+
+CARACTERÍSTICAS:
+- Los usuarios NO se eliminan físicamente de la base de datos
+- Al "eliminar" un usuario, se marca como inactivo (activo: false)
+- Se libera el DNI y email para permitir nuevos registros
+- Se mantiene historial completo para auditoría
+
+COMANDOS DISPONIBLES:
+- Migrar usuarios existentes: node scripts/setupSystem.js migrate-users
+- Migrar transacciones existentes: node scripts/setupSystem.js migrate-transactions
+- Migración completa: node scripts/setupSystem.js migrate
+- Listar usuarios desactivados: GET /api/admin/usuarios/desactivados
+- Reactivar usuario: POST /api/admin/usuarios/reactivar
+
+FUNCIONALIDADES AUTOMÁTICAS:
+- Solo usuarios activos pueden hacer login
+- Solo usuarios activos aparecen en listados
+- Solo transacciones de usuarios activos se muestran
+- Verificación de estado activo en todas las operaciones
+- Liberación automática de DNI/email al desactivar
+- Limpieza automática de transacciones huérfanas
+- Registro automático de cambios en configuración de empresa
+
+=======================================================
+SISTEMA DE LOGS Y AUDITORÍA:
+=======================================================
+
+El sistema registra automáticamente todos los cambios importantes:
+
+LOGS DE CONFIGURACIÓN DE EMPRESA:
+- Registro de creación y modificación de configuración
+- Identificación del usuario que realizó el cambio
+- Comparación de valores anteriores vs nuevos
+- Registro de campos específicos modificados
+- Timestamp y metadatos del cambio
+
+APIS DISPONIBLES:
+- GET /api/admin/configuracion/historial - Historial de cambios
+- GET /api/admin/configuracion/estadisticas - Estadísticas de cambios
+- GET /api/configuracion-empresa/historial - Historial (directo)
+- GET /api/configuracion-empresa/estadisticas - Estadísticas (directo)
+
+OTROS LOGS DEL SISTEMA:
+- Logs de precios (ConfiguracionPrecio)
+- Logs de saldos (recargas y consumos)
+- Logs de vehículos (alta, baja, modificación)
+- Logs de configuración de empresa (nuevo)
+
+=======================================================
+COMANDOS PARA PRODUCCIÓN:
+=======================================================
+
+1. Construir aplicación:
+   cd frontend
+   npm run build
+
+2. Servir archivos estáticos (ejemplo con serve):
+   npm install -g serve
+   serve -s build -l 80
+
+3. Ejecutar backend en producción:
+   cd backend
+   npm start
+
+=======================================================
+

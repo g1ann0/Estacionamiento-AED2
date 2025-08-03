@@ -1,0 +1,41 @@
+{
+  "name": "frontend",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-helmet-async": "^2.0.5",
+    "react-router-dom": "^7.7.1",
+    "react-scripts": "5.0.1",
+    "web-vitals": "^3.5.2",
+    "workbox-webpack-plugin": "^7.0.0"
+  },
+  "scripts": {
+    "start": "set HOST=0.0.0.0&& react-scripts start",
+    "start:local": "react-scripts start",
+    "start:host": "set REACT_APP_HOST=0.0.0.0&& react-scripts start",
+    "build": "react-scripts build",
+    "serve": "npm run build && npx serve -s build -l 3001",
+    "analyze": "npm run build && npx bundle-analyzer build/static/js/*.js",
+    "lighthouse": "npx lighthouse http://localhost:3001 --output=html --output-path=./lighthouse-report.html",
+    "test:seo": "npm run build && npm run lighthouse"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  }
+}
