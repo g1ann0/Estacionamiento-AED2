@@ -681,6 +681,11 @@ const modificarVehiculoAdmin = async (req, res) => {
       return res.status(404).json({ mensaje: 'Vehículo no encontrado' });
     }
 
+    // Verificar que el vehículo tenga un usuario asociado
+    if (!vehiculoActual.usuario) {
+      return res.status(400).json({ mensaje: 'El vehículo no tiene un usuario propietario válido' });
+    }
+
     // Guardar datos originales para el log
     const datosOriginales = {
       dominio: vehiculoActual.dominio,

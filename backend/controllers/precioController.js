@@ -49,12 +49,18 @@ const obtenerPrecios = async (req, res) => {
 // Actualizar precio específico
 const actualizarPrecio = async (req, res) => {
   try {
+    console.log('=== ACTUALIZAR PRECIO CONTROLLER ===');
+    console.log('Params:', req.params);
+    console.log('Body:', req.body);
+    console.log('Usuario autenticado:', req.usuario?.dni);
+    
     const { tipoUsuario } = req.params;
     const { precioPorHora, descripcion, motivo } = req.body;
     const { dni } = req.usuario; // Del middleware de auth
 
     // Validar que el tipo de usuario sea válido
-    if (!['asociado', 'no_asociado'].includes(tipoUsuario)) {
+    if (!['asociado', 'no_asociado', 'estudiantes', 'para travestis'].includes(tipoUsuario)) {
+      console.log('ERROR: Tipo de usuario inválido:', tipoUsuario);
       return res.status(400).json({
         success: false,
         mensaje: 'Tipo de usuario inválido'
@@ -63,6 +69,7 @@ const actualizarPrecio = async (req, res) => {
 
     // Validar precio
     if (!precioPorHora || precioPorHora < 0) {
+      console.log('ERROR: Precio inválido:', precioPorHora);
       return res.status(400).json({
         success: false,
         mensaje: 'El precio debe ser un número mayor o igual a 0'
@@ -72,14 +79,18 @@ const actualizarPrecio = async (req, res) => {
     // Obtener datos del usuario que modifica
     const usuarioModificador = await Usuario.findOne({ dni }).select('-password');
     if (!usuarioModificador) {
+      console.log('ERROR: Usuario modificador no encontrado:', dni);
       return res.status(400).json({
         success: false,
         mensaje: 'Usuario no encontrado'
       });
     }
 
+    console.log('Usuario modificador encontrado:', usuarioModificador.nombre);
+
     // Obtener configuración actual para el log
     const configuracionActual = await ConfiguracionPrecio.findOne({ tipoUsuario });
+    console.log('Configuración actual:', configuracionActual);
     
     // Buscar y actualizar o crear si no existe
     const precioActualizado = await ConfiguracionPrecio.findOneAndUpdate(
@@ -95,6 +106,8 @@ const actualizarPrecio = async (req, res) => {
         upsert: true 
       }
     );
+
+    console.log('Precio actualizado:', precioActualizado);
 
     // Crear entrada en el log de cambios
     const logEntry = new LogPrecio({
@@ -113,19 +126,25 @@ const actualizarPrecio = async (req, res) => {
       ip: req.ip || req.connection.remoteAddress || ''
     });
 
-    await logEntry.save();
+    const logGuardado = await logEntry.save();
+    console.log('Log guardado:', logGuardado._id);
 
-    res.json({
+    const respuesta = {
       success: true,
       mensaje: `Precio para ${tipoUsuario.replace('_', ' ')} actualizado correctamente`,
       precio: precioActualizado,
       logId: logEntry._id
-    });
+    };
+
+    console.log('Respuesta a enviar:', respuesta);
+    res.json(respuesta);
   } catch (error) {
     console.error('Error al actualizar precio:', error);
+    console.error('Error stack:', error.stack);
     res.status(500).json({
       success: false,
-      mensaje: 'Error interno del servidor'
+      mensaje: 'Error interno del servidor',
+      error: error.message
     });
   }
 };

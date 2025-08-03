@@ -92,24 +92,47 @@ function AdminDashboard() {
 
   // Actualizar precio
   const actualizarPrecio = async (tipoUsuario, nuevoPrecio, descripcion, motivo) => {
-    if (!window.confirm(`¿Estás seguro de que deseas actualizar el precio para ${tipoUsuario.replace('_', ' ')}?`)) {
+    console.log('actualizarPrecio llamado con:', { tipoUsuario, nuevoPrecio, descripcion, motivo });
+    
+    const confirmacion = window.confirm(`¿Estás seguro de que deseas actualizar el precio para ${tipoUsuario.replace('_', ' ')}?`);
+    console.log('Resultado de confirmación:', confirmacion);
+    
+    if (!confirmacion) {
+      console.log('Usuario canceló la operación');
       return;
     }
 
+    console.log('Usuario confirmó, procediendo con la actualización...');
+
     try {
       const token = localStorage.getItem('token');
-      await precioService.actualizarPrecio(tipoUsuario, nuevoPrecio, descripcion, motivo, token);
+      console.log('Token:', token ? 'Presente' : 'No presente');
       
-      setMensaje({ 
-        type: 'success', 
-        text: `Precio para ${tipoUsuario.replace('_', ' ')} actualizado correctamente` 
-      });
+      if (!token) {
+        throw new Error('No hay token de autenticación');
+      }
       
-      // Recargar precios y historial
-      await cargarPrecios();
-      await cargarHistorialPrecios();
+      console.log('Llamando al servicio precioService.actualizarPrecio...');
+      const resultado = await precioService.actualizarPrecio(tipoUsuario, nuevoPrecio, descripcion, motivo, token);
+      console.log('Resultado del servicio:', resultado);
+      
+      if (resultado && resultado.success) {
+        setMensaje({ 
+          type: 'success', 
+          text: `Precio para ${tipoUsuario.replace('_', ' ')} actualizado correctamente` 
+        });
+        
+        console.log('Recargando precios...');
+        // Recargar precios y historial
+        await cargarPrecios();
+        await cargarHistorialPrecios();
+        console.log('Precios recargados exitosamente');
+      } else {
+        throw new Error(resultado?.mensaje || 'Respuesta inesperada del servidor');
+      }
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error completo:', error);
+      console.error('Error stack:', error.stack);
       setMensaje({ type: 'error', text: error.message || 'Error al actualizar precio' });
     }
   };
@@ -277,6 +300,10 @@ function AdminDashboard() {
 
   const renderPrecios = () => {
     const iniciarEdicion = (precio) => {
+      console.log('=== INICIAR EDICIÓN ===');
+      console.log('Precio:', precio);
+      console.log('Tipo de usuario:', precio.tipoUsuario);
+      
       setEditandoPrecios({ ...editandoPrecios, [precio.tipoUsuario]: true });
       setValoresTemp({
         ...valoresTemp,
@@ -286,6 +313,13 @@ function AdminDashboard() {
           motivo: ''
         }
       });
+      
+      console.log('Estado editandoPrecios actualizado para:', precio.tipoUsuario);
+      console.log('Valores temp iniciales:', {
+        precioPorHora: precio.precioPorHora,
+        descripcion: precio.descripcion || '',
+        motivo: ''
+      });
     };
 
     const cancelarEdicion = (tipoUsuario) => {
@@ -294,25 +328,45 @@ function AdminDashboard() {
     };
 
     const guardarCambios = async (tipoUsuario) => {
+      console.log('=== INICIO guardarCambios ===');
+      console.log('Tipo de usuario recibido:', tipoUsuario);
+      console.log('Estado valoresTemp completo:', valoresTemp);
+      
       const valores = valoresTemp[tipoUsuario];
+      console.log('Valores a guardar:', valores);
+      console.log('Tipo de usuario:', tipoUsuario);
+      
       if (!valores || !valores.precioPorHora || valores.precioPorHora <= 0) {
+        console.log('ERROR: Validación falló');
+        console.log('Valores:', valores);
+        console.log('PrecioPorHora:', valores?.precioPorHora);
         setMensaje({ type: 'error', text: 'El precio debe ser mayor a 0' });
         return;
       }
 
-      await actualizarPrecio(tipoUsuario, valores.precioPorHora, valores.descripcion, valores.motivo);
-      setEditandoPrecios({ ...editandoPrecios, [tipoUsuario]: false });
-      setValoresTemp({ ...valoresTemp, [tipoUsuario]: {} });
+      try {
+        console.log('Llamando a actualizarPrecio...');
+        await actualizarPrecio(tipoUsuario, valores.precioPorHora, valores.descripcion, valores.motivo);
+        setEditandoPrecios({ ...editandoPrecios, [tipoUsuario]: false });
+        setValoresTemp({ ...valoresTemp, [tipoUsuario]: {} });
+        console.log('=== FIN guardarCambios EXITOSO ===');
+      } catch (error) {
+        console.error('Error en guardarCambios:', error);
+        setMensaje({ type: 'error', text: error.message || 'Error al guardar cambios' });
+      }
     };
 
     const actualizarValorTemp = (tipoUsuario, campo, valor) => {
-      setValoresTemp({
+      console.log('actualizarValorTemp:', { tipoUsuario, campo, valor });
+      const nuevosValores = {
         ...valoresTemp,
         [tipoUsuario]: {
           ...valoresTemp[tipoUsuario],
           [campo]: valor
         }
-      });
+      };
+      console.log('Nuevos valores temp:', nuevosValores);
+      setValoresTemp(nuevosValores);
     };
 
     // Funciones para crear nuevo precio
@@ -553,7 +607,13 @@ function AdminDashboard() {
                     <div className="precio-edit-actions">
                       <button 
                         className="button button-primary"
-                        onClick={() => guardarCambios(precio.tipoUsuario)}
+                        onClick={(e) => {
+                          console.log('BOTÓN GUARDAR CLICKEADO');
+                          console.log('Evento:', e);
+                          console.log('Tipo de usuario:', precio.tipoUsuario);
+                          e.preventDefault();
+                          guardarCambios(precio.tipoUsuario);
+                        }}
                       >
                         Guardar
                       </button>

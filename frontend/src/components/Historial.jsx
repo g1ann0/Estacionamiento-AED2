@@ -183,60 +183,214 @@ function Historial() {
   });
 
   const renderTransacciones = () => (
-    <div className="card">
-      <div className="card-header">
-        <h2>Mis Transacciones ({transaccionesFiltradas.length})</h2>
-        <div className="admin-controls">
+    <div className="transacciones-section" style={{
+      backgroundColor: 'white',
+      borderRadius: '12px',
+      padding: '2rem',
+      marginBottom: '2rem',
+      boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
+      border: '1px solid #e9ecef'
+    }}>
+      <div className="section-header" style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: '2rem',
+        paddingBottom: '1rem',
+        borderBottom: '2px solid #f8f9fa'
+      }}>
+        <h2 style={{ color: '#2c3e50', margin: 0 }}>
+          Mis Transacciones ({transaccionesFiltradas.length})
+        </h2>
+        <div className="header-controls" style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
           <input
             type="text"
             placeholder="Buscar por vehículo, tipo, portón..."
             value={filtro}
             onChange={(e) => setFiltro(e.target.value)}
-            className="input"
-            style={{ maxWidth: '300px' }}
+            style={{
+              padding: '0.75rem',
+              border: '1px solid #ddd',
+              borderRadius: '4px',
+              fontSize: '1rem',
+              width: '300px'
+            }}
           />
           <button
             onClick={cargarTransacciones}
-            className="button button-secondary"
+            style={{
+              backgroundColor: '#6c757d',
+              color: 'white',
+              border: '1px solid #6c757d',
+              padding: '0.75rem 1.5rem',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+              transition: 'all 0.2s ease'
+            }}
           >
-            Actualizar
+            🔄 Actualizar
           </button>
         </div>
       </div>
 
       <div className="transacciones-container">
         {transaccionesFiltradas.length > 0 ? (
-          <div className="transacciones-grid">
+          <div className="transacciones-grid" style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))',
+            gap: '1.5rem'
+          }}>
             {transaccionesFiltradas.map((transaccion) => {
               const vehiculo = usuario?.vehiculos?.find(v => v.dominio === transaccion.vehiculo?.dominio);
+              const esIngreso = transaccion.tipo === 'ingreso';
               
               return (
-                <div key={transaccion._id} className="transaccion-card">
-                  <div className="transaccion-header">
-                    <h3>{transaccion.vehiculo?.dominio || 'No disponible'}</h3>
-                    <span className={`status-badge ${transaccion.tipo === 'ingreso' ? 'pending' : 'verified'}`}>
-                      {transaccion.tipo}
+                <div key={transaccion._id} className="transaccion-card" style={{
+                  background: '#fff',
+                  border: '1px solid #e9ecef',
+                  borderRadius: '12px',
+                  padding: '1.5rem',
+                  boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
+                  transition: 'all 0.3s ease',
+                  borderLeft: `4px solid ${esIngreso ? '#28a745' : '#dc3545'}`
+                }}>
+                  <div className="transaccion-header" style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: '1rem',
+                    paddingBottom: '0.5rem',
+                    borderBottom: '1px solid #f8f9fa'
+                  }}>
+                    <h3 style={{ 
+                      color: '#2c3e50', 
+                      margin: 0,
+                      fontSize: '1.3rem',
+                      fontWeight: 'bold'
+                    }}>
+                      {transaccion.vehiculo?.dominio || 'No disponible'}
+                    </h3>
+                    <span style={{
+                      backgroundColor: esIngreso ? '#d4edda' : '#f8d7da',
+                      color: esIngreso ? '#155724' : '#721c24',
+                      padding: '0.25rem 0.75rem',
+                      borderRadius: '20px',
+                      fontSize: '0.8rem',
+                      fontWeight: 'bold',
+                      textTransform: 'uppercase'
+                    }}>
+                      {esIngreso ? '📥 INGRESO' : '📤 EGRESO'}
                     </span>
                   </div>
                   
                   <div className="transaccion-details">
-                    <p><strong>Vehículo:</strong> {vehiculo?.marca} {vehiculo?.modelo}</p>
-                    <p><strong>Tipo:</strong> {vehiculo?.tipo}</p>
-                    <p><strong>Portón:</strong> {transaccion.porton || 'No especificado'}</p>
-                    <p><strong>Fecha y Hora:</strong> {new Date(transaccion.fechaHora || transaccion.fecha).toLocaleString()}</p>
+                    <p style={{ color: '#34495e', marginBottom: '0.5rem' }}>
+                      <strong style={{ color: '#2c3e50' }}>Fecha/Hora:</strong> 
+                      <span style={{ marginLeft: '0.5rem' }}>
+                        {new Date(transaccion.fechaHora || transaccion.fecha).toLocaleString('es-AR', {
+                          year: 'numeric',
+                          month: '2-digit',
+                          day: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </span>
+                    </p>
                     
-                    {transaccion.tipo === 'egreso' && (
+                    <p style={{ color: '#34495e', marginBottom: '0.5rem' }}>
+                      <strong style={{ color: '#2c3e50' }}>Vehículo:</strong> 
+                      <span style={{ 
+                        backgroundColor: vehiculo?.tipo === 'auto' ? '#17a2b8' : '#ffc107',
+                        color: vehiculo?.tipo === 'moto' ? '#212529' : 'white',
+                        padding: '2px 6px',
+                        borderRadius: '10px',
+                        fontSize: '0.8rem',
+                        marginLeft: '0.5rem'
+                      }}>
+                        {vehiculo?.tipo || 'N/A'}
+                      </span>
+                      <br />
+                      <span style={{ marginLeft: '0.5rem' }}>
+                        {vehiculo?.marca} {vehiculo?.modelo}
+                      </span>
+                    </p>
+                    
+                    <p style={{ color: '#34495e', marginBottom: '0.5rem' }}>
+                      <strong style={{ color: '#2c3e50' }}>Portón:</strong> 
+                      <span style={{ 
+                        backgroundColor: '#6c757d',
+                        color: 'white',
+                        padding: '2px 8px',
+                        borderRadius: '12px',
+                        fontSize: '0.8rem',
+                        marginLeft: '0.5rem'
+                      }}>
+                        {transaccion.porton || 'No especificado'}
+                      </span>
+                    </p>
+                    
+                    {!esIngreso && (
                       <>
-                        <p><strong>Tarifa Aplicada:</strong> ${obtenerTarifaDisplay()}/hora</p>
-                        <p><strong>Monto Total:</strong> 
-                          <span style={{ color: '#dc3545', fontWeight: 'bold' }}>
+                        <p style={{ color: '#34495e', marginBottom: '0.5rem' }}>
+                          <strong style={{ color: '#2c3e50' }}>Duración:</strong> 
+                          <span style={{ 
+                            backgroundColor: '#17a2b8',
+                            color: 'white',
+                            padding: '2px 8px',
+                            borderRadius: '12px',
+                            fontSize: '0.9rem',
+                            fontWeight: 'bold',
+                            marginLeft: '0.5rem'
+                          }}>
+                            {transaccion.duracion || 'No especificada'}
+                          </span>
+                        </p>
+                        
+                        <p style={{ color: '#34495e', marginBottom: '0.5rem' }}>
+                          <strong style={{ color: '#2c3e50' }}>Tarifa Aplicada:</strong> 
+                          <span style={{ 
+                            color: '#28a745',
+                            fontWeight: 'bold',
+                            fontSize: '1.1rem',
+                            marginLeft: '0.5rem'
+                          }}>
+                            ${obtenerTarifaDisplay()}/hora
+                          </span>
+                        </p>
+                        
+                        <p style={{ color: '#34495e', marginBottom: '0.5rem' }}>
+                          <strong style={{ color: '#2c3e50' }}>Monto Total:</strong> 
+                          <span style={{
+                            backgroundColor: '#f57c00',
+                            color: 'white',
+                            padding: '4px 12px',
+                            borderRadius: '20px',
+                            fontSize: '1.1rem',
+                            fontWeight: 'bold',
+                            marginLeft: '0.5rem'
+                          }}>
                             -${typeof transaccion.montoTotal === 'number' ? transaccion.montoTotal.toFixed(2) : (transaccion.monto || 0).toFixed(2)}
                           </span>
                         </p>
-                        {transaccion.duracion && (
-                          <p><strong>Duración:</strong> {transaccion.duracion}</p>
-                        )}
                       </>
+                    )}
+                    
+                    {esIngreso && (
+                      <p style={{ color: '#34495e', marginBottom: '0.5rem' }}>
+                        <strong style={{ color: '#2c3e50' }}>Estado:</strong> 
+                        <span style={{
+                          backgroundColor: '#d4edda',
+                          color: '#155724',
+                          padding: '4px 12px',
+                          borderRadius: '20px',
+                          fontSize: '0.9rem',
+                          fontWeight: 'bold',
+                          marginLeft: '0.5rem'
+                        }}>
+                          Vehículo en estacionamiento
+                        </span>
+                      </p>
                     )}
                   </div>
                 </div>
@@ -244,10 +398,20 @@ function Historial() {
             })}
           </div>
         ) : (
-          <div className="no-data">
-            <p>No hay transacciones para mostrar</p>
+          <div className="no-data" style={{
+            textAlign: 'center',
+            padding: '3rem',
+            color: '#6c757d',
+            backgroundColor: '#f8f9fa',
+            borderRadius: '8px',
+            border: '1px solid #e9ecef'
+          }}>
+            <h3 style={{ color: '#6c757d', marginBottom: '1rem' }}>📊 No hay transacciones</h3>
+            <p style={{ margin: '0.5rem 0' }}>No hay transacciones para mostrar</p>
             {filtro && (
-              <p>Intenta cambiar los filtros de búsqueda</p>
+              <p style={{ margin: '0.5rem 0', fontStyle: 'italic' }}>
+                Intenta cambiar los filtros de búsqueda
+              </p>
             )}
           </div>
         )}
@@ -256,84 +420,257 @@ function Historial() {
   );
 
   const renderComprobantes = () => (
-    <div className="card">
-      <div className="card-header">
-        <h2>Mis Comprobantes ({comprobantesFiltrados.length})</h2>
-        <div className="admin-controls">
+    <div className="comprobantes-section" style={{
+      backgroundColor: 'white',
+      borderRadius: '12px',
+      padding: '2rem',
+      marginBottom: '2rem',
+      boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
+      border: '1px solid #e9ecef'
+    }}>
+      <div className="section-header" style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: '2rem',
+        paddingBottom: '1rem',
+        borderBottom: '2px solid #f8f9fa'
+      }}>
+        <h2 style={{ color: '#2c3e50', margin: 0 }}>
+          Mis Comprobantes ({comprobantesFiltrados.length})
+        </h2>
+        <div className="header-controls" style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
           <input
             type="text"
             placeholder="Buscar por número, estado, monto..."
             value={filtro}
             onChange={(e) => setFiltro(e.target.value)}
-            className="input"
-            style={{ maxWidth: '300px' }}
+            style={{
+              padding: '0.75rem',
+              border: '1px solid #ddd',
+              borderRadius: '4px',
+              fontSize: '1rem',
+              width: '300px'
+            }}
           />
           <button
             onClick={cargarComprobantes}
-            className="button button-secondary"
+            style={{
+              backgroundColor: '#6c757d',
+              color: 'white',
+              border: '1px solid #6c757d',
+              padding: '0.75rem 1.5rem',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+              transition: 'all 0.2s ease'
+            }}
           >
-            Actualizar
+            🔄 Actualizar
           </button>
         </div>
       </div>
 
       <div className="comprobantes-container">
         {comprobantesFiltrados.length > 0 ? (
-          <div className="comprobantes-grid">
-            {comprobantesFiltrados.map((comprobante) => (
-              <div key={comprobante.nroComprobante} className="comprobante-card">
-                <div className="comprobante-header">
-                  <h3>#{comprobante.nroComprobante}</h3>
-                  <span className={`status-badge ${comprobante.estado === 'aprobado' ? 'verified' : 
-                    comprobante.estado === 'rechazado' ? 'rejected' : 'pending'}`}>
-                    {comprobante.estado === 'aprobado' ? 'Aprobado' : 
-                     comprobante.estado === 'rechazado' ? 'Rechazado' : 'Pendiente'}
-                  </span>
-                </div>
-                
-                <div className="comprobante-details">
-                  <p><strong>Usuario:</strong> {usuario?.nombre} {usuario?.apellido}</p>
-                  <p><strong>DNI:</strong> {usuario?.dni}</p>
-                  <p><strong>Fecha:</strong> {new Date(comprobante.fecha).toLocaleString()}</p>
-                  <p><strong>Monto Acreditado:</strong> 
-                    <span style={{ color: '#28a745', fontWeight: 'bold' }}>
-                      +${comprobante.montoAcreditado}
+          <div className="comprobantes-grid" style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))',
+            gap: '1.5rem'
+          }}>
+            {comprobantesFiltrados.map((comprobante) => {
+              const estadoColor = comprobante.estado === 'aprobado' ? '#28a745' : 
+                                 comprobante.estado === 'rechazado' ? '#dc3545' : '#ffc107';
+              const estadoBg = comprobante.estado === 'aprobado' ? '#d4edda' : 
+                              comprobante.estado === 'rechazado' ? '#f8d7da' : '#fff3cd';
+              const estadoTexto = comprobante.estado === 'aprobado' ? '#155724' : 
+                                 comprobante.estado === 'rechazado' ? '#721c24' : '#856404';
+              
+              return (
+                <div key={comprobante.nroComprobante} className="comprobante-card" style={{
+                  background: '#fff',
+                  border: '1px solid #e9ecef',
+                  borderRadius: '12px',
+                  padding: '1.5rem',
+                  boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
+                  transition: 'all 0.3s ease',
+                  borderLeft: `4px solid ${estadoColor}`
+                }}>
+                  <div className="comprobante-header" style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: '1rem',
+                    paddingBottom: '0.5rem',
+                    borderBottom: '1px solid #f8f9fa'
+                  }}>
+                    <h3 style={{ 
+                      color: '#2c3e50', 
+                      margin: 0,
+                      fontSize: '1.3rem',
+                      fontWeight: 'bold'
+                    }}>
+                      Comprobante #{comprobante.nroComprobante}
+                    </h3>
+                    <span style={{
+                      backgroundColor: estadoBg,
+                      color: estadoTexto,
+                      padding: '0.25rem 0.75rem',
+                      borderRadius: '20px',
+                      fontSize: '0.8rem',
+                      fontWeight: 'bold',
+                      textTransform: 'uppercase'
+                    }}>
+                      {comprobante.estado === 'aprobado' ? '✅ APROBADO' : 
+                       comprobante.estado === 'rechazado' ? '❌ RECHAZADO' : '⏳ PENDIENTE'}
                     </span>
-                  </p>
-                  {comprobante.estado !== 'pendiente' && (
-                    <p><strong>Saldo Disponible:</strong> ${comprobante.montoDisponible}</p>
-                  )}
+                  </div>
                   
-                  {usuario?.vehiculos && usuario.vehiculos.length > 0 && (
-                    <div className="vehiculos-registrados">
-                      <p><strong>Vehículos Registrados:</strong></p>
-                      <ul>
-                        {usuario.vehiculos.map(v => (
-                          <li key={v.dominio}>{v.dominio} - {v.marca} {v.modelo}</li>
-                        ))}
-                      </ul>
+                  <div className="comprobante-details">
+                    <p style={{ color: '#34495e', marginBottom: '0.5rem' }}>
+                      <strong style={{ color: '#2c3e50' }}>Fecha:</strong> 
+                      <span style={{ marginLeft: '0.5rem' }}>
+                        {new Date(comprobante.fecha).toLocaleString('es-AR', {
+                          year: 'numeric',
+                          month: '2-digit',
+                          day: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </span>
+                    </p>
+                    
+                    <p style={{ color: '#34495e', marginBottom: '0.5rem' }}>
+                      <strong style={{ color: '#2c3e50' }}>Propietario:</strong> 
+                      <span style={{ color: '#007bff', fontWeight: 'bold', marginLeft: '0.5rem' }}>
+                        {usuario?.nombre} {usuario?.apellido}
+                      </span>
+                      <br />
+                      <small style={{ color: '#6c757d', marginLeft: '0.5rem' }}>DNI: {usuario?.dni}</small>
+                    </p>
+                    
+                    <p style={{ color: '#34495e', marginBottom: '0.5rem' }}>
+                      <strong style={{ color: '#2c3e50' }}>Monto Acreditado:</strong> 
+                      <span style={{
+                        backgroundColor: '#28a745',
+                        color: 'white',
+                        padding: '4px 12px',
+                        borderRadius: '20px',
+                        fontSize: '1.1rem',
+                        fontWeight: 'bold',
+                        marginLeft: '0.5rem'
+                      }}>
+                        +${comprobante.montoAcreditado}
+                      </span>
+                    </p>
+                    
+                    {comprobante.estado !== 'pendiente' && (
+                      <p style={{ color: '#34495e', marginBottom: '1rem' }}>
+                        <strong style={{ color: '#2c3e50' }}>Saldo Disponible:</strong> 
+                        <span style={{ 
+                          color: '#28a745',
+                          fontWeight: 'bold',
+                          fontSize: '1.1rem',
+                          marginLeft: '0.5rem'
+                        }}>
+                          ${comprobante.montoDisponible}
+                        </span>
+                      </p>
+                    )}
+                    
+                    {usuario?.vehiculos && usuario.vehiculos.length > 0 && (
+                      <div className="vehiculos-registrados" style={{
+                        backgroundColor: '#f8f9fa',
+                        padding: '1rem',
+                        borderRadius: '8px',
+                        marginBottom: '1rem',
+                        border: '1px solid #e9ecef'
+                      }}>
+                        <p style={{ 
+                          color: '#2c3e50', 
+                          fontWeight: 'bold', 
+                          marginBottom: '0.5rem' 
+                        }}>
+                          Vehículos Registrados:
+                        </p>
+                        <div className="vehiculos-list">
+                          {usuario.vehiculos.map(v => (
+                            <div key={v.dominio} style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              padding: '0.25rem 0',
+                              borderBottom: '1px solid #e9ecef'
+                            }}>
+                              <span style={{ fontWeight: 'bold', color: '#2c3e50' }}>
+                                {v.dominio}
+                              </span>
+                              <span style={{ 
+                                color: '#6c757d',
+                                fontSize: '0.9rem'
+                              }}>
+                                {v.marca} {v.modelo}
+                                <span style={{ 
+                                  backgroundColor: v.tipo === 'auto' ? '#17a2b8' : '#ffc107',
+                                  color: v.tipo === 'moto' ? '#212529' : 'white',
+                                  padding: '2px 6px',
+                                  borderRadius: '10px',
+                                  fontSize: '0.7rem',
+                                  marginLeft: '0.5rem'
+                                }}>
+                                  {v.tipo}
+                                </span>
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Botón para descargar PDF */}
+                    <div className="comprobante-actions" style={{ 
+                      marginTop: '1rem', 
+                      borderTop: '1px solid #eee', 
+                      paddingTop: '1rem' 
+                    }}>
+                      <button
+                        onClick={() => descargarPDFComprobante(comprobante.nroComprobante)}
+                        style={{
+                          width: '100%',
+                          backgroundColor: '#007bff',
+                          color: 'white',
+                          border: '1px solid #007bff',
+                          padding: '0.75rem 1.5rem',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          fontWeight: 'bold',
+                          transition: 'all 0.2s ease',
+                          fontSize: '1rem'
+                        }}
+                      >
+                        📄 Descargar Comprobante PDF
+                      </button>
                     </div>
-                  )}
-                  
-                  {/* Botón para descargar PDF */}
-                  <div className="comprobante-actions" style={{ marginTop: '1rem', borderTop: '1px solid #eee', paddingTop: '1rem' }}>
-                    <button
-                      className="button button-primary"
-                      onClick={() => descargarPDFComprobante(comprobante.nroComprobante)}
-                      style={{ width: '100%' }}
-                    >
-                      📄 Descargar Comprobante PDF
-                    </button>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
-          <div className="no-data">
-            <p>No hay comprobantes para mostrar</p>
+          <div className="no-data" style={{
+            textAlign: 'center',
+            padding: '3rem',
+            color: '#6c757d',
+            backgroundColor: '#f8f9fa',
+            borderRadius: '8px',
+            border: '1px solid #e9ecef'
+          }}>
+            <h3 style={{ color: '#6c757d', marginBottom: '1rem' }}>📄 No hay comprobantes</h3>
+            <p style={{ margin: '0.5rem 0' }}>No hay comprobantes para mostrar</p>
             {filtro && (
-              <p>Intenta cambiar los filtros de búsqueda</p>
+              <p style={{ margin: '0.5rem 0', fontStyle: 'italic' }}>
+                Intenta cambiar los filtros de búsqueda
+              </p>
             )}
           </div>
         )}
@@ -355,23 +692,32 @@ function Historial() {
   }
 
   return (
-    <div className="dashboard">
+    <div className="dashboard" style={{ backgroundColor: '#f8f9fa', minHeight: '100vh' }}>
       <Navbar />
-      <div className="container">
+      <div className="container" style={{ padding: '2rem' }}>
         {mensaje && (
-          <div className={`message message-${mensaje.type}`} style={{ margin: '1rem 0', position: 'relative' }}>
+          <div className={`message message-${mensaje.type}`} style={{ 
+            margin: '0 0 2rem 0', 
+            position: 'relative',
+            backgroundColor: mensaje.type === 'error' ? '#f8d7da' : '#d4edda',
+            color: mensaje.type === 'error' ? '#721c24' : '#155724',
+            padding: '1rem 1.5rem',
+            borderRadius: '8px',
+            border: `1px solid ${mensaje.type === 'error' ? '#f5c6cb' : '#c3e6cb'}`
+          }}>
             {mensaje.text}
             <button 
               onClick={() => setMensaje(null)} 
               style={{
                 position: 'absolute',
-                right: '10px',
+                right: '15px',
                 top: '50%',
                 transform: 'translateY(-50%)',
                 background: 'none',
                 border: 'none',
                 cursor: 'pointer',
-                fontSize: '18px',
+                fontSize: '20px',
+                fontWeight: 'bold',
                 color: mensaje.type === 'error' ? '#721c24' : '#155724'
               }}
             >
@@ -380,60 +726,142 @@ function Historial() {
           </div>
         )}
 
-        <div className="admin-dashboard">
-          <div className="admin-header">
-            <h1>Mi Historial</h1>
-            <div className="saldo-info" style={{ 
-              backgroundColor: '#f8f9fa',
-              padding: '15px',
-              borderRadius: '8px',
-              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-              marginBottom: '20px'
+        <div className="historial-dashboard">
+          <div className="historial-header" style={{
+            backgroundColor: 'white',
+            borderRadius: '12px',
+            padding: '2rem',
+            marginBottom: '2rem',
+            boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
+            border: '1px solid #e9ecef'
+          }}>
+            <div className="header-content" style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'flex-start',
+              marginBottom: '2rem'
             }}>
-              <h3 style={{ margin: 0, color: '#2c3e50' }}>
-                Saldo Disponible: <span style={{ color: '#28a745', fontWeight: 'bold' }}>${usuario?.montoDisponible || 0}</span>
-              </h3>
-              <p style={{ margin: '5px 0 0 0', color: '#6c757d' }}>
-                Tarifa actual: ${obtenerTarifaDisplay()}/hora
-                {usuario?.tarifaAsignada?.nombre && (
-                  <span style={{ color: '#007bff', fontWeight: 'bold' }}> (Tarifa: {usuario.tarifaAsignada.nombre})</span>
-                )}
-                {!usuario?.tarifaAsignada?.nombre && usuario?.asociado && (
-                  <span style={{ color: '#28a745', fontWeight: 'bold' }}> (Usuario Asociado)</span>
-                )}
-              </p>
-              <p style={{ margin: '5px 0 0 0', color: '#6c757d', fontSize: '0.9em' }}>
-                Registrado el: {usuario?.fechaRegistro ? new Date(usuario.fechaRegistro).toLocaleDateString('es-AR', {
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric'
-                }) : 'Fecha no disponible'}
-              </p>
+              <div className="title-section">
+                <h1 style={{ color: '#2c3e50', margin: '0 0 1rem 0', fontSize: '2.5rem' }}>
+                  Mi Historial
+                </h1>
+                <p style={{ color: '#6c757d', margin: 0, fontSize: '1.1rem' }}>
+                  Consulta tus transacciones y comprobantes de estacionamiento
+                </p>
+              </div>
+              
+              <div className="saldo-info" style={{ 
+                backgroundColor: '#f8f9fa',
+                padding: '1.5rem',
+                borderRadius: '12px',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                border: '1px solid #e9ecef',
+                minWidth: '300px',
+                textAlign: 'center'
+              }}>
+                <h3 style={{ margin: '0 0 0.5rem 0', color: '#2c3e50', fontSize: '1.2rem' }}>
+                  Saldo Disponible
+                </h3>
+                <p style={{ 
+                  margin: '0 0 1rem 0', 
+                  color: '#28a745', 
+                  fontWeight: 'bold',
+                  fontSize: '2rem'
+                }}>
+                  ${usuario?.montoDisponible || 0}
+                </p>
+                <div className="tarifa-info" style={{
+                  borderTop: '1px solid #dee2e6',
+                  paddingTop: '1rem'
+                }}>
+                  <p style={{ margin: '0 0 0.5rem 0', color: '#6c757d', fontSize: '0.9rem' }}>
+                    <strong>Tarifa actual:</strong> ${obtenerTarifaDisplay()}/hora
+                  </p>
+                  {usuario?.tarifaAsignada?.nombre && (
+                    <span style={{ 
+                      backgroundColor: '#007bff',
+                      color: 'white',
+                      padding: '2px 8px',
+                      borderRadius: '12px',
+                      fontSize: '0.8rem',
+                      fontWeight: 'bold'
+                    }}>
+                      {usuario.tarifaAsignada.nombre}
+                    </span>
+                  )}
+                  {!usuario?.tarifaAsignada?.nombre && usuario?.asociado && (
+                    <span style={{ 
+                      backgroundColor: '#28a745',
+                      color: 'white',
+                      padding: '2px 8px',
+                      borderRadius: '12px',
+                      fontSize: '0.8rem',
+                      fontWeight: 'bold'
+                    }}>
+                      Usuario Asociado
+                    </span>
+                  )}
+                  <p style={{ margin: '0.5rem 0 0 0', color: '#6c757d', fontSize: '0.8rem' }}>
+                    Registrado el: {usuario?.fechaRegistro ? new Date(usuario.fechaRegistro).toLocaleDateString('es-AR', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric'
+                    }) : 'Fecha no disponible'}
+                  </p>
+                </div>
+              </div>
             </div>
 
-            <div className="admin-nav">
+            <div className="navigation-tabs" style={{
+              display: 'flex',
+              gap: '1rem',
+              borderTop: '1px solid #e9ecef',
+              paddingTop: '2rem'
+            }}>
               <button 
-                className={`button ${vistaActual === 'transacciones' ? 'button-primary' : 'button-secondary'}`}
                 onClick={() => {
                   setVistaActual('transacciones');
                   setFiltro('');
                 }}
+                style={{
+                  backgroundColor: vistaActual === 'transacciones' ? '#007bff' : '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  padding: '0.75rem 2rem',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  fontSize: '1rem',
+                  transition: 'all 0.2s ease',
+                  boxShadow: vistaActual === 'transacciones' ? '0 2px 4px rgba(0,123,255,0.3)' : 'none'
+                }}
               >
-                Transacciones
+                📊 Transacciones
               </button>
               <button 
-                className={`button ${vistaActual === 'comprobantes' ? 'button-primary' : 'button-secondary'}`}
                 onClick={() => {
                   setVistaActual('comprobantes');
                   setFiltro('');
                 }}
+                style={{
+                  backgroundColor: vistaActual === 'comprobantes' ? '#007bff' : '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  padding: '0.75rem 2rem',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  fontSize: '1rem',
+                  transition: 'all 0.2s ease',
+                  boxShadow: vistaActual === 'comprobantes' ? '0 2px 4px rgba(0,123,255,0.3)' : 'none'
+                }}
               >
-                Comprobantes
+                📄 Comprobantes
               </button>
             </div>
           </div>
 
-          <div className="admin-content">
+          <div className="historial-content">
             {vistaActual === 'transacciones' && renderTransacciones()}
             {vistaActual === 'comprobantes' && renderComprobantes()}
           </div>
