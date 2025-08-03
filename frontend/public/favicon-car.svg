@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+  <!-- Fondo azul circular -->
+  <circle cx="16" cy="16" r="14" fill="#2563eb"/>
+  
+  <!-- Auto en el centro -->
+  <g transform="translate(16,18)">
+    <!-- Cuerpo principal del auto -->
+    <rect x="-7" y="-3" width="14" height="4" rx="1" fill="#ffffff"/>
+    <!-- Ventanas -->
+    <rect x="-5" y="-6" width="10" height="3" rx="1" fill="#bfdbfe"/>
+    <!-- Ruedas -->
+    <circle cx="-4" cy="2" r="1.5" fill="#1f2937"/>
+    <circle cx="4" cy="2" r="1.5" fill="#1f2937"/>
+    <!-- Faro delantero -->
+    <circle cx="6" cy="-1" r="0.5" fill="#fbbf24"/>
+  </g>
+  
+  <!-- Letra P arriba -->
+  <text x="16" y="9" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="#ffffff">P</text>
+</svg>

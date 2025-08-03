@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Fondo azul circular con borde -->
+  <circle cx="32" cy="32" r="30" fill="#2563eb" stroke="#ffffff" stroke-width="2"/>
+  
+  <!-- Auto centrado -->
+  <g transform="translate(32,35)">
+    <!-- Cuerpo principal del auto -->
+    <rect x="-16" y="-6" width="32" height="8" rx="3" fill="#ffffff"/>
+    <!-- Ventanas -->
+    <rect x="-12" y="-12" width="24" height="6" rx="2" fill="#e2e8f0"/>
+    <!-- Ruedas -->
+    <circle cx="-10" cy="4" r="3" fill="#1f2937"/>
+    <circle cx="10" cy="4" r="3" fill="#1f2937"/>
+    <!-- Faros -->
+    <circle cx="14" cy="-2" r="1.5" fill="#fbbf24"/>
+    <circle cx="14" cy="2" r="1.5" fill="#ef4444"/>
+    <!-- Parrilla -->
+    <rect x="12" y="-4" width="3" height="8" fill="#374151"/>
+  </g>
+  
+  <!-- Letra P grande arriba -->
+  <text x="32" y="18" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#ffffff">P</text>
+  
+  <!-- Líneas de estacionamiento decorativas -->
+  <line x1="8" y1="50" x2="20" y2="50" stroke="#ffffff" stroke-width="2" opacity="0.8"/>
+  <line x1="44" y1="50" x2="56" y2="50" stroke="#ffffff" stroke-width="2" opacity="0.8"/>
+</svg>
