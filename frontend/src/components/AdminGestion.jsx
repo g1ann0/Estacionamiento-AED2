@@ -748,9 +748,33 @@ const FormularioEditarUsuario = ({ usuario, tarifasDisponibles, onGuardar, onCan
         </div>
       )}
 
-      <div className="form-actions">
-        <button type="submit" className="btn btn-success">Guardar</button>
-        <button type="button" className="btn btn-secondary" onClick={onCancelar}>
+      <div className="form-actions" style={{ 
+        display: 'flex',
+        gap: '0.5rem',
+        marginTop: '1rem'
+      }}>
+        <button type="submit" className="btn btn-success" style={{
+          backgroundColor: '#28a745',
+          color: 'white',
+          border: '1px solid #28a745',
+          padding: '0.5rem 1rem',
+          borderRadius: '4px',
+          cursor: 'pointer',
+          transition: 'all 0.2s ease',
+          flex: 1
+        }}>
+          Guardar
+        </button>
+        <button type="button" className="btn btn-secondary" onClick={onCancelar} style={{
+          backgroundColor: '#6c757d',
+          color: 'white',
+          border: '1px solid #6c757d',
+          padding: '0.5rem 1rem',
+          borderRadius: '4px',
+          cursor: 'pointer',
+          transition: 'all 0.2s ease',
+          flex: 1
+        }}>
           Cancelar
         </button>
       </div>
@@ -857,9 +881,33 @@ const FormularioNuevoVehiculo = ({ vehiculo, usuarios, onChange, onSubmit, onCan
         />
       </div>
 
-      <div className="form-actions">\
-        <button type="submit" className="btn btn-success">Agregar Vehículo</button>
-        <button type="button" className="btn btn-secondary" onClick={onCancelar}>
+      <div className="form-actions" style={{ 
+        display: 'flex',
+        gap: '0.5rem',
+        marginTop: '1rem'
+      }}>
+        <button type="submit" className="btn btn-success" style={{
+          backgroundColor: '#28a745',
+          color: 'white',
+          border: '1px solid #28a745',
+          padding: '0.5rem 1rem',
+          borderRadius: '4px',
+          cursor: 'pointer',
+          transition: 'all 0.2s ease',
+          flex: 1
+        }}>
+          Agregar Vehículo
+        </button>
+        <button type="button" className="btn btn-secondary" onClick={onCancelar} style={{
+          backgroundColor: '#6c757d',
+          color: 'white',
+          border: '1px solid #6c757d',
+          padding: '0.5rem 1rem',
+          borderRadius: '4px',
+          cursor: 'pointer',
+          transition: 'all 0.2s ease',
+          flex: 1
+        }}>
           Cancelar
         </button>
       </div>
@@ -983,9 +1031,33 @@ const FormularioEditarVehiculo = ({ vehiculo, usuarios, onGuardar, onCancelar })
         />
       </div>
 
-      <div className="form-actions">\
-        <button type="submit" className="btn btn-success">Guardar</button>
-        <button type="button" className="btn btn-secondary" onClick={onCancelar}>
+      <div className="form-actions" style={{ 
+        display: 'flex',
+        gap: '0.5rem',
+        marginTop: '1rem'
+      }}>
+        <button type="submit" className="btn btn-success" style={{
+          backgroundColor: '#28a745',
+          color: 'white',
+          border: '1px solid #28a745',
+          padding: '0.5rem 1rem',
+          borderRadius: '4px',
+          cursor: 'pointer',
+          transition: 'all 0.2s ease',
+          flex: 1
+        }}>
+          Guardar
+        </button>
+        <button type="button" className="btn btn-secondary" onClick={onCancelar} style={{
+          backgroundColor: '#6c757d',
+          color: 'white',
+          border: '1px solid #6c757d',
+          padding: '0.5rem 1rem',
+          borderRadius: '4px',
+          cursor: 'pointer',
+          transition: 'all 0.2s ease',
+          flex: 1
+        }}>
           Cancelar
         </button>
       </div>

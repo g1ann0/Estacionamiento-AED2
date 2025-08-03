@@ -208,7 +208,7 @@ function Perfil() {
                 <p><strong>Rol:</strong> {perfil.rol === 'admin' ? 'Administrador' : 'Cliente'}</p>
                 <p><strong>Usuario Asociado:</strong> {perfil.asociado ? 'Sí' : 'No'}</p>
                 <p><strong>Saldo Disponible:</strong> ${perfil.montoDisponible}</p>
-                <p><strong>Vehículos Registrados:</strong> {perfil.vehiculos ? perfil.vehiculos.length : 0} <span style={{ color: '#666', fontSize: '0.9em' }}>(gestionar desde Dashboard)</span></p>
+                <p><strong>Vehículos Registrados:</strong> {perfil.vehiculos ? perfil.vehiculos.length : 0} <span style={{ color: '#666', fontSize: '0.9em' }}>(gestionar desde inicio)</span></p>
               </div>
 
               <form onSubmit={actualizarDatosBasicos}>

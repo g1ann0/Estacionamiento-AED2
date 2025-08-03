@@ -75,20 +75,36 @@ export const precioService = {
   // Actualizar precio específico (solo admin)
   actualizarPrecio: async (tipoUsuario, precioPorHora, descripcion, motivo, token) => {
     try {
+      console.log('precioService.actualizarPrecio - Parámetros:', {
+        tipoUsuario,
+        precioPorHora,
+        descripcion,
+        motivo,
+        token: token ? 'Presente' : 'No presente'
+      });
+
+      const body = {
+        precioPorHora,
+        descripcion,
+        motivo
+      };
+      
+      console.log('Body a enviar:', body);
+
       const response = await fetch(`${API_URL}/precios/${tipoUsuario}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          precioPorHora,
-          descripcion,
-          motivo
-        })
+        body: JSON.stringify(body)
       });
 
+      console.log('Response status:', response.status);
+      console.log('Response ok:', response.ok);
+
       const data = await response.json();
+      console.log('Response data:', data);
       
       if (!response.ok) {
         throw new Error(data.mensaje || 'Error al actualizar precio');
