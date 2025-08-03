@@ -1,6 +1,7 @@
 const Usuario = require('../models/Usuario');
 const Comprobante = require('../models/Comprobante');
 const Transaccion = require('../models/Transaccion');
+const ConfiguracionPrecio = require('../models/ConfiguracionPrecio');
 const { v4: uuidv4 } = require('uuid');  // para generar nroComprobante único
 
 
@@ -429,6 +430,89 @@ const finalizarEstacionamiento = async (req, res) => {
   }
 };
 
+// Obtener todos los usuarios con sus tarifas
+const obtenerTodosUsuarios = async (req, res) => {
+  try {
+    const usuarios = await Usuario.find({ activo: true })
+      .populate('tarifaAsignada', 'tipoUsuario precioPorHora descripcion')
+      .select('-password -tokenVerificacion -tokenRecuperacion')
+      .sort({ fechaRegistro: -1 });
+
+    res.json(usuarios);
+  } catch (error) {
+    console.error('Error al obtener usuarios:', error);
+    res.status(500).json({ mensaje: 'Error al obtener usuarios', error });
+  }
+};
+
+// Actualizar usuario (incluyendo tarifa y estado de asociado)
+const actualizarUsuario = async (req, res) => {
+  try {
+    const { dni } = req.params;
+    const { asociado, tarifaAsignada, ...otrosDatos } = req.body;
+
+    // Buscar el usuario
+    const usuario = await Usuario.findOne({ dni, activo: true });
+    if (!usuario) {
+      return res.status(404).json({ mensaje: 'Usuario no encontrado' });
+    }
+
+    // Validar que la tarifa existe si se especifica
+    if (tarifaAsignada && tarifaAsignada !== '') {
+      const tarifaExiste = await ConfiguracionPrecio.findById(tarifaAsignada);
+      if (!tarifaExiste) {
+        return res.status(400).json({ mensaje: 'La tarifa especificada no existe' });
+      }
+    }
+
+    // Actualizar campos
+    if (typeof asociado !== 'undefined') {
+      usuario.asociado = asociado;
+    }
+    
+    if (tarifaAsignada !== undefined) {
+      usuario.tarifaAsignada = tarifaAsignada === '' ? null : tarifaAsignada;
+    }
+
+    // Actualizar otros datos permitidos
+    const camposPermitidos = ['nombre', 'apellido', 'email'];
+    camposPermitidos.forEach(campo => {
+      if (otrosDatos[campo] !== undefined) {
+        usuario[campo] = otrosDatos[campo];
+      }
+    });
+
+    await usuario.save();
+
+    // Devolver usuario actualizado con tarifa poblada
+    const usuarioActualizado = await Usuario.findById(usuario._id)
+      .populate('tarifaAsignada', 'tipoUsuario precioPorHora descripcion')
+      .select('-password -tokenVerificacion -tokenRecuperacion');
+
+    res.json({
+      mensaje: 'Usuario actualizado correctamente',
+      usuario: usuarioActualizado
+    });
+
+  } catch (error) {
+    console.error('Error al actualizar usuario:', error);
+    res.status(500).json({ mensaje: 'Error al actualizar usuario', error });
+  }
+};
+
+// Obtener tarifas disponibles
+const obtenerTarifasDisponibles = async (req, res) => {
+  try {
+    const tarifas = await ConfiguracionPrecio.find({ activo: true })
+      .sort({ tipoUsuario: 1 });
+
+    res.json(tarifas);
+  } catch (error) {
+    console.error('Error al obtener tarifas:', error);
+    res.status(500).json({ mensaje: 'Error al obtener tarifas', error });
+  }
+};
+
 module.exports = {
   recargarUsuario,
   agregarVehiculo,
@@ -436,5 +520,8 @@ module.exports = {
   obtenerUsuario,
   modificarVehiculo,
   eliminarVehiculo,
-  finalizarEstacionamiento
+  finalizarEstacionamiento,
+  obtenerTodosUsuarios,
+  actualizarUsuario,
+  obtenerTarifasDisponibles
 };

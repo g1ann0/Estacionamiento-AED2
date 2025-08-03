@@ -4,6 +4,7 @@ import {
   obtenerTodosLosUsuarios, 
   modificarUsuario, 
   eliminarUsuario,
+  obtenerTarifasDisponibles,
   obtenerTodosLosVehiculos,
   agregarVehiculo,
   modificarVehiculo,
@@ -20,6 +21,7 @@ const AdminGestion = () => {
   const [vistaActual, setVistaActual] = useState('usuarios');
   const [usuarios, setUsuarios] = useState([]);
   const [vehiculos, setVehiculos] = useState([]);
+  const [tarifasDisponibles, setTarifasDisponibles] = useState([]);
   const [historialSaldos, setHistorialSaldos] = useState([]);
   const [estadisticasSaldos, setEstadisticasSaldos] = useState(null);
   const [cargando, setCargando] = useState(false);
@@ -41,8 +43,9 @@ const AdminGestion = () => {
   });
 
   useEffect(() => {
-    // Cargar usuarios siempre para poder usarlos en formularios
+    // Cargar usuarios y tarifas siempre para poder usarlos en formularios
     cargarUsuarios();
+    cargarTarifas();
     
     if (vistaActual === 'usuarios') {
       // Ya se cargaron arriba
@@ -60,6 +63,16 @@ const AdminGestion = () => {
       setError('Error al cargar usuarios: ' + error.message);
     } finally {
       setCargando(false);
+    }
+  };
+
+  const cargarTarifas = async () => {
+    try {
+      const tarifasData = await obtenerTarifasDisponibles();
+      setTarifasDisponibles(tarifasData);
+    } catch (error) {
+      console.error('Error al cargar tarifas:', error);
+      setError('Error al cargar tarifas: ' + error.message);
     }
   };
 
@@ -174,6 +187,7 @@ const AdminGestion = () => {
             {usuarioEditando === usuario.dni ? (
               <FormularioEditarUsuario 
                 usuario={usuario}
+                tarifasDisponibles={tarifasDisponibles}
                 onGuardar={(datos) => manejarModificarUsuario(usuario.dni, datos)}
                 onCancelar={() => setUsuarioEditando(null)}
               />
@@ -184,6 +198,9 @@ const AdminGestion = () => {
                 <p><strong>Email:</strong> {usuario.email}</p>
                 <p><strong>Rol:</strong> {usuario.rol}</p>
                 <p><strong>Asociado:</strong> {usuario.asociado ? 'Sí' : 'No'}</p>
+                <p><strong>Tarifa:</strong> {usuario.tarifaAsignada ? 
+                  `${usuario.tarifaAsignada.tipoUsuario} - $${usuario.tarifaAsignada.precioPorHora}/hora` : 
+                  'Sin tarifa asignada'}</p>
                 <p><strong>Saldo:</strong> ${usuario.montoDisponible || 0}</p>
                 <p><strong>Verificado:</strong> {usuario.verificado ? 'Sí' : 'No'}</p>
                 
@@ -317,13 +334,14 @@ const AdminGestion = () => {
 };
 
 // Componente para editar usuario
-const FormularioEditarUsuario = ({ usuario, onGuardar, onCancelar }) => {
+const FormularioEditarUsuario = ({ usuario, tarifasDisponibles, onGuardar, onCancelar }) => {
   const [datos, setDatos] = useState({
     nombre: usuario.nombre || '',
     apellido: usuario.apellido || '',
     email: usuario.email || '',
     rol: usuario.rol || 'cliente',
     asociado: usuario.asociado || false,
+    tarifaAsignada: usuario.tarifaAsignada?._id || '',
     montoDisponible: usuario.montoDisponible || 0,
     motivo: ''
   });
@@ -401,6 +419,26 @@ const FormularioEditarUsuario = ({ usuario, onGuardar, onCancelar }) => {
           />
           Usuario Asociado
         </label>
+      </div>
+
+      <div className="form-group">
+        <label>Tarifa Asignada:</label>
+        <select
+          className="form-control"
+          value={datos.tarifaAsignada}
+          onChange={(e) => setDatos({ ...datos, tarifaAsignada: e.target.value })}
+        >
+          <option value="">Sin tarifa específica</option>
+          {tarifasDisponibles.map(tarifa => (
+            <option key={tarifa._id} value={tarifa._id}>
+              {tarifa.tipoUsuario} - ${tarifa.precioPorHora}/hora
+              {tarifa.descripcion && ` (${tarifa.descripcion})`}
+            </option>
+          ))}
+        </select>
+        <small className="form-text text-muted">
+          Si no se asigna una tarifa específica, se usará la tarifa por defecto según el tipo de usuario.
+        </small>
       </div>
 
       <div className="form-group">

@@ -138,7 +138,8 @@ function Dashboard() {
   // Función para obtener datos actualizados del usuario
   const obtenerDatosUsuario = async () => {
     const token = localStorage.getItem('token');
-    const res = await fetch(`http://localhost:3000/api/usuarios/${usuarioAuth.dni}`, {
+    // Usar la ruta que incluye la tarifa poblada
+    const res = await fetch(`http://localhost:3000/api/usuarios`, {
       headers: {
         'Authorization': `Bearer ${token}`
       }
@@ -149,7 +150,12 @@ function Dashboard() {
     }
     
     const data = await res.json();
-    return data.usuario;
+    // Buscar el usuario actual en la lista
+    const usuarioActual = data.find(u => u.dni === usuarioAuth.dni);
+    if (!usuarioActual) {
+      throw new Error('Usuario no encontrado');
+    }
+    return usuarioActual;
   };
 
   // Función para cargar la tarifa actual
@@ -172,10 +178,17 @@ function Dashboard() {
 
   // Función para obtener la tarifa a mostrar
   const obtenerTarifaDisplay = () => {
+    // Prioridad 1: Tarifa específica asignada al usuario
+    if (usuario?.tarifaAsignada?.precioPorHora) {
+      return usuario.tarifaAsignada.precioPorHora;
+    }
+    
+    // Prioridad 2: Tarifa cargada desde el servicio
     if (tarifaActual !== null) {
       return tarifaActual;
     }
-    // Si no tenemos la tarifa cargada, usar valor por defecto basado en si es asociado
+    
+    // Prioridad 3: Valor por defecto basado en si es asociado
     return usuario?.asociado ? 250 : 500;
   };
   const handleAbonoSubmit = async (e) => {
@@ -412,7 +425,15 @@ function Dashboard() {
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                   <h2 style={{ margin: 0, color: '#2c3e50' }}>Panel de Usuario</h2>
                   <p style={{ margin: '5px 0 0 0', color: '#6c757d', fontSize: '0.9em' }}>
-                    {usuario?.asociado && <span style={{ color: '#28a745', fontWeight: 'bold' }}>Usuario Asociado • </span>}
+                    {usuario?.tarifaAsignada ? (
+                      <span style={{ color: '#007bff', fontWeight: 'bold' }}>
+                        {usuario.tarifaAsignada.tipoUsuario} - ${usuario.tarifaAsignada.precioPorHora}/hora • 
+                      </span>
+                    ) : (
+                      <span style={{ color: '#28a745', fontWeight: 'bold' }}>
+                        {usuario?.asociado ? 'Usuario Asociado' : 'Usuario Público'} • 
+                      </span>
+                    )}
                     Registrado el: {usuario?.fechaRegistro ? new Date(usuario.fechaRegistro).toLocaleDateString('es-AR', {
                       year: 'numeric',
                       month: 'long',
@@ -618,14 +639,23 @@ function Dashboard() {
                   </p>
                   <p>
                     <strong>Tarifa:</strong> ${obtenerTarifaDisplay()}/hora
-                    {usuario?.asociado && (
+                    {usuario?.tarifaAsignada ? (
+                      <span style={{ 
+                        color: '#007bff', 
+                        fontWeight: 'bold', 
+                        marginLeft: '8px',
+                        fontSize: '0.9em'
+                      }}>
+                        ({usuario.tarifaAsignada.tipoUsuario})
+                      </span>
+                    ) : (
                       <span style={{ 
                         color: '#28a745', 
                         fontWeight: 'bold', 
                         marginLeft: '8px',
                         fontSize: '0.9em'
                       }}>
-                        (Precio Asociado)
+                        ({usuario?.asociado ? 'Precio Asociado' : 'Precio Público'})
                       </span>
                     )}
                   </p>

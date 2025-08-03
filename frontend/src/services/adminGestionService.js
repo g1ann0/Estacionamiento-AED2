@@ -4,7 +4,7 @@ const API_URL = 'http://localhost:3000/api';
 export const obtenerTodosLosUsuarios = async () => {
   try {
     const token = localStorage.getItem('token');
-    const response = await fetch(`${API_URL}/admin/usuarios`, {
+    const response = await fetch(`${API_URL}/usuarios`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
@@ -16,7 +16,7 @@ export const obtenerTodosLosUsuarios = async () => {
     }
 
     const data = await response.json();
-    return data.usuarios;
+    return data;
   } catch (error) {
     console.error('Error en obtenerTodosLosUsuarios:', error);
     throw error;
@@ -26,7 +26,7 @@ export const obtenerTodosLosUsuarios = async () => {
 export const modificarUsuario = async (dni, datosUsuario) => {
   try {
     const token = localStorage.getItem('token');
-    const response = await fetch(`${API_URL}/admin/usuarios/${dni}`, {
+    const response = await fetch(`${API_URL}/usuarios/${dni}`, {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -43,6 +43,28 @@ export const modificarUsuario = async (dni, datosUsuario) => {
     return await response.json();
   } catch (error) {
     console.error('Error en modificarUsuario:', error);
+    throw error;
+  }
+};
+
+// Nueva función para obtener tarifas disponibles
+export const obtenerTarifasDisponibles = async () => {
+  try {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_URL}/usuarios/tarifas/disponibles`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error('Error al obtener tarifas');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error en obtenerTarifasDisponibles:', error);
     throw error;
   }
 };

@@ -4,21 +4,40 @@ const Estacionamiento = require('../models/Estacionamiento');
 const ConfiguracionPrecio = require('../models/ConfiguracionPrecio');
 
 // Función auxiliar para obtener tarifa dinámica
-const obtenerTarifa = async (esAsociado) => {
+const obtenerTarifa = async (usuario) => {
     try {
-        const tipoUsuario = esAsociado ? 'asociado' : 'no_asociado';
-        const configuracion = await ConfiguracionPrecio.findOne({ tipoUsuario });
-        
-        if (!configuracion) {
-            // Valores por defecto si no existe configuración
-            return esAsociado ? 250 : 500;
+        // 1. Si el usuario tiene una tarifa específica asignada, usarla
+        if (usuario.tarifaAsignada) {
+            const tarifaEspecifica = await ConfiguracionPrecio.findById(usuario.tarifaAsignada);
+            if (tarifaEspecifica && tarifaEspecifica.activo) {
+                console.log(`Usando tarifa específica para usuario ${usuario.dni}: ${tarifaEspecifica.tipoUsuario} - $${tarifaEspecifica.precioPorHora}/hora`);
+                return tarifaEspecifica.precioPorHora;
+            }
         }
+
+        // 2. Si no tiene tarifa específica, usar tarifa por defecto según tipo de usuario
+        const tipoUsuario = usuario.asociado ? 'asociado' : 'no_asociado';
+        const configuracion = await ConfiguracionPrecio.findOne({ 
+            tipoUsuario: tipoUsuario,
+            activo: true 
+        });
         
-        return configuracion.precioPorHora;
+        if (configuracion) {
+            console.log(`Usando tarifa por defecto para usuario ${usuario.dni}: ${configuracion.tipoUsuario} - $${configuracion.precioPorHora}/hora`);
+            return configuracion.precioPorHora;
+        }
+
+        // 3. Valores por defecto si no existe configuración
+        const tarifaPorDefecto = usuario.asociado ? 250 : 500;
+        console.log(`Usando tarifa por defecto fija para usuario ${usuario.dni}: $${tarifaPorDefecto}/hora`);
+        return tarifaPorDefecto;
+        
     } catch (error) {
         console.error('Error al obtener tarifa:', error);
         // Valores por defecto en caso de error
-        return esAsociado ? 250 : 500;
+        const tarifaPorDefecto = usuario.asociado ? 250 : 500;
+        console.log(`Error - usando tarifa por defecto para usuario ${usuario.dni}: $${tarifaPorDefecto}/hora`);
+        return tarifaPorDefecto;
     }
 };
 
@@ -62,7 +81,8 @@ const iniciarEstacionamiento = async (req, res) => {
         const { dni, dominio, porton } = req.body;
 
         // Buscar el usuario activo y verificar saldo
-        const usuario = await Usuario.findOne({ dni, activo: true });
+        const usuario = await Usuario.findOne({ dni, activo: true })
+            .populate('tarifaAsignada', 'tipoUsuario precioPorHora descripcion activo');
         if (!usuario) {
             return res.status(404).json({ mensaje: 'Usuario no encontrado o inactivo' });
         }
@@ -104,8 +124,8 @@ const iniciarEstacionamiento = async (req, res) => {
 
         await nuevoEstacionamiento.save();
 
-        // Determinar tarifa según si el usuario es asociado o no
-        const tarifa = await obtenerTarifa(usuario.asociado);
+        // Determinar tarifa según la configuración del usuario
+        const tarifa = await obtenerTarifa(usuario);
 
         // Crear transacción de ingreso
         const Transaccion = require('../models/Transaccion');
@@ -182,13 +202,14 @@ const finalizarEstacionamiento = async (req, res) => {
         const duracionHoras = Math.ceil(duracionHorasReal); // Redondeamos hacia arriba para facturación
         
         // Buscar el usuario activo para determinar la tarifa y actualizar saldo
-        const usuario = await Usuario.findOne({ dni, activo: true });
+        const usuario = await Usuario.findOne({ dni, activo: true })
+            .populate('tarifaAsignada', 'tipoUsuario precioPorHora descripcion activo');
         if (!usuario) {
             return res.status(404).json({ mensaje: 'Usuario no encontrado o inactivo' });
         }
         
-        // Determinar tarifa según si el usuario es asociado o no
-        const tarifa = await obtenerTarifa(usuario.asociado);
+        // Determinar tarifa según la configuración del usuario
+        const tarifa = await obtenerTarifa(usuario);
         const montoTotal = duracionHoras * tarifa;
 
         // Verificar que el usuario tenga saldo suficiente
