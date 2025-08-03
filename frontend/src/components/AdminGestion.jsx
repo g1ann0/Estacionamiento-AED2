@@ -177,13 +177,25 @@ const AdminGestion = () => {
 
   const renderUsuarios = () => (
     <div className="usuarios-section">
-      <h3>Gestión de Usuarios</h3>
+      <h3 style={{ color: '#2c3e50', marginBottom: '1.5rem' }}>Gestión de Usuarios</h3>
       
-      {cargando && <p>Cargando usuarios...</p>}
+      {cargando && <p style={{ textAlign: 'center', color: '#666' }}>Cargando usuarios...</p>}
       
-      <div className="usuarios-list">
+      <div className="usuarios-list" style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))',
+        gap: '1.5rem',
+        marginTop: '1rem'
+      }}>
         {usuarios.map(usuario => (
-          <div key={usuario.dni} className="usuario-card">
+          <div key={usuario.dni} className="usuario-card" style={{ 
+            background: '#fff',
+            border: '1px solid #e9ecef',
+            borderRadius: '12px',
+            padding: '1.5rem',
+            boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
+            transition: 'all 0.3s ease'
+          }}>
             {usuarioEditando === usuario.dni ? (
               <FormularioEditarUsuario 
                 usuario={usuario}
@@ -193,20 +205,96 @@ const AdminGestion = () => {
               />
             ) : (
               <>
-                <h3>{usuario.nombre} {usuario.apellido}</h3>
-                <p><strong>DNI:</strong> {usuario.dni}</p>
-                <p><strong>Email:</strong> {usuario.email}</p>
-                <p><strong>Rol:</strong> {usuario.rol}</p>
-                <p><strong>Asociado:</strong> {usuario.asociado ? 'Sí' : 'No'}</p>
-                <p><strong>Tarifa:</strong> {usuario.tarifaAsignada ? 
-                  `${usuario.tarifaAsignada.tipoUsuario} - $${usuario.tarifaAsignada.precioPorHora}/hora` : 
-                  'Sin tarifa asignada'}</p>
-                <p><strong>Saldo:</strong> ${usuario.montoDisponible || 0}</p>
-                <p><strong>Verificado:</strong> {usuario.verificado ? 'Sí' : 'No'}</p>
+                <h3 style={{ 
+                  color: '#2c3e50', 
+                  marginBottom: '1rem',
+                  borderBottom: '2px solid #f8f9fa',
+                  paddingBottom: '0.5rem'
+                }}>
+                  {usuario.nombre} {usuario.apellido}
+                </h3>
+                <p style={{ color: '#34495e', marginBottom: '0.5rem' }}>
+                  <strong style={{ color: '#2c3e50' }}>DNI:</strong> {usuario.dni}
+                </p>
+                <p style={{ color: '#34495e', marginBottom: '0.5rem' }}>
+                  <strong style={{ color: '#2c3e50' }}>Email:</strong> {usuario.email}
+                </p>
+                <p style={{ color: '#34495e', marginBottom: '0.5rem' }}>
+                  <strong style={{ color: '#2c3e50' }}>Rol:</strong> 
+                  <span style={{ 
+                    backgroundColor: usuario.rol === 'admin' ? '#e74c3c' : '#3498db',
+                    color: 'white',
+                    padding: '2px 8px',
+                    borderRadius: '12px',
+                    fontSize: '0.8rem',
+                    marginLeft: '0.5rem'
+                  }}>
+                    {usuario.rol}
+                  </span>
+                </p>
+                <p style={{ color: '#34495e', marginBottom: '0.5rem' }}>
+                  <strong style={{ color: '#2c3e50' }}>Asociado:</strong> 
+                  <span style={{ 
+                    color: usuario.asociado ? '#28a745' : '#6c757d',
+                    fontWeight: 'bold'
+                  }}>
+                    {usuario.asociado ? 'Sí' : 'No'}
+                  </span>
+                </p>
+                <p style={{ color: '#34495e', marginBottom: '0.5rem' }}>
+                  <strong style={{ color: '#2c3e50' }}>Tarifa:</strong> 
+                  {usuario.tarifaAsignada ? (
+                    <span style={{ 
+                      backgroundColor: '#007bff',
+                      color: 'white',
+                      padding: '2px 8px',
+                      borderRadius: '12px',
+                      fontSize: '0.9rem',
+                      marginLeft: '0.5rem'
+                    }}>
+                      {usuario.tarifaAsignada.tipoUsuario} - ${usuario.tarifaAsignada.precioPorHora}/hora
+                    </span>
+                  ) : (
+                    <span style={{ color: '#6c757d', fontStyle: 'italic' }}>Sin tarifa asignada</span>
+                  )}
+                </p>
+                <p style={{ color: '#34495e', marginBottom: '0.5rem' }}>
+                  <strong style={{ color: '#2c3e50' }}>Saldo:</strong> 
+                  <span style={{ 
+                    color: '#28a745',
+                    fontWeight: 'bold',
+                    fontSize: '1.1rem'
+                  }}>
+                    ${usuario.montoDisponible || 0}
+                  </span>
+                </p>
+                <p style={{ color: '#34495e', marginBottom: '1rem' }}>
+                  <strong style={{ color: '#2c3e50' }}>Verificado:</strong> 
+                  <span style={{ 
+                    color: usuario.verificado ? '#28a745' : '#dc3545',
+                    fontWeight: 'bold'
+                  }}>
+                    {usuario.verificado ? 'Sí' : 'No'}
+                  </span>
+                </p>
                 
-                <div className="usuario-acciones">
+                <div className="usuario-acciones" style={{ 
+                  display: 'flex',
+                  gap: '0.5rem',
+                  marginTop: '1rem'
+                }}>
                   <button 
                     className="btn btn-primary"
+                    style={{
+                      backgroundColor: '#007bff',
+                      color: 'white',
+                      border: '1px solid #007bff',
+                      padding: '0.5rem 1rem',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      flex: 1
+                    }}
                     onClick={() => setUsuarioEditando(usuario.dni)}
                   >
                     Modificar
@@ -214,6 +302,16 @@ const AdminGestion = () => {
                   {usuario.rol !== 'admin' && (
                     <button 
                       className="btn btn-danger"
+                      style={{
+                        backgroundColor: '#dc3545',
+                        color: 'white',
+                        border: '1px solid #dc3545',
+                        padding: '0.5rem 1rem',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        flex: 1
+                      }}
                       onClick={() => manejarEliminarUsuario(usuario.dni)}
                     >
                       Eliminar
@@ -230,13 +328,28 @@ const AdminGestion = () => {
 
   const renderVehiculos = () => (
     <div className="vehiculos-section">
-      <div className="vehiculos-header">
-        <h3>Gestión de Vehículos</h3>
+      <div className="vehiculos-header" style={{ 
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: '1.5rem'
+      }}>
+        <h3 style={{ color: '#2c3e50', margin: 0 }}>Gestión de Vehículos</h3>
         <button 
           className="btn btn-success"
+          style={{
+            backgroundColor: '#28a745',
+            color: 'white',
+            border: '1px solid #28a745',
+            padding: '0.75rem 1.5rem',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontWeight: 'bold',
+            transition: 'all 0.2s ease'
+          }}
           onClick={() => setMostrarFormVehiculo(true)}
         >
-          Agregar Vehículo
+          + Agregar Vehículo
         </button>
       </div>
 
@@ -250,11 +363,23 @@ const AdminGestion = () => {
         />
       )}
       
-      {cargando && <p>Cargando vehículos...</p>}
+      {cargando && <p style={{ textAlign: 'center', color: '#666' }}>Cargando vehículos...</p>}
       
-      <div className="vehiculos-list">
+      <div className="vehiculos-list" style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))',
+        gap: '1.5rem',
+        marginTop: '1rem'
+      }}>
         {vehiculos.map(vehiculo => (
-          <div key={vehiculo._id} className="vehiculo-card">
+          <div key={vehiculo._id} className="vehiculo-card" style={{ 
+            background: '#fff',
+            border: '1px solid #e9ecef',
+            borderRadius: '12px',
+            padding: '1.5rem',
+            boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
+            transition: 'all 0.3s ease'
+          }}>
             {vehiculoEditando === vehiculo.dominio ? (
               <FormularioEditarVehiculo 
                 vehiculo={vehiculo}
@@ -264,24 +389,96 @@ const AdminGestion = () => {
               />
             ) : (
               <>
-                <h3>{vehiculo.dominio}</h3>
-                <p><strong>Tipo:</strong> {vehiculo.tipo}</p>
-                <p><strong>Marca:</strong> {vehiculo.marca}</p>
-                <p><strong>Modelo:</strong> {vehiculo.modelo}</p>
-                <p><strong>Año:</strong> {vehiculo.año}</p>
+                <h3 style={{ 
+                  color: '#2c3e50', 
+                  marginBottom: '1rem',
+                  borderBottom: '2px solid #f8f9fa',
+                  paddingBottom: '0.5rem',
+                  fontSize: '1.3rem',
+                  fontWeight: 'bold'
+                }}>
+                  {vehiculo.dominio}
+                </h3>
+                <p style={{ color: '#34495e', marginBottom: '0.5rem' }}>
+                  <strong style={{ color: '#2c3e50' }}>Tipo:</strong> 
+                  <span style={{ 
+                    backgroundColor: vehiculo.tipo === 'auto' ? '#17a2b8' : vehiculo.tipo === 'moto' ? '#ffc107' : '#6c757d',
+                    color: vehiculo.tipo === 'moto' ? '#212529' : 'white',
+                    padding: '2px 8px',
+                    borderRadius: '12px',
+                    fontSize: '0.8rem',
+                    marginLeft: '0.5rem',
+                    textTransform: 'capitalize'
+                  }}>
+                    {vehiculo.tipo}
+                  </span>
+                </p>
+                <p style={{ color: '#34495e', marginBottom: '0.5rem' }}>
+                  <strong style={{ color: '#2c3e50' }}>Marca:</strong> {vehiculo.marca}
+                </p>
+                <p style={{ color: '#34495e', marginBottom: '0.5rem' }}>
+                  <strong style={{ color: '#2c3e50' }}>Modelo:</strong> {vehiculo.modelo}
+                </p>
+                <p style={{ color: '#34495e', marginBottom: '0.5rem' }}>
+                  <strong style={{ color: '#2c3e50' }}>Año:</strong> 
+                  <span style={{ 
+                    fontWeight: 'bold',
+                    color: '#495057'
+                  }}>
+                    {vehiculo.año}
+                  </span>
+                </p>
                 {vehiculo.propietario && (
-                  <p><strong>Propietario:</strong> {vehiculo.propietario.nombre} {vehiculo.propietario.apellido} (DNI: {vehiculo.propietario.dni})</p>
+                  <p style={{ 
+                    color: '#34495e', 
+                    marginBottom: '1rem',
+                    backgroundColor: '#f8f9fa',
+                    padding: '0.5rem',
+                    borderRadius: '4px',
+                    border: '1px solid #e9ecef'
+                  }}>
+                    <strong style={{ color: '#2c3e50' }}>Propietario:</strong> 
+                    <span style={{ color: '#007bff', fontWeight: 'bold' }}>
+                      {vehiculo.propietario.nombre} {vehiculo.propietario.apellido}
+                    </span>
+                    <br />
+                    <small style={{ color: '#6c757d' }}>DNI: {vehiculo.propietario.dni}</small>
+                  </p>
                 )}
                 
-                <div className="vehiculo-acciones">
+                <div className="vehiculo-acciones" style={{ 
+                  display: 'flex',
+                  gap: '0.5rem',
+                  marginTop: '1rem'
+                }}>
                   <button 
                     className="btn btn-primary"
+                    style={{
+                      backgroundColor: '#007bff',
+                      color: 'white',
+                      border: '1px solid #007bff',
+                      padding: '0.5rem 1rem',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      flex: 1
+                    }}
                     onClick={() => setVehiculoEditando(vehiculo.dominio)}
                   >
                     Modificar
                   </button>
                   <button 
                     className="btn btn-danger"
+                    style={{
+                      backgroundColor: '#dc3545',
+                      color: 'white',
+                      border: '1px solid #dc3545',
+                      padding: '0.5rem 1rem',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      flex: 1
+                    }}
                     onClick={() => manejarEliminarVehiculo(vehiculo.dominio)}
                   >
                     Eliminar
@@ -296,32 +493,116 @@ const AdminGestion = () => {
   );
 
   return (
-    <div className="admin-gestion">
-      <div className="admin-header">
+    <div className="admin-gestion" style={{ padding: '2rem', backgroundColor: '#f8f9fa', minHeight: '100vh' }}>
+      <div className="admin-header" style={{ 
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: '2rem',
+        backgroundColor: 'white',
+        padding: '2rem',
+        borderRadius: '12px',
+        boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
+        border: '1px solid #e9ecef'
+      }}>
         <div>
-          <h1 className="admin-title">Gestión de Usuarios y Vehículos</h1>
-          <p className="admin-subtitle">Administra usuarios y vehículos del sistema</p>
+          <h1 className="admin-title" style={{ 
+            color: '#2c3e50',
+            margin: '0 0 0.5rem 0',
+            fontSize: '2rem'
+          }}>
+            Gestión de Usuarios y Vehículos
+          </h1>
+          <p className="admin-subtitle" style={{ 
+            color: '#6c757d',
+            margin: 0,
+            fontSize: '1.1rem'
+          }}>
+            Administra usuarios y vehículos del sistema
+          </p>
         </div>
         <button 
           className="btn btn-secondary"
+          style={{
+            backgroundColor: '#6c757d',
+            color: 'white',
+            border: '1px solid #6c757d',
+            padding: '0.75rem 1.5rem',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontWeight: 'bold',
+            transition: 'all 0.2s ease'
+          }}
           onClick={() => navigate('/admin')}
         >
           ← Volver al Inicio
         </button>
       </div>
 
-      {mensaje && <div className="alert alert-success">{mensaje}</div>}
-      {error && <div className="alert alert-danger">{error}</div>}
+      {mensaje && (
+        <div className="alert alert-success" style={{
+          backgroundColor: '#d4edda',
+          color: '#155724',
+          padding: '1rem',
+          borderRadius: '8px',
+          border: '1px solid #c3e6cb',
+          marginBottom: '1rem'
+        }}>
+          {mensaje}
+        </div>
+      )}
+      {error && (
+        <div className="alert alert-danger" style={{
+          backgroundColor: '#f8d7da',
+          color: '#721c24',
+          padding: '1rem',
+          borderRadius: '8px',
+          border: '1px solid #f5c6cb',
+          marginBottom: '1rem'
+        }}>
+          {error}
+        </div>
+      )}
 
-      <div className="admin-nav">
+      <div className="admin-nav" style={{
+        display: 'flex',
+        gap: '1rem',
+        marginBottom: '2rem',
+        backgroundColor: 'white',
+        padding: '1rem',
+        borderRadius: '8px',
+        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
+      }}>
         <button 
           className={`btn ${vistaActual === 'usuarios' ? 'btn-primary' : 'btn-secondary'}`}
+          style={{
+            backgroundColor: vistaActual === 'usuarios' ? '#007bff' : '#6c757d',
+            color: 'white',
+            border: `1px solid ${vistaActual === 'usuarios' ? '#007bff' : '#6c757d'}`,
+            padding: '0.75rem 1.5rem',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontWeight: 'bold',
+            transition: 'all 0.2s ease',
+            fontSize: '1rem'
+          }}
           onClick={() => setVistaActual('usuarios')}
         >
           Usuarios
         </button>
         <button 
           className={`btn ${vistaActual === 'vehiculos' ? 'btn-primary' : 'btn-secondary'}`}
+          style={{
+            backgroundColor: vistaActual === 'vehiculos' ? '#007bff' : '#6c757d',
+            color: 'white',
+            border: `1px solid ${vistaActual === 'vehiculos' ? '#007bff' : '#6c757d'}`,
+            padding: '0.75rem 1.5rem',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontWeight: 'bold',
+            transition: 'all 0.2s ease',
+            fontSize: '1rem'
+          }}
           onClick={() => setVistaActual('vehiculos')}
         >
           Vehículos

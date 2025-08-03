@@ -183,7 +183,8 @@ const registrarIngreso = async (req, res) => {
 const obtenerUsuario = async (req, res) => {
   try {
     const { dni } = req.params;
-    const usuario = await Usuario.findOne({ dni, activo: true });
+    const usuario = await Usuario.findOne({ dni, activo: true })
+      .populate('tarifaAsignada', 'nombre precioPorHora descripcion');
     
     if (!usuario) {
       return res.status(404).json({ mensaje: 'Usuario no encontrado o inactivo' });
@@ -213,6 +214,7 @@ const obtenerUsuario = async (req, res) => {
         email: usuario.email,
         montoDisponible: usuario.montoDisponible,
         asociado: usuario.asociado,
+        tarifaAsignada: usuario.tarifaAsignada, // ✅ Agregar tarifa asignada
         fechaRegistro: usuario.fechaRegistro,
         vehiculos: vehiculosUnicos.map(v => ({
           dominio: v.dominio,

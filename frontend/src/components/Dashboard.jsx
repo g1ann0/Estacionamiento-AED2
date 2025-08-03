@@ -159,9 +159,20 @@ function Dashboard() {
   };
 
   // Función para cargar la tarifa actual
-  const cargarTarifaActual = React.useCallback(async (esAsociado) => {
+  const cargarTarifaActual = React.useCallback(async (usuario) => {
     try {
-      console.log('Cargando tarifa para usuario asociado:', esAsociado);
+      console.log('Cargando tarifa para usuario:', usuario);
+      
+      // Priorizar tarifa asignada específicamente al usuario
+      if (usuario?.tarifaAsignada?.precioPorHora) {
+        console.log('Usando tarifa asignada específica:', usuario.tarifaAsignada.precioPorHora);
+        setTarifaActual(usuario.tarifaAsignada.precioPorHora);
+        return usuario.tarifaAsignada.precioPorHora;
+      }
+      
+      // Si no tiene tarifa asignada, usar el sistema tradicional
+      const esAsociado = usuario?.asociado || false;
+      console.log('Cargando tarifa por tipo de usuario asociado:', esAsociado);
       const precio = await precioService.obtenerPrecioParaUsuario(esAsociado);
       console.log('Tarifa obtenida:', precio);
       setTarifaActual(precio);
@@ -169,6 +180,7 @@ function Dashboard() {
     } catch (error) {
       console.error('Error al cargar tarifa:', error);
       // Valor por defecto en caso de error
+      const esAsociado = usuario?.asociado || false;
       const tarifaDefault = esAsociado ? 250 : 500;
       setTarifaActual(tarifaDefault);
       return tarifaDefault;
@@ -282,7 +294,7 @@ function Dashboard() {
 
         // Cargar tarifa actual inmediatamente después de obtener los datos del usuario
         console.log('Datos del usuario cargados:', data.usuario);
-        await cargarTarifaActual(data.usuario.asociado);
+        await cargarTarifaActual(data.usuario);
 
         // Verificar estados de vehículos
         if (data.usuario.vehiculos && data.usuario.vehiculos.length > 0) {
