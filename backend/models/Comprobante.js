@@ -10,7 +10,12 @@ const ComprobanteSchema = new mongoose.Schema({
   montoAcreditado: Number,
   montoDisponible: Number,
   vehiculos: [String], // lista de dominios
-  nroComprobante: { type: String, unique: true }
+  nroComprobante: { type: String, unique: true },
+  estado: {
+    type: String,
+    enum: ['pendiente', 'aprobado', 'rechazado'],
+    default: 'pendiente'
+  }
 });
 
 module.exports = mongoose.model('Comprobante', ComprobanteSchema);

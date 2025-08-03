@@ -1,0 +1,36 @@
+# robots.txt - Optimizado para SEO
+User-agent: *
+
+# Permitir páginas públicas
+Allow: /
+Allow: /login
+Allow: /register
+Allow: /how-it-works
+Allow: /static/
+
+# Denegar páginas privadas/sensibles
+Disallow: /dashboard
+Disallow: /admin
+Disallow: /perfil
+Disallow: /vehiculos
+Disallow: /estacionamiento
+Disallow: /historial
+Disallow: /api/
+
+# Denegar archivos técnicos
+Disallow: /*.json$
+Disallow: /manifest.json
+Disallow: /asset-manifest.json
+
+# Permitir motores de búsqueda específicos
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+# Velocidad de rastreo (opcional)
+Crawl-delay: 1
+
+# Sitemap
+Sitemap: https://tu-dominio.com/sitemap.xml
