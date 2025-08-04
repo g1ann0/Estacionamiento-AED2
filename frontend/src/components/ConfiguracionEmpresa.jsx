@@ -220,7 +220,17 @@ const ConfiguracionEmpresa = ({ onMensaje }) => {
           <button 
             onClick={validarConfiguracion}
             className="btn btn-secondary"
-            style={{ marginRight: '10px' }}
+            style={{ 
+              marginRight: '10px',
+              backgroundColor: '#6c757d',
+              color: 'white',
+              border: '1px solid #6c757d',
+              padding: '0.75rem 1.5rem',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+              transition: 'all 0.2s ease'
+            }}
           >
             🔍 Validar Configuración
           </button>
@@ -228,6 +238,17 @@ const ConfiguracionEmpresa = ({ onMensaje }) => {
             onClick={guardarConfiguracion}
             disabled={guardando}
             className="btn btn-primary"
+            style={{
+              backgroundColor: guardando ? '#6c757d' : '#007bff',
+              color: 'white',
+              border: `1px solid ${guardando ? '#6c757d' : '#007bff'}`,
+              padding: '0.75rem 1.5rem',
+              borderRadius: '4px',
+              cursor: guardando ? 'not-allowed' : 'pointer',
+              fontWeight: 'bold',
+              transition: 'all 0.2s ease',
+              opacity: guardando ? 0.6 : 1
+            }}
           >
             {guardando ? '💾 Guardando...' : '💾 Guardar Configuración'}
           </button>
