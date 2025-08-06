@@ -17,11 +17,14 @@ class ConfigManager {
     let backendHost;
     
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
-      // Desarrollo local
+      // Desarrollo local - usar localhost
       backendHost = 'localhost';
+    } else if (hostname === '192.168.11.167') {
+      // Acceso desde la IP de red - usar la misma IP
+      backendHost = '192.168.11.167';
     } else {
-      // Red local - FORZAR IP específica para celular
-      backendHost = '192.168.100.64';
+      // Otros casos - usar IP de red por defecto
+      backendHost = '192.168.11.167';
     }
 
     return {
