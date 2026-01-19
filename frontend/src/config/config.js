@@ -12,24 +12,16 @@ class ConfigManager {
   initializeConfig() {
     const hostname = window.location.hostname;
     const protocol = window.location.protocol;
-    
-    // Detectar si estamos en desarrollo local o en red
-    let backendHost;
-    
-    if (hostname === 'localhost' || hostname === '127.0.0.1') {
-      // Desarrollo local - usar localhost
-      backendHost = 'localhost';
-    } else if (hostname === '192.168.11.167') {
-      // Acceso desde la IP de red - usar la misma IP
-      backendHost = '192.168.11.167';
-    } else {
-      // Otros casos - usar IP de red por defecto
-      backendHost = '192.168.11.167';
-    }
+
+    // Usar localhost en dev, o la misma IP/hostname con la que se accede al front
+    const backendHost = (hostname === 'localhost' || hostname === '127.0.0.1')
+      ? 'localhost'
+      : hostname;
+    const backendPort = 3000;
 
     return {
-      BACKEND_URL: `${protocol}//${backendHost}:3000`,
-      API_BASE_URL: `${protocol}//${backendHost}:3000/api`,
+      BACKEND_URL: `${protocol}//${backendHost}:${backendPort}`,
+      API_BASE_URL: `${protocol}//${backendHost}:${backendPort}/api`,
       FRONTEND_URL: `${protocol}//${hostname}:${window.location.port || '3001'}`,
       TIMEOUT: 10000,
       MAX_FILE_SIZE: 5 * 1024 * 1024, // 5MB

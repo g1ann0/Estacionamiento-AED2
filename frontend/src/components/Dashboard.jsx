@@ -7,6 +7,9 @@ import { estacionamientoService } from '../services/estacionamientoService';
 import { usuarioService } from '../services/usuarioService';
 import { vehiculoEstadoService } from '../services/vehiculoEstadoService';
 import { precioService } from '../services/precioService';
+import { configManager } from '../config/config';
+
+const API_BASE_URL = configManager.getApiUrl();
 
 function Dashboard() {
   const { usuario: usuarioAuth, logout } = useAuth();
@@ -139,13 +142,16 @@ function Dashboard() {
   const obtenerDatosUsuario = async () => {
     const token = localStorage.getItem('token');
     // Usar la ruta que incluye la tarifa poblada
-    const res = await fetch(`http://localhost:3000/api/usuarios`, {
+    const res = await fetch(`${API_BASE_URL}/usuarios`, {
       headers: {
         'Authorization': `Bearer ${token}`
       }
     });
     
     if (!res.ok) {
+      if (res.status === 401 || res.status === 403) {
+        throw new Error('Sesión expirada o no autorizada');
+      }
       throw new Error('Error al obtener datos del usuario');
     }
     
@@ -217,7 +223,7 @@ function Dashboard() {
     
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:3000/api/comprobantes', {
+      const res = await fetch(`${API_BASE_URL}/comprobantes`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -274,7 +280,7 @@ function Dashboard() {
       try {
         const token = localStorage.getItem('token');
         // Primero obtenemos los datos del usuario
-        const res = await fetch(`http://localhost:3000/api/usuarios/${usuarioAuth.dni}`, {
+        const res = await fetch(`${API_BASE_URL}/usuarios/${usuarioAuth.dni}`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -356,7 +362,7 @@ function Dashboard() {
         }
       };
 
-      const res = await fetch('http://localhost:3000/api/vehiculos/agregar', {
+      const res = await fetch(`${API_BASE_URL}/vehiculos/agregar`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
