@@ -11,6 +11,8 @@ import AdminGestion from './components/AdminGestion';
 import ControlTransacciones from './components/ControlTransacciones';
 import ListadosAdmin from './components/ListadosAdmin';
 import ConfiguracionEmpresa from './components/ConfiguracionEmpresa';
+import FacturadorElectronico from './components/FacturadorElectronico';
+import ListadoFacturasElectronicas from './components/ListadoFacturasElectronicas';
 import Navbar from './components/Navbar';
 import SetearPassword from './components/SetearPassword';
 import OlvidePassword from './components/OlvidePassword';
@@ -25,6 +27,7 @@ import SEO from './components/SEO';
 import PerformanceMonitor from './components/PerformanceMonitor';
 import './styles/theme.css';
 import './styles/admin.css';
+import './styles/facturador.css';
 
 // Componente para rutas protegidas
 const PrivateRoute = ({ children, requiredRole }) => {
@@ -118,6 +121,80 @@ const ConfiguracionEmpresaPage = () => {
   );
 };
 
+// Componente wrapper para el facturador electrónico
+const FacturadorElectronicoPage = () => {
+  const [mensaje, setMensaje] = React.useState(null);
+
+  return (
+    <div>
+      <Navbar />
+      <div className="container">
+        {mensaje && (
+          <div className={`message message-${mensaje.type}`} style={{ margin: '1rem 0', position: 'relative' }}>
+            {mensaje.text}
+            <button 
+              onClick={() => setMensaje(null)} 
+              style={{
+                position: 'absolute',
+                right: '10px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                background: 'none',
+                border: 'none',
+                color: 'inherit',
+                cursor: 'pointer',
+                fontSize: '16px',
+                fontWeight: 'bold',
+                padding: '0 5px'
+              }}
+            >
+              ×
+            </button>
+          </div>
+        )}
+        <FacturadorElectronico onMensaje={setMensaje} />
+      </div>
+    </div>
+  );
+};
+
+// Componente wrapper para listado de facturas electrónicas
+const ListadoFacturasElectronicasPage = () => {
+  const [mensaje, setMensaje] = React.useState(null);
+
+  return (
+    <div>
+      <Navbar />
+      <div className="container">
+        {mensaje && (
+          <div className={`message message-${mensaje.type}`} style={{ margin: '1rem 0', position: 'relative' }}>
+            {mensaje.text}
+            <button 
+              onClick={() => setMensaje(null)} 
+              style={{
+                position: 'absolute',
+                right: '10px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                background: 'none',
+                border: 'none',
+                color: 'inherit',
+                cursor: 'pointer',
+                fontSize: '16px',
+                fontWeight: 'bold',
+                padding: '0 5px'
+              }}
+            >
+              ×
+            </button>
+          </div>
+        )}
+        <ListadoFacturasElectronicas onMensaje={setMensaje} />
+      </div>
+    </div>
+  );
+};
+
 function App() {
   return (
     <HelmetProvider>
@@ -205,6 +282,18 @@ function App() {
               <Route path="/admin/configuracion" element={
                 <PrivateRoute requiredRole="admin">
                   <ConfiguracionEmpresaPage />
+                </PrivateRoute>
+              } />
+
+              <Route path="/admin/facturador" element={
+                <PrivateRoute requiredRole="admin">
+                  <FacturadorElectronicoPage />
+                </PrivateRoute>
+              } />
+
+              <Route path="/admin/facturas-electronicas" element={
+                <PrivateRoute requiredRole="admin">
+                  <ListadoFacturasElectronicasPage />
                 </PrivateRoute>
               } />
 

@@ -928,6 +928,13 @@ function AdminDashboard() {
               Gestión de Facturas
             </button>
             <button 
+              className="button button-secondary"
+              onClick={() => navigate('/admin/facturador')}
+              style={{ background: '#4caf50', color: 'white', border: 'none' }}
+            >
+              📄 Facturador AFIP
+            </button>
+            <button 
               className={`button ${vistaActual === 'precios' ? 'button-primary' : 'button-secondary'}`}
               onClick={() => {
                 setVistaActual('precios');

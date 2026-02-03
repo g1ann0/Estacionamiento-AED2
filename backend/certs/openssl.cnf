@@ -1,0 +1,13 @@
+
+[req]
+distinguished_name = req_distinguished_name
+prompt = no
+
+[req_distinguished_name]
+C = Argentina
+ST = Buenos Aires
+L = Bahia Blanca
+O = CASTELPARK
+OU = Sistemas
+CN = 20442422924
+emailAddress = giancastellino44@gmail.com

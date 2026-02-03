@@ -61,6 +61,7 @@ const configuracionEmpresaRoutes = require('./routes/configuracionEmpresa');
 const perfilRoutes = require('./routes/perfil');
 const seoRoutes = require('./routes/seo');
 const analyticsRoutes = require('./routes/analytics');
+const facturasElectronicasRoutes = require('./routes/facturasElectronicas');
 
 // Ruta de prueba
 app.get('/', (req, res) => {
@@ -79,6 +80,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/admin', auditoriaRoutes);
 app.use('/api/precios', preciosRoutes);
 app.use('/api/facturas', facturasRoutes);
+app.use('/api/facturas-electronicas', facturasElectronicasRoutes); // Nueva ruta de facturación electrónica AFIP
 app.use('/api/configuracion-empresa', configuracionEmpresaRoutes);
 app.use('/api/perfil', perfilRoutes);
 

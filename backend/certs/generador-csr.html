@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generador CSR - AFIP</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2196f3;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        textarea {
+            font-family: monospace;
+            min-height: 300px;
+        }
+        button {
+            background: #4caf50;
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 10px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        .output {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f9f9f9;
+            border-left: 4px solid #2196f3;
+            display: none;
+        }
+        .success {
+            color: #4caf50;
+            font-weight: bold;
+        }
+        .error {
+            color: #f44336;
+            font-weight: bold;
+        }
+        .instructions {
+            background: #fff3cd;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 Generador de CSR para AFIP</h1>
+        
+        <div class="instructions">
+            <strong>⚠️ IMPORTANTE:</strong>
+            <ul>
+                <li>El <strong>Common Name</strong> debe ser tu CUIT (sin guiones)</li>
+                <li>Todos los campos son obligatorios</li>
+                <li>Pega tu clave privada generada en el campo de abajo</li>
+            </ul>
+        </div>
+
+        <div class="form-group">
+            <label>País (C):</label>
+            <input type="text" id="country" value="AR" placeholder="AR">
+        </div>
+
+        <div class="form-group">
+            <label>Provincia (ST):</label>
+            <input type="text" id="state" value="Buenos Aires" placeholder="Buenos Aires">
+        </div>
+
+        <div class="form-group">
+            <label>Ciudad (L):</label>
+            <input type="text" id="locality" value="Bahia Blanca" placeholder="Bahia Blanca">
+        </div>
+
+        <div class="form-group">
+            <label>Razón Social (O):</label>
+            <input type="text" id="organization" value="CASTELPARK" placeholder="CASTELPARK">
+        </div>
+
+        <div class="form-group">
+            <label>Departamento (OU):</label>
+            <input type="text" id="unit" value="Sistemas" placeholder="Sistemas">
+        </div>
+
+        <div class="form-group">
+            <label>CUIT - Sin Guiones (CN) ⚠️:</label>
+            <input type="text" id="commonName" value="20442422924" placeholder="20442422924">
+        </div>
+
+        <div class="form-group">
+            <label>Email:</label>
+            <input type="email" id="email" value="giancastellino44@gmail.com" placeholder="giancastellino44@gmail.com">
+        </div>
+
+        <div class="form-group">
+            <label>Clave Privada (del archivo afip_private_key.key):</label>
+            <textarea id="privateKey" placeholder="Pega aquí el contenido completo del archivo afip_private_key.key"></textarea>
+        </div>
+
+        <button onclick="generarCSR()">🔑 Generar CSR</button>
+
+        <div id="output" class="output">
+            <h3>✅ CSR Generado</h3>
+            <p>Copia el siguiente contenido y súbelo a AFIP:</p>
+            <textarea id="csrOutput" readonly></textarea>
+            <br>
+            <button onclick="copiarCSR()">📋 Copiar CSR</button>
+            <button onclick="descargarCSR()">💾 Descargar afip.csr</button>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsrsasign/10.5.27/jsrsasign-all-min.js"></script>
+    <script>
+        function generarCSR() {
+            try {
+                const country = document.getElementById('country').value;
+                const state = document.getElementById('state').value;
+                const locality = document.getElementById('locality').value;
+                const organization = document.getElementById('organization').value;
+                const unit = document.getElementById('unit').value;
+                const commonName = document.getElementById('commonName').value;
+                const email = document.getElementById('email').value;
+                const privateKeyPem = document.getElementById('privateKey').value;
+
+                if (!privateKeyPem) {
+                    alert('❌ Debes pegar la clave privada');
+                    return;
+                }
+
+                if (!commonName) {
+                    alert('❌ El CUIT (Common Name) es obligatorio');
+                    return;
+                }
+
+                // Crear subject
+                const subject = `/C=${country}/ST=${state}/L=${locality}/O=${organization}/OU=${unit}/CN=${commonName}/emailAddress=${email}`;
+
+                // Generar CSR usando jsrsasign
+                const rsaKey = KEYUTIL.getKey(privateKeyPem);
+                const csr = new KJUR.asn1.csr.CertificationRequest({
+                    subject: {
+                        str: subject
+                    },
+                    sbjpubkey: rsaKey,
+                    sigalg: 'SHA256withRSA',
+                    sbjprvkey: rsaKey
+                });
+
+                const csrPem = csr.getPEM();
+                
+                document.getElementById('csrOutput').value = csrPem;
+                document.getElementById('output').style.display = 'block';
+                
+                console.log('✅ CSR generado exitosamente');
+            } catch (error) {
+                alert('❌ Error: ' + error.message);
+                console.error(error);
+            }
+        }
+
+        function copiarCSR() {
+            const csrText = document.getElementById('csrOutput');
+            csrText.select();
+            document.execCommand('copy');
+            alert('✅ CSR copiado al portapapeles');
+        }
+
+        function descargarCSR() {
+            const csrText = document.getElementById('csrOutput').value;
+            const blob = new Blob([csrText], { type: 'text/plain' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'afip.csr';
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            alert('✅ Archivo afip.csr descargado');
+        }
+    </script>
+</body>
+</html>

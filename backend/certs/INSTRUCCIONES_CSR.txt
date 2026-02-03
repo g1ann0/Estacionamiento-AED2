@@ -1,0 +1,27 @@
+
+INSTRUCCIONES PARA GENERAR CSR
+
+Opción 1: Con OpenSSL (recomendado)
+====================================
+1. Instalar OpenSSL: https://slproweb.com/products/Win32OpenSSL.html
+2. Ejecutar: openssl req -new -key afip_private_key.key -out afip.csr -config openssl.cnf
+
+Opción 2: Generador Online
+===========================
+1. Ir a: https://www.sslshopper.com/csr-decoder.html
+2. Subject DN: /C=Argentina/ST=Buenos Aires/L=Bahia Blanca/O=CASTELPARK/OU=Sistemas/CN=20442422924/emailAddress=giancastellino44@gmail.com
+3. Pegar la clave privada del archivo: afip_private_key.key
+
+Datos del CSR:
+- País: Argentina
+- Provincia: Buenos Aires
+- Ciudad: Bahia Blanca
+- Organización: CASTELPARK
+- Unidad Organizacional: Sistemas
+- Common Name (CUIT): 20442422924
+- Email: giancastellino44@gmail.com
+
+IMPORTANTE:
+- El Common Name DEBE ser tu CUIT sin guiones
+- NO pongas contraseña al CSR
+- Guarda la clave privada en lugar seguro
