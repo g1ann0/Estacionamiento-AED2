@@ -56,12 +56,11 @@ const comprobantesRoutes = require('./routes/comprobantes');
 const adminRoutes = require('./routes/admin');
 const auditoriaRoutes = require('./routes/auditoria');
 const preciosRoutes = require('./routes/precios');
-const facturasRoutes = require('./routes/facturas');
 const configuracionEmpresaRoutes = require('./routes/configuracionEmpresa');
 const perfilRoutes = require('./routes/perfil');
 const seoRoutes = require('./routes/seo');
 const analyticsRoutes = require('./routes/analytics');
-const facturasElectronicasRoutes = require('./routes/facturasElectronicas');
+const facturadorRoutes = require('./routes/facturador'); // Facturador AFIP (NUEVO FLUJO)
 
 // Ruta de prueba
 app.get('/', (req, res) => {
@@ -79,8 +78,7 @@ app.use('/api/estacionamiento-estado', estacionamientoEstadoRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/admin', auditoriaRoutes);
 app.use('/api/precios', preciosRoutes);
-app.use('/api/facturas', facturasRoutes);
-app.use('/api/facturas-electronicas', facturasElectronicasRoutes); // Nueva ruta de facturación electrónica AFIP
+app.use('/api/facturador', facturadorRoutes); // FACTURADOR AFIP (único endpoint de facturación)
 app.use('/api/configuracion-empresa', configuracionEmpresaRoutes);
 app.use('/api/perfil', perfilRoutes);
 

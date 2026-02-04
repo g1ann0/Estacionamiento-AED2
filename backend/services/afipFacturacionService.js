@@ -22,6 +22,7 @@
 
 const afipConfig = require('../config/afip');
 const ConfiguracionEmpresa = require('../models/ConfiguracionEmpresa');
+const { obtenerFechaArgentina, formatearFechaAFIP: formatearFechaARG } = require('../utils/fechaArgentina');
 
 class AfipFacturacionService {
   constructor() {
@@ -36,6 +37,27 @@ class AfipFacturacionService {
       this.afip = afipConfig.getInstance();
     }
     return this.afip;
+  }
+
+  /**
+   * Mapea la condición de IVA a código AFIP
+   * Según tabla de parámetros AFIP FEParamGetCondicionIvaReceptor
+   */
+  mapearCondicionIVAAFIP(condicionIVA) {
+    const mapeo = {
+      'Responsable Inscripto': 1,
+      'IVA Responsable Inscripto': 1,
+      'Responsable Inscripto en IVA': 1,
+      'Responsable Monotributo': 6,
+      'Monotributo': 6,
+      'Consumidor Final': 5,
+      'Exento': 4,
+      'IVA Exento': 4,
+      'Responsable No Inscripto': 2,
+      'No Responsable': 7
+    };
+    
+    return mapeo[condicionIVA] || 5; // Default: Consumidor Final
   }
 
   /**
@@ -130,17 +152,23 @@ class AfipFacturacionService {
   }
 
   /**
-   * Determina el tipo de comprobante según el tipo de cliente
+   * Determina el tipo de comprobante según el tipo de cliente y emisor
    * LÓGICA LEGAL:
-   * - Responsable Inscripto -> Factura A
-   * - Monotributista -> Factura B
-   * - Consumidor Final -> Factura B o Ticket
+   * - Si EMISOR es Responsable Inscripto y CLIENTE es Responsable Inscripto -> Factura A
+   * - Si EMISOR es Responsable Inscripto y CLIENTE es Monotributo/Consumidor Final -> Factura B
+   * - Si EMISOR es Monotributo -> Siempre Factura B o C
    * - Exento -> Factura C
+   * 
+   * @param {String} condicionIVACliente - Condición IVA del cliente
+   * @param {String} condicionIVAEmisor - Condición IVA del emisor (estacionamiento)
+   * @param {Boolean} esTicket - Si es ticket o factura
+   * @returns {Number} Código del tipo de comprobante según AFIP
    */
-  determinarTipoComprobante(condicionIVA, esTicket = false) {
+  determinarTipoComprobante(condicionIVACliente, condicionIVAEmisor = 'Responsable Inscripto', esTicket = false) {
     // Si es ticket/tique
     if (esTicket) {
-      if (condicionIVA === 'Responsable Inscripto') {
+      // Solo Responsable Inscripto puede emitir Tique A
+      if (condicionIVAEmisor === 'Responsable Inscripto' && condicionIVACliente === 'Responsable Inscripto') {
         return 81; // Tique Factura A
       } else {
         return 82; // Tique Factura B
@@ -148,17 +176,33 @@ class AfipFacturacionService {
     }
 
     // Facturas normales
-    switch (condicionIVA) {
-      case 'Responsable Inscripto':
-        return 6; // Factura B (el estacionamiento probablemente sea monotributo)
-      case 'Monotributo':
-      case 'Consumidor Final':
-        return 6; // Factura B
-      case 'Exento':
-        return 11; // Factura C
-      default:
-        return 6; // Por defecto Factura B
+    // Si el EMISOR es Responsable Inscripto, puede emitir Factura A o B
+    if (condicionIVAEmisor === 'Responsable Inscripto') {
+      if (condicionIVACliente === 'Responsable Inscripto') {
+        return 1; // Factura A (discrimina IVA)
+      } else if (condicionIVACliente === 'Exento') {
+        return 11; // Factura C (sin IVA)
+      } else {
+        return 6; // Factura B (IVA incluido) - para Monotributo y Consumidor Final
+      }
     }
+
+    // Si el EMISOR es Monotributo o Consumidor Final, solo puede emitir B o C
+    if (condicionIVACliente === 'Exento') {
+      return 11; // Factura C
+    }
+    
+    return 6; // Por defecto Factura B
+  }
+
+  /**
+   * Obtiene la descripción del tipo de comprobante
+   * @param {Number} tipoComprobante - Código del tipo de comprobante
+   * @returns {String} Descripción del comprobante
+   */
+  getDescripcionTipoComprobante(tipoComprobante) {
+    const tipos = this.getTiposComprobante();
+    return tipos[tipoComprobante] || 'Desconocido';
   }
 
   /**
@@ -206,13 +250,21 @@ class AfipFacturacionService {
       }
 
       // Preparar datos para AFIP según normativa
-      const fechaActual = this.formatearFechaAFIP(new Date());
-      const puntoVenta = datosFactura.puntoVenta || 1;
+      // IMPORTANTE: La fecha del comprobante es la fecha ACTUAL del sistema (hora de Windows)
+      // Las fechas de servicio pueden ser del pasado (fechas del estacionamiento)
+      const ahora = new Date(); // Toma la hora del sistema operativo Windows
+      let fechaEmisionFactura = this.formatearFechaAFIP(ahora); 
+      const puntoVenta = datosFactura.puntoVenta || 2; // Punto de venta 2 para evitar conflictos con testing
       const tipoComprobante = datosFactura.tipoComprobante || 6; // Default: Factura B
+      
+      console.log(`📅 Fecha actual del sistema: ${ahora.toString()}`);
+      console.log(`📅 Fecha AFIP inicial: ${fechaEmisionFactura}`);
 
       // Obtener próximo número de comprobante
+      console.log(`🔍 Consultando último número para PtoVta ${puntoVenta}, Tipo ${tipoComprobante}...`);
       const ultimoNumero = await this.obtenerUltimoNumeroComprobante(puntoVenta, tipoComprobante);
       const numeroComprobante = ultimoNumero + 1;
+      console.log(`📊 Último número: ${ultimoNumero}, Próximo a usar: ${numeroComprobante}`);
 
       // Estructura de datos según especificación AFIP WSFEv1
       const datosComprobanteAFIP = {
@@ -224,7 +276,7 @@ class AfipFacturacionService {
         'DocNro': this.limpiarNumeroDocumento(datosFactura.cliente.numeroDocumento),
         'CbteDesde': numeroComprobante,
         'CbteHasta': numeroComprobante,
-        'CbteFch': fechaActual,
+        'CbteFch': fechaEmisionFactura, // SIEMPRE la fecha de HOY
         'ImpTotal': parseFloat(datosFactura.montoTotal).toFixed(2),
         'ImpTotConc': 0, // Importe neto no gravado
         'ImpNeto': parseFloat(datosFactura.montoNeto).toFixed(2),
@@ -233,10 +285,15 @@ class AfipFacturacionService {
         'ImpTrib': 0, // Otros tributos
         'MonId': 'PES', // Moneda: Pesos
         'MonCotiz': 1, // Cotización moneda
+        // OBLIGATORIO según RG 5616/2024: Condición IVA del receptor
+        'CondicionIVAReceptorId': this.mapearCondicionIVAAFIP(datosFactura.cliente.condicionIVA || 'Consumidor Final')
       };
 
-      // Agregar IVA si corresponde (Factura A o B)
-      if ([1, 2, 3, 6, 7, 8].includes(tipoComprobante) && datosFactura.montoIVA > 0) {
+      // Agregar IVA según tipo de comprobante
+      // Factura A (1): discrimina IVA - alícuota 21%
+      // Factura B (6): IVA incluido - alícuota 0%
+      if (tipoComprobante === 1 && datosFactura.montoIVA > 0) {
+        // Factura A - IVA discriminado
         datosComprobanteAFIP.Iva = [
           {
             'Id': 5, // 21% - Alícuota general
@@ -244,19 +301,30 @@ class AfipFacturacionService {
             'Importe': parseFloat(datosFactura.montoIVA).toFixed(2)
           }
         ];
+      } else if (tipoComprobante === 6) {
+        // Factura B - IVA incluido en el precio
+        datosComprobanteAFIP.Iva = [
+          {
+            'Id': 3, // 0% - IVA no discriminado
+            'BaseImp': parseFloat(datosFactura.montoNeto).toFixed(2),
+            'Importe': 0.00
+          }
+        ];
       }
 
       // Si es servicio (concepto 2 o 3), agregar fechas de servicio
+      // NOTA: FchServDesde/Hasta son las fechas del SERVICIO (estacionamiento)
+      //       CbteFch es la fecha de EMISIÓN de la factura (HOY)
       if ([2, 3].includes(datosFactura.concepto || 2)) {
         datosComprobanteAFIP.FchServDesde = datosFactura.fechaServicioDesde 
           ? this.formatearFechaAFIP(new Date(datosFactura.fechaServicioDesde))
-          : fechaActual;
+          : fechaEmisionFactura;
         datosComprobanteAFIP.FchServHasta = datosFactura.fechaServicioHasta
           ? this.formatearFechaAFIP(new Date(datosFactura.fechaServicioHasta))
-          : fechaActual;
+          : fechaEmisionFactura;
         datosComprobanteAFIP.FchVtoPago = datosFactura.fechaVencimientoPago
           ? this.formatearFechaAFIP(new Date(datosFactura.fechaVencimientoPago))
-          : fechaActual;
+          : fechaEmisionFactura;
       }
 
       // Solicitar CAE a AFIP
@@ -264,20 +332,34 @@ class AfipFacturacionService {
       
       const respuestaAFIP = await this.afip.ElectronicBilling.createVoucher(
         datosComprobanteAFIP,
-        false // returnResponse = false para obtener solo CAE y fecha vto
+        false // returnResponse = false para obtener solo {CAE, CAEFchVto}
       );
 
-      console.log('✅ Comprobante autorizado por AFIP:', respuestaAFIP);
+      console.log('✅ Respuesta de AFIP:', JSON.stringify(respuestaAFIP, null, 2));
+
+      // Cuando returnResponse=false, la respuesta es directamente {CAE, CAEFchVto}
+      // Cuando returnResponse=true, viene en FeDetResp.FECAEDetResponse
+      let caeData;
+      if (respuestaAFIP.CAE && respuestaAFIP.CAEFchVto) {
+        // Respuesta simplificada (returnResponse=false)
+        caeData = respuestaAFIP;
+      } else {
+        // Respuesta completa (returnResponse=true)
+        caeData = Array.isArray(respuestaAFIP.FeDetResp?.FECAEDetResponse) 
+          ? respuestaAFIP.FeDetResp.FECAEDetResponse[0]
+          : respuestaAFIP.FeDetResp?.FECAEDetResponse;
+      }
 
       // REQUISITO LEGAL: Almacenar CAE y fecha de vencimiento
       return {
         success: true,
-        cae: respuestaAFIP.CAE,
-        caeFechaVencimiento: respuestaAFIP.CAEFchVto,
-        numeroComprobante: numeroComprobante,
+        CAE: caeData.CAE,
+        CAEFchVto: this.parsearFechaAFIP(caeData.CAEFchVto),
+        CbteDesde: numeroComprobante,
+        CbteHasta: numeroComprobante,
         puntoVenta: puntoVenta,
         tipoComprobante: tipoComprobante,
-        fechaEmision: fechaActual,
+        fechaEmision: fechaEmisionFactura,
         respuestaCompleta: respuestaAFIP
       };
 
@@ -334,12 +416,24 @@ class AfipFacturacionService {
 
   /**
    * Formatea fecha al formato AFIP (YYYYMMDD)
+   * Usa la fecha local del sistema operativo (hora de Windows)
    */
   formatearFechaAFIP(fecha) {
     const year = fecha.getFullYear();
     const month = String(fecha.getMonth() + 1).padStart(2, '0');
     const day = String(fecha.getDate()).padStart(2, '0');
     return `${year}${month}${day}`;
+  }
+
+  /**
+   * Parsea fecha desde formato AFIP (YYYYMMDD) a Date
+   */
+  parsearFechaAFIP(fechaAFIP) {
+    const fechaStr = String(fechaAFIP);
+    const year = fechaStr.substring(0, 4);
+    const month = fechaStr.substring(4, 6);
+    const day = fechaStr.substring(6, 8);
+    return new Date(`${year}-${month}-${day}`);
   }
 
   /**
@@ -451,6 +545,49 @@ class AfipFacturacionService {
       tipoCodAut: 'E',
       codAut: cae
     }))}`;
+  }
+
+  /**
+   * Consulta datos de un contribuyente en AFIP/ARCA
+   * IMPORTANTE: Utiliza el padrón de AFIP para obtener datos fiscales
+   * @param {String} cuit - CUIT a consultar
+   * @returns {Object} Datos del contribuyente
+   */
+  async consultarContribuyente(cuit) {
+    await this.initialize();
+    
+    try {
+      // Método 1: Usar SDK de AFIP si tiene función de consulta de padrón
+      // Nota: El SDK actual puede no tener esta función, dependiendo de la versión
+      
+      // Método 2: Consulta directa al servicio de constancia de inscripción
+      // Por ahora, devolvemos datos básicos validando solo el CUIT
+      
+      const esValido = this.validarCUIT(cuit);
+      if (!esValido) {
+        throw new Error('CUIT inválido');
+      }
+
+      // En producción, aquí se haría la consulta real al padrón de AFIP
+      // Por ahora devolvemos una estructura básica
+      console.warn('⚠️ Consulta de padrón AFIP no implementada completamente. Devolviendo datos básicos.');
+      
+      return {
+        cuit: cuit,
+        valido: true,
+        mensaje: 'CUIT válido. Consulta completa al padrón AFIP requiere integración adicional.',
+        // En producción estos datos vendrían de AFIP:
+        // razonSocial: 'RAZON SOCIAL DEL CONTRIBUYENTE',
+        // condicionIVA: 'Responsable Inscripto',
+        // domicilio: 'DOMICILIO FISCAL',
+        // estadoCUIT: 'ACTIVO',
+        // actividadPrincipal: 'Descripción actividad'
+      };
+      
+    } catch (error) {
+      console.error('Error al consultar contribuyente en AFIP:', error);
+      throw new Error(`No se pudo consultar el contribuyente: ${error.message}`);
+    }
   }
 }
 

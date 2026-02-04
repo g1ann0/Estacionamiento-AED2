@@ -4,7 +4,6 @@ const Vehiculo = require('../models/Vehiculo');
 const Transaccion = require('../models/Transaccion');
 const LogSaldo = require('../models/LogSaldo');
 const LogVehiculo = require('../models/LogVehiculo');
-const { generarFacturaPorComprobante } = require('./facturaController');
 
 // Obtener todos los comprobantes pendientes
 const obtenerComprobantesPendientes = async (req, res) => {
@@ -144,11 +143,11 @@ const obtenerTodosLosComprobantes = async (req, res) => {
   }
 };
 
-// Validar un comprobante
+// Validar un comprobante (SIMPLIFICADO - Solo aprueba sin facturar)
 const validarComprobante = async (req, res) => {
   try {
     const { nroComprobante } = req.params;
-    const adminDni = req.usuario.dni; // DNI del admin que aprueba
+    const { dni: adminDni, nombre: adminNombre, apellido: adminApellido } = req.usuario;
     
     // Buscar el comprobante
     const comprobante = await Comprobante.findOne({ nroComprobante });
@@ -171,27 +170,25 @@ const validarComprobante = async (req, res) => {
     usuario.montoDisponible = (usuario.montoDisponible || 0) + comprobante.montoAcreditado;
     await usuario.save();
 
-    // Actualizar estado del comprobante
+    // Actualizar comprobante como aprobado
     comprobante.estado = 'aprobado';
+    comprobante.aprobadoPor = {
+      dni: adminDni,
+      nombre: adminNombre,
+      apellido: adminApellido,
+      fecha: new Date()
+    };
+    
     await comprobante.save();
 
-    // Generar factura automáticamente
-    let facturaGenerada = null;
-    try {
-      facturaGenerada = await generarFacturaPorComprobante(nroComprobante, adminDni);
-      console.log(`Factura generada: ${facturaGenerada.nroFactura}`);
-    } catch (facturaError) {
-      console.error('Error al generar factura:', facturaError);
-      // No fallar la validación si hay error en la factura
-    }
-
     res.json({ 
-      mensaje: 'Comprobante aprobado exitosamente',
+      mensaje: 'Comprobante aprobado exitosamente. Ahora puede generar la factura desde el facturador.',
       montoDisponible: usuario.montoDisponible,
-      facturaGenerada: facturaGenerada ? {
-        nroFactura: facturaGenerada.nroFactura,
-        total: facturaGenerada.total
-      } : null
+      comprobante: {
+        nroComprobante: comprobante.nroComprobante,
+        estado: comprobante.estado,
+        montoAcreditado: comprobante.montoAcreditado
+      }
     });
   } catch (error) {
     console.error('Error al validar comprobante:', error);

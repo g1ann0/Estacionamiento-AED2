@@ -32,14 +32,27 @@ const crearComprobante = async (req, res, next) => {
 
 const obtenerComprobantes = async (req, res, next) => {
   try {
-    const { dni } = req.usuario;
+    const { dni, rol } = req.usuario;
 
-    const comprobantes = await Comprobante.find({
-      'usuario.dni': dni
-    }).sort({ fecha: -1 });
+    let comprobantes;
+
+    // Si es admin, puede ver todos los comprobantes
+    // Si es usuario, solo ve los suyos
+    if (rol === 'admin') {
+      // Admin puede filtrar por estado si lo desea
+      const { estado } = req.query;
+      const filtro = estado ? { estado } : {};
+      comprobantes = await Comprobante.find(filtro).sort({ fecha: -1 });
+    } else {
+      // Usuario normal solo ve sus comprobantes
+      comprobantes = await Comprobante.find({
+        'usuario.dni': dni
+      }).sort({ fecha: -1 });
+    }
 
     res.status(200).json({
       success: true,
+      count: comprobantes.length,
       comprobantes
     });
   } catch (error) {
@@ -198,9 +211,81 @@ const generarPDFComprobante = async (req, res) => {
   }
 };
 
+/**
+ * Aprobar o rechazar un comprobante (solo admin)
+ * NUEVO FLUJO: Solo aprueba o rechaza, NO genera factura
+ * La factura se genera después desde el facturador
+ */
+const aprobarComprobante = async (req, res, next) => {
+  try {
+    const { nroComprobante } = req.params;
+    const { estado, observaciones } = req.body;
+    const { dni, nombre, apellido, rol } = req.usuario;
+
+    // Verificar que sea admin
+    if (rol !== 'admin') {
+      return next(new ErrorResponse('No tiene permisos para aprobar comprobantes', 403));
+    }
+
+    // Validar estado
+    if (!['aprobado', 'rechazado'].includes(estado)) {
+      return next(new ErrorResponse('Estado inválido. Debe ser "aprobado" o "rechazado"', 400));
+    }
+
+    // Buscar el comprobante
+    const comprobante = await Comprobante.findOne({ nroComprobante });
+
+    if (!comprobante) {
+      return next(new ErrorResponse('Comprobante no encontrado', 404));
+    }
+
+    // Verificar que esté pendiente
+    if (comprobante.estado !== 'pendiente') {
+      return next(new ErrorResponse(`El comprobante ya fue ${comprobante.estado}`, 400));
+    }
+
+    // Si se aprueba, actualizar el saldo del usuario
+    if (estado === 'aprobado') {
+      const usuario = await Usuario.findOne({ dni: comprobante.usuario.dni });
+      if (!usuario) {
+        return next(new ErrorResponse('Usuario no encontrado', 404));
+      }
+
+      // Actualizar saldo del usuario
+      usuario.montoDisponible = (usuario.montoDisponible || 0) + comprobante.montoAcreditado;
+      await usuario.save();
+    }
+
+    // Actualizar estado y datos
+    comprobante.estado = estado;
+    comprobante.aprobadoPor = {
+      dni,
+      nombre,
+      apellido,
+      fecha: new Date()
+    };
+    comprobante.observaciones = observaciones || '';
+    
+    await comprobante.save();
+
+    return res.status(200).json({
+      success: true,
+      mensaje: estado === 'aprobado' 
+        ? 'Comprobante aprobado exitosamente. El saldo del usuario ha sido actualizado.'
+        : 'Comprobante rechazado',
+      comprobante
+    });
+
+  } catch (error) {
+    console.error('Error al aprobar/rechazar comprobante:', error);
+    next(error);
+  }
+};
+
 module.exports = {
   crearComprobante,
   obtenerComprobantes,
   obtenerComprobantePorNumero,
-  generarPDFComprobante
+  generarPDFComprobante,
+  aprobarComprobante
 };

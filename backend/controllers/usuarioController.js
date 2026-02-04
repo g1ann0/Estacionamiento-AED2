@@ -451,7 +451,7 @@ const obtenerTodosUsuarios = async (req, res) => {
 const actualizarUsuario = async (req, res) => {
   try {
     const { dni } = req.params;
-    const { asociado, tarifaAsignada, ...otrosDatos } = req.body;
+    const { asociado, tarifaAsignada, cuit, condicionIVA, ...otrosDatos } = req.body;
 
     // Buscar el usuario
     const usuario = await Usuario.findOne({ dni, activo: true });
@@ -464,6 +464,38 @@ const actualizarUsuario = async (req, res) => {
       const tarifaExiste = await ConfiguracionPrecio.findById(tarifaAsignada);
       if (!tarifaExiste) {
         return res.status(400).json({ mensaje: 'La tarifa especificada no existe' });
+      }
+    }
+
+    // Validar CUIT si se proporciona
+    if (cuit && cuit !== '') {
+      // Validar formato CUIT (11 dígitos)
+      const cuitLimpio = cuit.replace(/-/g, '');
+      if (!/^\d{11}$/.test(cuitLimpio)) {
+        return res.status(400).json({ mensaje: 'CUIT inválido. Debe tener 11 dígitos' });
+      }
+      usuario.cuit = cuitLimpio;
+    } else if (cuit === '') {
+      usuario.cuit = null;
+    }
+
+    // Actualizar condición IVA si se proporciona
+    if (condicionIVA !== undefined) {
+      const condicionesValidas = [
+        'Responsable Inscripto',
+        'Responsable no Inscripto',
+        'Exento',
+        'Monotributo',
+        'Consumidor Final'
+      ];
+      
+      if (condicionesValidas.includes(condicionIVA)) {
+        usuario.condicionIVA = condicionIVA;
+      } else {
+        return res.status(400).json({ 
+          mensaje: 'Condición IVA inválida',
+          condicionesValidas 
+        });
       }
     }
 

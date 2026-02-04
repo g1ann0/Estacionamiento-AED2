@@ -319,8 +319,8 @@ const facturaSchema = new mongoose.Schema({
   
   comprobanteRelacionado: {
     nroComprobante: String,
-    fechaComprobante: Date,
-    tipo: String
+    fecha: Date, // Cambiar de fechaComprobante a fecha para consistencia
+    monto: Number // Agregar monto del comprobante
   },
   
   // ========== ESTADO Y CONTROL ==========

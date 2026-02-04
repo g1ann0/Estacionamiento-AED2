@@ -13,6 +13,13 @@ const UsuarioSchema = new mongoose.Schema({
   fechaTokenRecuperacion: { type: Date }, // Fecha del token de recuperación
   rol: { type: String, enum: ['cliente', 'admin'], default: 'cliente' },
   asociado: { type: Boolean, default: false },
+  // Datos fiscales para facturación electrónica
+  cuit: { type: String, default: null }, // CUIT del cliente (opcional, para Responsables Inscriptos)
+  condicionIVA: {
+    type: String,
+    enum: ['Responsable Inscripto', 'Responsable no Inscripto', 'Exento', 'Monotributo', 'Consumidor Final'],
+    default: 'Consumidor Final'
+  },
   tarifaAsignada: { 
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'ConfiguracionPrecio',
