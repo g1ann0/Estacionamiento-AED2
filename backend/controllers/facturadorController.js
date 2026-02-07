@@ -148,7 +148,7 @@ const generarFactura = async (req, res, next) => {
       return next(new ErrorResponse('El comprobante debe estar aprobado para facturar', 400));
     }
 
-    if (comprobante.estado === 'facturado') {
+    if (comprobante.facturado) {
       return next(new ErrorResponse('El comprobante ya fue facturado', 400));
     }
 
@@ -346,8 +346,8 @@ const generarFactura = async (req, res, next) => {
       }
     });
 
-    // Actualizar comprobante
-    comprobante.estado = 'facturado';
+    // Actualizar comprobante - mantener estado aprobado pero marcar como facturado
+    comprobante.facturado = true;
     comprobante.facturaGenerada = {
       nroFactura: factura.nroFactura,
       cae: factura.cae,

@@ -424,6 +424,12 @@ const ListadoComprobantes = ({ onMensaje }) => {
                           ${comprobante.montoAcreditado.toLocaleString()}
                         </span>
                       </div>
+                       <div className="info-row">
+                        <strong>Facturado:</strong> 
+                        <span style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#27ae60' }}>
+                          {comprobante.facturado ? 'Sí' : 'No'}
+                        </span>
+                      </div>
                       <div className="info-row">
                         <strong>Fecha:</strong> {new Date(comprobante.fecha).toLocaleString()}
                       </div>

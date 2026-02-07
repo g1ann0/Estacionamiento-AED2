@@ -115,14 +115,6 @@ function Navbar() {
                     <span className="menu-icon">📄</span>
                     <span>Facturador AFIP</span>
                   </button>
-                  
-                  <button
-                    onClick={() => navegarA('/admin/facturas-electronicas')}
-                    className="menu-item"
-                  >
-                    <span className="menu-icon">📊</span>
-                    <span>Facturas Electrónicas</span>
-                  </button>
 
                   <div className="menu-divider"></div>
                   

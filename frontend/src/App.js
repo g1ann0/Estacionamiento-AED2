@@ -13,7 +13,6 @@ import ControlTransacciones from './components/ControlTransacciones';
 import ListadosAdmin from './components/ListadosAdmin';
 import ConfiguracionEmpresa from './components/ConfiguracionEmpresa';
 import FacturadorElectronico from './components/FacturadorElectronico';
-import ListadoFacturasElectronicas from './components/ListadoFacturasElectronicas';
 import Navbar from './components/Navbar';
 import SetearPassword from './components/SetearPassword';
 import OlvidePassword from './components/OlvidePassword';
@@ -192,43 +191,6 @@ const FacturadorElectronicoPage = () => {
   );
 };
 
-// Componente wrapper para listado de facturas electrónicas
-const ListadoFacturasElectronicasPage = () => {
-  const [mensaje, setMensaje] = React.useState(null);
-
-  return (
-    <div>
-      <Navbar />
-      <div className="container">
-        {mensaje && (
-          <div className={`message message-${mensaje.type}`} style={{ margin: '1rem 0', position: 'relative' }}>
-            {mensaje.text}
-            <button 
-              onClick={() => setMensaje(null)} 
-              style={{
-                position: 'absolute',
-                right: '10px',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                background: 'none',
-                border: 'none',
-                color: 'inherit',
-                cursor: 'pointer',
-                fontSize: '16px',
-                fontWeight: 'bold',
-                padding: '0 5px'
-              }}
-            >
-              ×
-            </button>
-          </div>
-        )}
-        <ListadoFacturasElectronicas onMensaje={setMensaje} />
-      </div>
-    </div>
-  );
-};
-
 function App() {
   // Inicializar Google Analytics al cargar la aplicación
   useEffect(() => {
@@ -330,12 +292,6 @@ function App() {
               <Route path="/admin/facturador" element={
                 <PrivateRoute requiredRole="admin">
                   <FacturadorElectronicoPage />
-                </PrivateRoute>
-              } />
-
-              <Route path="/admin/facturas-electronicas" element={
-                <PrivateRoute requiredRole="admin">
-                  <ListadoFacturasElectronicasPage />
                 </PrivateRoute>
               } />
 

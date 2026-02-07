@@ -588,6 +588,22 @@
   color: white;
 }
 
+/* Badge de facturado */
+.facturado-badge {
+  padding: 0.4rem 0.8rem;
+  border-radius: 15px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: linear-gradient(135deg, #3498db, #2980b9);
+  color: white;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 4px rgba(52, 152, 219, 0.3);
+}
+
 /* Mensajes mejorados */
 .message {
   border-radius: 12px;

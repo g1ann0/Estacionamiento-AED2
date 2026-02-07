@@ -152,5 +152,13 @@ export const comprobanteService = {
       console.error('Error en descargarPDFComprobante:', error);
       throw error;
     }
+  },
+
+  // Alias para compatibilidad
+  obtenerTodos: async function(params) {
+    const token = localStorage.getItem('token');
+    return await this.obtenerTodosLosComprobantes(params, token);
   }
 };
+
+export default comprobanteService;

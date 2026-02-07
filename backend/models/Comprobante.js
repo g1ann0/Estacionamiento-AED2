@@ -17,10 +17,15 @@ const ComprobanteSchema = new mongoose.Schema({
   nroComprobante: { type: String, unique: true },
   estado: {
     type: String,
-    enum: ['pendiente', 'aprobado', 'rechazado', 'facturado'],
+    enum: ['pendiente', 'aprobado', 'rechazado'],
     default: 'pendiente'
   },
-  // Referencia a la factura electrónica generada (si fue aprobado y facturado)
+  // Indica si el comprobante fue facturado (solo aplica si estado='aprobado')
+  facturado: {
+    type: Boolean,
+    default: false
+  },
+  // Referencia a la factura electrónica generada (si fue facturado)
   facturaGenerada: {
     nroFactura: String,
     cae: String,
