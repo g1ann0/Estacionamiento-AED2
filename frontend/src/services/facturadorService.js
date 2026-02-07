@@ -114,5 +114,35 @@ export const facturadorService = {
       console.error('Error en obtenerFacturas:', error);
       throw error;
     }
+  },
+
+  /**
+   * Descargar PDF de una factura
+   */
+  descargarFacturaPDF: async (nroFactura) => {
+    try {
+      const token = localStorage.getItem('token');
+      
+      const response = await fetch(
+        `${API_BASE_URL}/facturador/facturas/${nroFactura}/pdf`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.mensaje || 'Error al descargar PDF');
+      }
+
+      const blob = await response.blob();
+      return { data: blob };
+    } catch (error) {
+      console.error('Error en descargarFacturaPDF:', error);
+      throw error;
+    }
   }
 };

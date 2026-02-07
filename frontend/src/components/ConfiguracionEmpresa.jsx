@@ -15,27 +15,12 @@ const ConfiguracionEmpresa = ({ onMensaje }) => {
       provincia: '',
       codigoPostal: ''
     },
-    condicionIva: 'IVA Responsable Inscripto',
-    puntoVenta: '00001',
+    condicionIva: 'Responsable Monotributo',
+    puntoVenta: 1,
     contacto: {
       telefono: '',
       email: '',
       sitioWeb: ''
-    },
-    arca: {
-      certificadoDigital: {
-        activo: false,
-        fechaVencimiento: '',
-        alias: ''
-      },
-      cae: {
-        solicitudAutomatica: true,
-        validezDias: 10
-      },
-      limitesAnulacion: {
-        diasMaximos: 15,
-        requiereMotivo: true
-      }
     },
     numeracion: {
       proximoNumero: 1,
@@ -100,22 +85,6 @@ const ConfiguracionEmpresa = ({ onMensaje }) => {
           contacto: {
             ...prevState.contacto,
             ...configConFecha.contacto
-          },
-          arca: {
-            ...prevState.arca,
-            ...configConFecha.arca,
-            certificadoDigital: {
-              ...prevState.arca.certificadoDigital,
-              ...configConFecha.arca?.certificadoDigital
-            },
-            cae: {
-              ...prevState.arca.cae,
-              ...configConFecha.arca?.cae
-            },
-            limitesAnulacion: {
-              ...prevState.arca.limitesAnulacion,
-              ...configConFecha.arca?.limitesAnulacion
-            }
           },
           numeracion: {
             ...prevState.numeracion,
@@ -312,16 +281,10 @@ const ConfiguracionEmpresa = ({ onMensaje }) => {
           📞 Contacto
         </button>
         <button 
-          className={`tab ${tabActiva === 'arca' ? 'active' : ''}`}
-          onClick={() => setTabActiva('arca')}
-        >
-          📜 Configuración ARCA
-        </button>
-        <button 
           className={`tab ${tabActiva === 'numeracion' ? 'active' : ''}`}
           onClick={() => setTabActiva('numeracion')}
         >
-          🔢 Numeración
+          🔢 Punto de Venta y Numeración
         </button>
       </div>
 
@@ -535,172 +498,45 @@ const ConfiguracionEmpresa = ({ onMensaje }) => {
           </div>
         )}
 
-        {/* Tab: ARCA */}
-        {tabActiva === 'arca' && (
-          <div className="form-section">
-            <h3>Configuración ARCA</h3>
-            
-            <div className="subsection">
-              <h4>Certificado Digital</h4>
-              <div className="form-row">
-                <div className="form-group">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={configuracion.arca.certificadoDigital.activo}
-                      onChange={(e) => handleInputChange('arca', {
-                        ...configuracion.arca,
-                        certificadoDigital: {
-                          ...configuracion.arca.certificadoDigital,
-                          activo: e.target.checked
-                        }
-                      })}
-                    />
-                    Certificado digital activo
-                  </label>
-                </div>
-              </div>
-              
-              {configuracion.arca.certificadoDigital.activo && (
-                <>
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label>Alias del Certificado</label>
-                      <input
-                        type="text"
-                        value={configuracion.arca.certificadoDigital.alias}
-                        onChange={(e) => handleInputChange('arca', {
-                          ...configuracion.arca,
-                          certificadoDigital: {
-                            ...configuracion.arca.certificadoDigital,
-                            alias: e.target.value
-                          }
-                        })}
-                        placeholder="MI_CERTIFICADO"
-                      />
-                    </div>
-                    
-                    <div className="form-group">
-                      <label>Fecha de Vencimiento</label>
-                      <input
-                        type="date"
-                        value={configuracion.arca.certificadoDigital.fechaVencimiento}
-                        onChange={(e) => handleInputChange('arca', {
-                          ...configuracion.arca,
-                          certificadoDigital: {
-                            ...configuracion.arca.certificadoDigital,
-                            fechaVencimiento: e.target.value
-                          }
-                        })}
-                      />
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-
-            <div className="subsection">
-              <h4>Configuración CAE</h4>
-              <div className="form-row">
-                <div className="form-group">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={configuracion.arca.cae.solicitudAutomatica}
-                      onChange={(e) => handleInputChange('arca', {
-                        ...configuracion.arca,
-                        cae: {
-                          ...configuracion.arca.cae,
-                          solicitudAutomatica: e.target.checked
-                        }
-                      })}
-                    />
-                    Solicitud automática de CAE
-                  </label>
-                </div>
-                
-                <div className="form-group">
-                  <label>Validez CAE (días)</label>
-                  <select
-                    value={configuracion.arca.cae.validezDias}
-                    onChange={(e) => handleInputChange('arca', {
-                      ...configuracion.arca,
-                      cae: {
-                        ...configuracion.arca.cae,
-                        validezDias: parseInt(e.target.value)
-                      }
-                    })}
-                  >
-                    {[1,2,3,4,5,6,7,8,9,10].map(dias => (
-                      <option key={dias} value={dias}>{dias} días</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            <div className="subsection">
-              <h4>Límites de Anulación</h4>
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Días máximos para anular</label>
-                  <select
-                    value={configuracion.arca.limitesAnulacion.diasMaximos}
-                    onChange={(e) => handleInputChange('arca', {
-                      ...configuracion.arca,
-                      limitesAnulacion: {
-                        ...configuracion.arca.limitesAnulacion,
-                        diasMaximos: parseInt(e.target.value)
-                      }
-                    })}
-                  >
-                    {[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15].map(dias => (
-                      <option key={dias} value={dias}>{dias} días</option>
-                    ))}
-                  </select>
-                  <small>Máximo permitido por ARCA: 15 días</small>
-                </div>
-                
-                <div className="form-group">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={configuracion.arca.limitesAnulacion.requiereMotivo}
-                      onChange={(e) => handleInputChange('arca', {
-                        ...configuracion.arca,
-                        limitesAnulacion: {
-                          ...configuracion.arca.limitesAnulacion,
-                          requiereMotivo: e.target.checked
-                        }
-                      })}
-                    />
-                    Requiere motivo para anular
-                  </label>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Tab: Numeración */}
         {tabActiva === 'numeracion' && (
           <div className="form-section">
-            <h3>Configuración de Numeración</h3>
+            <h3>Punto de Venta y Numeración</h3>
             
+            <div className="alert alert-info" style={{ marginBottom: '20px' }}>
+              <strong>ℹ️ Información:</strong> Configurá el punto de venta (terminal) y la numeración de comprobantes.
+              Solo modificá estos valores si necesitás corregir un error o cambiar de punto de venta.
+            </div>
+
             <div className="form-row">
               <div className="form-group">
-                <label>Próximo Número de Factura</label>
+                <label>Punto de Venta *</label>
+                <input
+                  type="number"
+                  value={configuracion.puntoVenta}
+                  onChange={(e) => setConfiguracion({ ...configuracion, puntoVenta: parseInt(e.target.value) || 1 })}
+                  min="1"
+                  max="99999"
+                  required
+                />
+                <small>Número de terminal o sucursal (1-99999). Se mostrará con 5 dígitos: {String(configuracion.puntoVenta).padStart(5, '0')}</small>
+              </div>
+
+              <div className="form-group">
+                <label>Próximo Número de Comprobante</label>
                 <input
                   type="number"
                   value={configuracion.numeracion.proximoNumero}
-                  onChange={(e) => handleInputChange('numeracion', parseInt(e.target.value), 'proximoNumero')}
+                  onChange={(e) => handleInputChange('numeracion', parseInt(e.target.value) || 1, 'proximoNumero')}
                   min="1"
                 />
-                <small>Próximo número que se asignará automáticamente</small>
+                <small>⚠️ Solo modificar si hay un error en la numeración. El sistema incrementa automáticamente.</small>
               </div>
-              
+            </div>
+
+            <div className="form-row">
               <div className="form-group">
-                <label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <input
                     type="checkbox"
                     checked={configuracion.numeracion.reinicioAnual}

@@ -1,8 +1,9 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
 import { AuthProvider } from './context/AuthContext';
 import { useAuth } from './context/AuthContext';
+import { initGA, trackPageView } from './services/analytics';
 import Login from './components/Login';
 import Register from './components/Register';
 import Dashboard from './components/Dashboard';
@@ -23,11 +24,44 @@ import NetworkDiagnostic from './components/NetworkDiagnostic';
 import DebugLogin from './components/DebugLogin';
 import DashboardDebug from './components/DashboardDebug';
 import Home from './components/Home';
-import SEO from './components/SEO';
 import PerformanceMonitor from './components/PerformanceMonitor';
 import './styles/theme.css';
 import './styles/admin.css';
 import './styles/facturador.css';
+
+// Componente para tracking de páginas con Google Analytics
+const PageTracker = () => {
+  const location = useLocation();
+
+  useEffect(() => {
+    // Mapeo de rutas a títulos legibles
+    const pageTitles = {
+      '/': 'Inicio',
+      '/login': 'Iniciar Sesión',
+      '/register': 'Registro',
+      '/dashboard': 'Panel de Usuario',
+      '/admin': 'Panel de Administración',
+      '/admin/gestion': 'Gestión Administrativa',
+      '/admin/transacciones': 'Control de Transacciones',
+      '/admin/listados': 'Listados y Reportes',
+      '/admin/configuracion-empresa': 'Configuración de Empresa',
+      '/admin/facturador': 'Facturador Electrónico',
+      '/admin/facturas': 'Facturas Electrónicas',
+      '/perfil': 'Mi Perfil',
+      '/historial': 'Historial',
+      '/setear-password': 'Configurar Contraseña',
+      '/olvide-password': 'Olvidé mi Contraseña',
+      '/recuperar-password': 'Recuperar Contraseña',
+    };
+
+    const title = pageTitles[location.pathname] || 'Sistema de Estacionamiento';
+    
+    // Registrar vista de página
+    trackPageView(location.pathname, title);
+  }, [location]);
+
+  return null;
+};
 
 // Componente para rutas protegidas
 const PrivateRoute = ({ children, requiredRole }) => {
@@ -196,10 +230,18 @@ const ListadoFacturasElectronicasPage = () => {
 };
 
 function App() {
+  // Inicializar Google Analytics al cargar la aplicación
+  useEffect(() => {
+    initGA({
+      debug: process.env.NODE_ENV === 'development'
+    });
+  }, []);
+
   return (
     <HelmetProvider>
       <AuthProvider>
         <Router>
+          <PageTracker />
           <PerformanceMonitor />
           <div className="app-container">
             <Routes>

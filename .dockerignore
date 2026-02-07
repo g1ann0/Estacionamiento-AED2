@@ -1,0 +1,45 @@
+# Dependencias
+node_modules
+npm-debug.log
+package-lock.json
+
+# Archivos de entorno
+.env
+.env.local
+.env.*.local
+
+# Git
+.git
+.gitignore
+
+# Documentación
+*.md
+docs/
+
+# Testing
+coverage/
+.nyc_output/
+*.test.js
+*.spec.js
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build
+dist/
+build/
+
+# Logs
+logs/
+*.log
+
+# Temporales
+tmp/
+temp/

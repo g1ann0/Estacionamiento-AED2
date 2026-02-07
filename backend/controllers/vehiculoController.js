@@ -1,5 +1,6 @@
 const Vehiculo = require('../models/Vehiculo');
 const Usuario = require('../models/Usuario');
+const Estacionamiento = require('../models/Estacionamiento');
 
 const agregarVehiculo = async (req, res) => {
   try {
@@ -115,6 +116,26 @@ const eliminarVehiculo = async (req, res) => {
         // Verificar permisos
         if (req.usuario.dni !== dni && req.usuario.rol !== 'admin') {
             return res.status(403).json({ mensaje: 'No tienes permiso para eliminar vehículos de este usuario' });
+        }
+
+        // Verificar si el vehículo tiene un estacionamiento activo
+        const estacionamientoActivo = await Estacionamiento.findOne({
+            $or: [
+                { vehiculoDominio: dominio.toUpperCase(), estado: 'activo' },
+                { dominio: dominio.toUpperCase(), estado: 'activo' },
+                { vehiculoDominio: dominio.toUpperCase(), estActivo: true },
+                { dominio: dominio.toUpperCase(), estActivo: true }
+            ]
+        });
+
+        if (estacionamientoActivo) {
+            return res.status(400).json({ 
+                mensaje: 'No se puede eliminar el vehículo porque tiene un estacionamiento en curso',
+                estacionamiento: {
+                    horaIngreso: estacionamientoActivo.horaIngreso,
+                    ubicacion: estacionamientoActivo.ubicacion
+                }
+            });
         }
 
         // Eliminar el vehículo de la colección de vehículos

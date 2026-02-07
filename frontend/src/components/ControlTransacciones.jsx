@@ -15,7 +15,6 @@ const ControlTransacciones = () => {
   const [estadisticas, setEstadisticas] = useState(null);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState('');
-  const [mensaje, setMensaje] = useState('');
   
   // Estados para filtros
   const [filtros, setFiltros] = useState({
@@ -39,10 +38,12 @@ const ControlTransacciones = () => {
 
   useEffect(() => {
     cargarDatos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vistaActual, filtros]);
 
   useEffect(() => {
     cargarEstadisticas();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const cargarDatos = async () => {
@@ -810,18 +811,6 @@ const ControlTransacciones = () => {
         </button>
       </div>
 
-      {mensaje && (
-        <div className="alert alert-success" style={{
-          backgroundColor: '#d4edda',
-          color: '#155724',
-          padding: '1rem',
-          borderRadius: '8px',
-          border: '1px solid #c3e6cb',
-          marginBottom: '1rem'
-        }}>
-          {mensaje}
-        </div>
-      )}
       {error && (
         <div className="alert alert-danger" style={{
           backgroundColor: '#f8d7da',

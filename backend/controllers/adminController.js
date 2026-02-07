@@ -4,6 +4,7 @@ const Vehiculo = require('../models/Vehiculo');
 const Transaccion = require('../models/Transaccion');
 const LogSaldo = require('../models/LogSaldo');
 const LogVehiculo = require('../models/LogVehiculo');
+const Estacionamiento = require('../models/Estacionamiento');
 
 // Obtener todos los comprobantes pendientes
 const obtenerComprobantesPendientes = async (req, res) => {
@@ -425,6 +426,37 @@ const eliminarUsuario = async (req, res) => {
     // Verificar si ya está desactivado
     if (!usuario.activo) {
       return res.status(400).json({ mensaje: 'El usuario ya está desactivado' });
+    }
+
+    // Verificar si el usuario tiene vehículos con estacionamiento activo
+    const vehiculosUsuario = await Vehiculo.find({ usuario: usuario._id });
+    
+    if (vehiculosUsuario.length > 0) {
+      const dominios = vehiculosUsuario.map(v => v.dominio);
+      
+      const estacionamientoActivo = await Estacionamiento.findOne({
+        $or: [
+          { vehiculoDominio: { $in: dominios }, estado: 'activo' },
+          { dominio: { $in: dominios }, estado: 'activo' },
+          { vehiculoDominio: { $in: dominios }, estActivo: true },
+          { dominio: { $in: dominios }, estActivo: true }
+        ]
+      });
+
+      if (estacionamientoActivo) {
+        const vehiculoActivo = vehiculosUsuario.find(
+          v => v.dominio === estacionamientoActivo.vehiculoDominio || v.dominio === estacionamientoActivo.dominio
+        );
+        
+        return res.status(400).json({ 
+          mensaje: 'No se puede eliminar el usuario porque tiene un vehículo con estacionamiento en curso',
+          vehiculo: vehiculoActivo ? vehiculoActivo.dominio : estacionamientoActivo.vehiculoDominio || estacionamientoActivo.dominio,
+          estacionamiento: {
+            horaIngreso: estacionamientoActivo.horaInicio || estacionamientoActivo.horaIngreso,
+            ubicacion: estacionamientoActivo.ubicacion || estacionamientoActivo.porton
+          }
+        });
+      }
     }
 
     // Generar identificadores únicos para evitar conflictos en re-registros
@@ -905,6 +937,26 @@ const eliminarVehiculoAdmin = async (req, res) => {
 
     if (!vehiculo) {
       return res.status(404).json({ mensaje: 'Vehículo no encontrado' });
+    }
+
+    // Verificar si el vehículo tiene un estacionamiento activo
+    const estacionamientoActivo = await Estacionamiento.findOne({
+      $or: [
+        { vehiculoDominio: dominio.toUpperCase(), estado: 'activo' },
+        { dominio: dominio.toUpperCase(), estado: 'activo' },
+        { vehiculoDominio: dominio.toUpperCase(), estActivo: true },
+        { dominio: dominio.toUpperCase(), estActivo: true }
+      ]
+    });
+
+    if (estacionamientoActivo) {
+      return res.status(400).json({ 
+        mensaje: 'No se puede eliminar el vehículo porque tiene un estacionamiento en curso',
+        estacionamiento: {
+          horaIngreso: estacionamientoActivo.horaIngreso,
+          ubicacion: estacionamientoActivo.ubicacion
+        }
+      });
     }
 
     // Guardar datos para el log antes de eliminar

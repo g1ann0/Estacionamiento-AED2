@@ -9,14 +9,31 @@ const configuracionEmpresaSchema = new mongoose.Schema({
   },
   cuit: {
     type: String,
-    required: true,
+    required: [true, 'CUIT es obligatorio'],
     unique: true,
+    trim: true,
     validate: {
       validator: function(v) {
-        // Validar formato CUIT: XX-XXXXXXXX-X
-        return /^\d{2}-\d{8}-\d{1}$/.test(v);
+        // Validar formato CUIT/CUIL: XX-XXXXXXXX-X (acepta 20, 23, 24, 27, 30, 33, 34)
+        if (!/^\d{2}-\d{8}-\d{1}$/.test(v)) {
+          return false;
+        }
+        
+        // Validar dígito verificador
+        const cuitLimpio = v.replace(/-/g, '');
+        const multiplicadores = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2];
+        
+        let suma = 0;
+        for (let i = 0; i < 10; i++) {
+          suma += parseInt(cuitLimpio[i]) * multiplicadores[i];
+        }
+        
+        const resto = suma % 11;
+        const digitoVerificador = resto === 0 ? 0 : resto === 1 ? 9 : 11 - resto;
+        
+        return parseInt(cuitLimpio[10]) === digitoVerificador;
       },
-      message: 'CUIT debe tener el formato XX-XXXXXXXX-X'
+      message: 'CUIT/CUIL inválido. Verificá el número y el dígito verificador'
     }
   },
   inicioActividades: {
@@ -79,15 +96,11 @@ const configuracionEmpresaSchema = new mongoose.Schema({
 
   // Configuración de facturación
   puntoVenta: {
-    type: String,
-    required: true,
-    default: '00001',
-    validate: {
-      validator: function(v) {
-        return /^\d{5}$/.test(v);
-      },
-      message: 'Punto de venta debe tener 5 dígitos'
-    }
+    type: Number,
+    required: [true, 'Punto de venta es obligatorio'],
+    default: 1,
+    min: [1, 'Punto de venta debe ser mayor a 0'],
+    max: [99999, 'Punto de venta no puede exceder 99999']
   },
 
   // Datos de contacto
@@ -113,58 +126,15 @@ const configuracionEmpresaSchema = new mongoose.Schema({
     }
   },
 
-  // Configuración ARCA específica
-  arca: {
-    // Certificado digital para facturación electrónica
-    certificadoDigital: {
-      activo: {
-        type: Boolean,
-        default: false
-      },
-      fechaVencimiento: Date,
-      alias: String
-    },
-    
-    // Configuración de CAE (Código de Autorización Electrónica)
-    cae: {
-      solicitudAutomatica: {
-        type: Boolean,
-        default: true
-      },
-      validezDias: {
-        type: Number,
-        default: 10,
-        min: 1,
-        max: 10
-      }
-    },
-
-    // Límites de anulación
-    limitesAnulacion: {
-      diasMaximos: {
-        type: Number,
-        default: 15,
-        min: 1,
-        max: 15
-      },
-      requiereMotivo: {
-        type: Boolean,
-        default: true
-      }
-    }
+  // Numeración de comprobantes
+  proximoNumero: {
+    type: Number,
+    default: 1,
+    min: 1
   },
-
-  // Configuración de numeración
-  numeracion: {
-    proximoNumero: {
-      type: Number,
-      default: 1,
-      min: 1
-    },
-    reinicioAnual: {
-      type: Boolean,
-      default: false
-    }
+  reinicioAnual: {
+    type: Boolean,
+    default: false
   },
 
   // Metadatos
@@ -229,6 +199,11 @@ configuracionEmpresaSchema.methods.validarCuit = function() {
   const digitoVerificador = resto < 2 ? resto : 11 - resto;
   
   return parseInt(cuit[10]) === digitoVerificador;
+};
+
+// Método para obtener punto de venta formateado (00001 - 99999)
+configuracionEmpresaSchema.methods.getPuntoVentaFormateado = function() {
+  return this.puntoVenta.toString().padStart(5, '0');
 };
 
 module.exports = mongoose.model('ConfiguracionEmpresa', configuracionEmpresaSchema);

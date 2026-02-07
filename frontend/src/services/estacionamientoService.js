@@ -1,4 +1,4 @@
-import CONFIG, { configManager } from '../config/config.js';
+import { configManager } from '../config/config.js';
 
 export const API_URL = configManager.getApiUrl();
 

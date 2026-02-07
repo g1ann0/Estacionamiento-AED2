@@ -10,6 +10,7 @@ const Factura = require('../models/Factura');
 const Usuario = require('../models/Usuario');
 const ConfiguracionEmpresa = require('../models/ConfiguracionEmpresa');
 const afipFacturacionService = require('../services/afipFacturacionService');
+const facturaPDFService = require('../services/facturaPDFService');
 const ErrorResponse = require('../utils/errorResponse');
 
 /**
@@ -307,7 +308,14 @@ const generarFactura = async (req, res, next) => {
         razonSocial: configEmpresa.razonSocial,
         cuit: configEmpresa.cuit,
         domicilio: {
-          domicilioCompleto: configEmpresa.domicilio
+          calle: configEmpresa.domicilio.calle,
+          numero: configEmpresa.domicilio.numero,
+          piso: configEmpresa.domicilio.piso,
+          departamento: configEmpresa.domicilio.departamento,
+          localidad: configEmpresa.domicilio.localidad,
+          provincia: configEmpresa.domicilio.provincia,
+          codigoPostal: configEmpresa.domicilio.codigoPostal,
+          domicilioCompleto: configEmpresa.getDomicilioCompleto()
         },
         condicionIva: condicionIvaEmisor
       },
@@ -449,9 +457,101 @@ const obtenerFacturas = async (req, res, next) => {
   }
 };
 
+/**
+ * Generar PDF de una factura
+ * @route GET /api/facturador/facturas/:nroFactura/pdf
+ * @access Private (Admin)
+ */
+const generarPDFFactura = async (req, res, next) => {
+  try {
+    const { nroFactura } = req.params;
+
+    console.log(`\n📄 [PDF] Generando PDF para factura: ${nroFactura}`);
+
+    // Buscar la factura
+    const factura = await Factura.findOne({ nroFactura });
+
+    if (!factura) {
+      return res.status(404).json({
+        success: false,
+        mensaje: 'Factura no encontrada'
+      });
+    }
+
+    // Determinar tipo de factura (A, B, C)
+    let tipoFactura = 'B'; // Por defecto
+    if (factura.tipoComprobanteDescripcion.includes('Factura A')) {
+      tipoFactura = 'A';
+    } else if (factura.tipoComprobanteDescripcion.includes('Factura C')) {
+      tipoFactura = 'C';
+    }
+
+    console.log(`📋 [PDF] Tipo de factura: ${tipoFactura}`);
+
+    // Generar el PDF
+    const pdfStream = facturaPDFService.generarPDF(factura, tipoFactura);
+
+    // Configurar headers de respuesta
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="Factura_${nroFactura}.pdf"`);
+
+    // Enviar el stream del PDF
+    pdfStream.pipe(res);
+
+    console.log(`✅ [PDF] PDF generado y enviado exitosamente\n`);
+
+  } catch (error) {
+    console.error('❌ Error al generar PDF de factura:', error);
+    next(error);
+  }
+};
+
+/**
+ * Obtener factura con su comprobante asociado
+ * @route GET /api/facturador/facturas/:nroFactura/completa
+ * @access Private (Admin)
+ */
+const obtenerFacturaCompleta = async (req, res, next) => {
+  try {
+    const { nroFactura } = req.params;
+
+    console.log(`\n🔍 [FACTURA COMPLETA] Buscando factura: ${nroFactura}`);
+
+    // Buscar la factura
+    const factura = await Factura.findOne({ nroFactura });
+
+    if (!factura) {
+      return res.status(404).json({
+        success: false,
+        mensaje: 'Factura no encontrada'
+      });
+    }
+
+    // Buscar el comprobante asociado
+    const comprobante = await Comprobante.findOne({
+      'facturaGenerada.nroFactura': nroFactura
+    });
+
+    console.log(`✅ [FACTURA COMPLETA] Factura encontrada`);
+    console.log(`   Comprobante asociado: ${comprobante ? comprobante.nroComprobante : 'No encontrado'}`);
+
+    res.status(200).json({
+      success: true,
+      factura,
+      comprobante: comprobante || null
+    });
+
+  } catch (error) {
+    console.error('❌ Error al obtener factura completa:', error);
+    next(error);
+  }
+};
+
 module.exports = {
   obtenerComprobantesAprobados,
   validarCUITConAFIP,
   generarFactura,
-  obtenerFacturas
+  obtenerFacturas,
+  generarPDFFactura,
+  obtenerFacturaCompleta
 };

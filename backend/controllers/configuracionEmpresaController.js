@@ -20,8 +20,13 @@ const obtenerConfiguracion = async (req, res) => {
           provincia: 'Buenos Aires',
           codigoPostal: '1000'
         },
-        condicionIva: 'IVA Responsable Inscripto',
-        puntoVenta: '00001',
+        condicionIva: 'Responsable Monotributo',
+        puntoVenta: 1,
+        contacto: {
+          telefono: '',
+          email: '',
+          sitioWeb: ''
+        },
         actualizadoPor: {
           dni: req.usuario.dni,
           nombre: req.usuario.nombre,
@@ -60,26 +65,9 @@ const actualizarConfiguracion = async (req, res) => {
       });
     }
 
-    // Validar CUIT si se proporciona
-    if (datosConfiguracion.cuit) {
-      const cuitRegex = /^\d{2}-\d{8}-\d{1}$/;
-      if (!cuitRegex.test(datosConfiguracion.cuit)) {
-        return res.status(400).json({
-          success: false,
-          mensaje: 'CUIT debe tener el formato XX-XXXXXXXX-X'
-        });
-      }
-    }
-
-    // Validar punto de venta
+    // Convertir punto de venta a número si viene como string
     if (datosConfiguracion.puntoVenta) {
-      const puntoVentaRegex = /^\d{5}$/;
-      if (!puntoVentaRegex.test(datosConfiguracion.puntoVenta)) {
-        return res.status(400).json({
-          success: false,
-          mensaje: 'Punto de venta debe tener exactamente 5 dígitos'
-        });
-      }
+      datosConfiguracion.puntoVenta = parseInt(datosConfiguracion.puntoVenta);
     }
 
     // Obtener configuración anterior para el log
@@ -150,14 +138,6 @@ const actualizarConfiguracion = async (req, res) => {
     } catch (logError) {
       console.error('Error al crear log de configuración empresa:', logError);
       // No fallar la operación principal por error en el log
-    }
-
-    // Validar CUIT usando el método del modelo
-    if (!configuracion.validarCuit()) {
-      return res.status(400).json({
-        success: false,
-        mensaje: 'El CUIT ingresado no es válido según el algoritmo de verificación'
-      });
     }
 
     res.json({
@@ -236,12 +216,8 @@ const validarConfiguracionFacturacion = async (req, res) => {
       advertencias.push('Se recomienda agregar un teléfono de contacto');
     }
 
-    if (!configuracion.contacto.email) {
-      advertencias.push('Se recomienda agregar un email de contacto');
-    }
-
-    if (!configuracion.arca.certificadoDigital.activo) {
-      advertencias.push('Certificado digital no configurado para facturación electrónica');
+    if (!configuracion.puntoVenta) {
+      advertencias.push('Punto de venta no configurado');
     }
 
     const esValida = errores.length === 0;
@@ -277,7 +253,7 @@ const obtenerProximoNumero = async (req, res) => {
 
     const proximoNumero = configuracion.numeracion.proximoNumero;
     const puntoVenta = configuracion.puntoVenta;
-    
+    getPuntoVentaFormateado()
     res.json({
       success: true,
       proximoNumero,

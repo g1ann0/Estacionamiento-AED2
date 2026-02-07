@@ -77,6 +77,29 @@ const GestionFacturas = () => {
     setFacturaSeleccionada(null);
   };
 
+  const handleDescargarPDF = async (nroFactura) => {
+    try {
+      setError(null);
+      
+      // Llamar al servicio para descargar el PDF
+      const response = await facturadorService.descargarFacturaPDF(nroFactura);
+      
+      // Crear un blob URL y descargar el archivo
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Factura_${nroFactura}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+    } catch (err) {
+      console.error('Error al descargar PDF:', err);
+      setError(err.response?.data?.error || 'Error al generar el PDF');
+    }
+  };
+
   const handlePaginaAnterior = () => {
     if (paginacion.pagina > 1) {
       setPaginacion(prev => ({ ...prev, pagina: prev.pagina - 1 }));
@@ -212,8 +235,16 @@ const GestionFacturas = () => {
                         <button
                           className="btn btn-sm btn-info"
                           onClick={() => handleVerDetalle(factura)}
+                          style={{ marginRight: '8px' }}
                         >
                           Ver Detalle
+                        </button>
+                        <button
+                          className="btn btn-sm btn-success"
+                          onClick={() => handleDescargarPDF(factura.nroFactura)}
+                          title="Descargar PDF"
+                        >
+                          📄 Generar PDF
                         </button>
                       </td>
                     </tr>

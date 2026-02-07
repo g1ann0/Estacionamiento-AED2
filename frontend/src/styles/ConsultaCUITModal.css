@@ -1,0 +1,420 @@
+/**
+ * ESTILOS DEL MODAL DE CONSULTA DE CUIT EN AFIP/ARCA
+ */
+
+/* Overlay del modal */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  animation: fadeIn 0.2s ease-in-out;
+}
+
+/* Contenedor principal del modal */
+.consulta-cuit-modal {
+  background: white;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 600px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  animation: slideUp 0.3s ease-out;
+}
+
+/* Header del modal */
+.consulta-cuit-modal .modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 2px solid #f0f0f0;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 12px 12px 0 0;
+}
+
+.consulta-cuit-modal .modal-header h2 {
+  margin: 0;
+  color: white;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.consulta-cuit-modal .modal-close {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: white;
+  font-size: 28px;
+  cursor: pointer;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  line-height: 1;
+}
+
+.consulta-cuit-modal .modal-close:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: rotate(90deg);
+}
+
+/* Body del modal */
+.consulta-cuit-modal .modal-body {
+  padding: 24px;
+}
+
+.modal-descripcion {
+  color: #666;
+  margin-bottom: 24px;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+/* Input de CUIT */
+.consulta-cuit-input-group {
+  margin-bottom: 20px;
+}
+
+.consulta-cuit-input-group label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #333;
+  font-size: 0.95rem;
+}
+
+.input-with-button {
+  display: flex;
+  gap: 10px;
+}
+
+.input-with-button input {
+  flex: 1;
+  padding: 12px 16px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-family: 'Courier New', monospace;
+  font-weight: 600;
+  letter-spacing: 1px;
+  transition: all 0.2s ease;
+}
+
+.input-with-button input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.input-with-button input:disabled {
+  background-color: #f5f5f5;
+  cursor: not-allowed;
+}
+
+.btn-consultar {
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  font-size: 0.95rem;
+}
+
+.btn-consultar:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.btn-consultar:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.input-help {
+  display: block;
+  margin-top: 6px;
+  color: #999;
+  font-size: 0.85rem;
+}
+
+/* Error */
+.consulta-cuit-error {
+  background: #fee;
+  border: 2px solid #fcc;
+  border-radius: 8px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+  animation: shake 0.4s ease;
+}
+
+.consulta-cuit-error .error-icon {
+  font-size: 1.2rem;
+}
+
+.consulta-cuit-error span:last-child {
+  color: #c33;
+  font-weight: 500;
+  flex: 1;
+}
+
+/* Resultado */
+.consulta-cuit-resultado {
+  margin-top: 24px;
+  border: 2px solid #e8f5e9;
+  border-radius: 12px;
+  overflow: hidden;
+  animation: slideDown 0.3s ease-out;
+}
+
+.resultado-header {
+  background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.resultado-header .success-icon {
+  font-size: 1.5rem;
+}
+
+.resultado-header h3 {
+  margin: 0;
+  color: white;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.resultado-datos {
+  padding: 20px;
+  background: white;
+}
+
+.dato-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 12px 0;
+  border-bottom: 1px solid #f0f0f0;
+  gap: 16px;
+}
+
+.dato-item:last-child {
+  border-bottom: none;
+}
+
+.dato-item strong {
+  color: #555;
+  font-size: 0.9rem;
+  min-width: 140px;
+  flex-shrink: 0;
+}
+
+.dato-item span {
+  color: #222;
+  font-weight: 500;
+  text-align: right;
+  flex: 1;
+}
+
+.badge-iva {
+  display: inline-block;
+  padding: 4px 12px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.badge-estado {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  background: #e0e0e0;
+  color: #666;
+}
+
+.badge-estado.activo {
+  background: #4caf50;
+  color: white;
+}
+
+/* Actividades */
+.dato-item.actividades {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.actividades-list {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.actividad-item {
+  display: flex;
+  gap: 12px;
+  padding: 8px 12px;
+  background: #f9f9f9;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.actividad-codigo {
+  color: #667eea;
+  font-weight: 600;
+  font-family: 'Courier New', monospace;
+  min-width: 60px;
+}
+
+.actividad-desc {
+  color: #555;
+  flex: 1;
+}
+
+.actividades-more {
+  color: #999;
+  font-size: 0.85rem;
+  margin-top: 4px;
+  font-style: italic;
+}
+
+/* Acciones del resultado */
+.resultado-acciones {
+  padding: 16px 20px;
+  background: #f9f9f9;
+  border-top: 1px solid #e0e0e0;
+}
+
+.btn-usar-datos {
+  width: 100%;
+  padding: 14px 24px;
+  background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-usar-datos:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+}
+
+/* Footer del modal */
+.consulta-cuit-modal .modal-footer {
+  padding: 16px 24px;
+  border-top: 1px solid #f0f0f0;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.btn-cancelar {
+  padding: 10px 24px;
+  background: white;
+  color: #666;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-cancelar:hover {
+  background: #f5f5f5;
+  border-color: #ccc;
+}
+
+/* Animaciones */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(50px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideDown {
+  from {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+  20%, 40%, 60%, 80% { transform: translateX(5px); }
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .consulta-cuit-modal {
+    width: 95%;
+    max-height: 95vh;
+  }
+
+  .input-with-button {
+    flex-direction: column;
+  }
+
+  .btn-consultar {
+    width: 100%;
+  }
+
+  .dato-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .dato-item strong {
+    min-width: auto;
+    margin-bottom: 4px;
+  }
+
+  .dato-item span {
+    text-align: left;
+  }
+}

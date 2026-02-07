@@ -1,44 +1,59 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
   <head>
+    <!-- Charset y compatibilidad -->
     <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    
+    <!-- Viewport para responsive design -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, user-scalable=yes" />
+    
+    <!-- Color del tema para navegadores móviles -->
+    <meta name="theme-color" content="#2563eb" />
+    
+    <!-- Favicon -->
     <link rel="icon" href="%PUBLIC_URL%/car-icon.png?v=2" type="image/png" />
     <link rel="shortcut icon" href="%PUBLIC_URL%/car-icon.png?v=2" type="image/png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#000000" />
+    <link rel="apple-touch-icon" href="%PUBLIC_URL%/car-icon.png" />
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+    
+    <!-- SEO Meta Tags -->
     <meta
       name="description"
-      content="Sistema de gestión de estacionamiento inteligente - Control total de vehículos, pagos y accesos"
+      content="Sistema de gestión de estacionamiento inteligente - Control total de vehículos, pagos y accesos con facturación electrónica AFIP"
     />
-    <link rel="apple-touch-icon" href="%PUBLIC_URL%/car-icon.png" />
-    <!--
-      manifest.json provides metadata used when your web app is installed on a
-      user's mobile device or desktop. See https://developers.google.com/web/fundamentals/web-app-manifest/
-    -->
-    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
-    <!--
-      Notice the use of %PUBLIC_URL% in the tags above.
-      It will be replaced with the URL of the `public` folder during the build.
-      Only files inside the `public` folder can be referenced from the HTML.
-
-      Unlike "/favicon.ico" or "favicon.ico", "%PUBLIC_URL%/favicon.ico" will
-      work correctly both with client-side routing and a non-root public URL.
-      Learn how to configure a non-root public URL by running `npm run build`.
-    -->
+    <meta name="keywords" content="estacionamiento, parking, gestión, vehículos, AFIP, facturación" />
+    <meta name="author" content="EstacionGian" />
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="EstacionGian - Sistema de Estacionamiento" />
+    <meta property="og:description" content="Sistema de gestión de estacionamiento inteligente" />
+    <meta property="og:image" content="%PUBLIC_URL%/car-icon.png" />
+    
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="EstacionGian - Sistema de Estacionamiento" />
+    <meta name="twitter:description" content="Sistema de gestión de estacionamiento inteligente" />
+    
+    <!-- DNS Prefetch para mejor performance -->
+    <link rel="dns-prefetch" href="//fonts.googleapis.com" />
+    
     <title>EstacionGian - Sistema de Estacionamiento</title>
   </head>
   <body>
-    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <!-- Mensaje para navegadores sin JavaScript -->
+    <noscript>
+      <div style="padding: 20px; text-align: center; font-family: Arial, sans-serif;">
+        <h1>⚠️ JavaScript Requerido</h1>
+        <p>Esta aplicación requiere JavaScript para funcionar correctamente.</p>
+        <p>Por favor, habilita JavaScript en tu navegador e intenta nuevamente.</p>
+      </div>
+    </noscript>
+    
+    <!-- Root element para React -->
     <div id="root"></div>
-    <!--
-      This HTML file is a template.
-      If you open it directly in the browser, you will see an empty page.
-
-      You can add webfonts, meta tags, or analytics to this file.
-      The build step will place the bundled scripts into the <body> tag.
-
-      To begin the development, run `npm start` or `yarn start`.
-      To create a production bundle, use `npm run build` or `yarn build`.
-    -->
   </body>
 </html>

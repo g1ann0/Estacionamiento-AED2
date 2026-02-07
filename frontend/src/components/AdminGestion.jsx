@@ -8,11 +8,7 @@ import {
   obtenerTodosLosVehiculos,
   agregarVehiculo,
   modificarVehiculo,
-  eliminarVehiculo,
-  obtenerHistorialSaldos,
-  obtenerEstadisticasSaldos,
-  obtenerHistorialVehiculos,
-  obtenerEstadisticasVehiculos
+  eliminarVehiculo
 } from '../services/adminGestionService';
 import '../styles/admin.css';
 
@@ -22,8 +18,6 @@ const AdminGestion = () => {
   const [usuarios, setUsuarios] = useState([]);
   const [vehiculos, setVehiculos] = useState([]);
   const [tarifasDisponibles, setTarifasDisponibles] = useState([]);
-  const [historialSaldos, setHistorialSaldos] = useState([]);
-  const [estadisticasSaldos, setEstadisticasSaldos] = useState(null);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState('');
   const [mensaje, setMensaje] = useState('');

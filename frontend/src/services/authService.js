@@ -1,5 +1,5 @@
 // services/authService.js
-import CONFIG, { configManager } from '../config/config.js';
+import { configManager } from '../config/config.js';
 
 const API_BASE_URL = configManager.getApiUrl();
 

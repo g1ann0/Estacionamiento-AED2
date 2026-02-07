@@ -1,0 +1,135 @@
+# ========================================
+# Docker Compose - Sistema de Estacionamiento
+# ========================================
+# 
+# Servicios:
+# - MongoDB: Base de datos
+# - Backend: API REST
+# - Frontend: Aplicación React
+# 
+# Uso:
+#   Desarrollo:  docker-compose up
+#   Producción:  docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#   Detener:     docker-compose down
+#   Ver logs:    docker-compose logs -f [servicio]
+
+version: '3.8'
+
+services:
+  # ==========================================
+  # MongoDB - Base de Datos
+  # ==========================================
+  mongodb:
+    image: mongo:5.0
+    container_name: estacionamiento-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: admin123
+      MONGO_INITDB_DATABASE: estacionamiento_db
+    volumes:
+      # Persistencia de datos
+      - mongodb_data:/data/db
+      # Scripts de inicialización
+      - ./backend/scripts/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    networks:
+      - estacionamiento-network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongo localhost:27017/test --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==========================================
+  # Backend API
+  # ==========================================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: estacionamiento-backend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      # Node
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 3000
+      
+      # MongoDB
+      MONGODB_URI: mongodb://admin:admin123@mongodb:27017/estacionamiento_db?authSource=admin
+      
+      # JWT
+      JWT_SECRET: ${JWT_SECRET:-tu_secreto_super_seguro_cambiar_en_produccion}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-7d}
+      
+      # AFIP
+      AFIP_CUIT: ${AFIP_CUIT:-}
+      AFIP_PRODUCTION: ${AFIP_PRODUCTION:-false}
+      AFIP_CERT_PATH: ${AFIP_CERT_PATH:-}
+      AFIP_KEY_PATH: ${AFIP_KEY_PATH:-}
+      
+      # Logs
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      # Desarrollo: hot reload
+      - ./backend:/app
+      - /app/node_modules
+      # Certificados AFIP
+      - ./backend/certs:/app/certs:ro
+      # PDFs generados
+      - ./backend/facturas_pdf:/app/facturas_pdf
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - estacionamiento-network
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 40s
+
+  # ==========================================
+  # Frontend React
+  # ==========================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: estacionamiento-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    environment:
+      REACT_APP_API_URL: ${REACT_APP_API_URL:-http://localhost:3000/api}
+      REACT_APP_GA_TRACKING_ID: ${REACT_APP_GA_TRACKING_ID:-}
+    depends_on:
+      - backend
+    networks:
+      - estacionamiento-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+# ==========================================
+# Redes
+# ==========================================
+networks:
+  estacionamiento-network:
+    driver: bridge
+    name: estacionamiento-network
+
+# ==========================================
+# Volúmenes Persistentes
+# ==========================================
+volumes:
+  mongodb_data:
+    name: estacionamiento_mongodb_data
+    driver: local

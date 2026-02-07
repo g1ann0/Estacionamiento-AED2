@@ -136,6 +136,7 @@ function Historial() {
     };
 
     cargarDatos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [usuarioAuth, navigate, logout]);
 
   // Función para obtener la tarifa a mostrar
