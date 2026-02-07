@@ -4,7 +4,9 @@ const Vehiculo = require('../models/Vehiculo');
 const Transaccion = require('../models/Transaccion');
 const LogSaldo = require('../models/LogSaldo');
 const LogVehiculo = require('../models/LogVehiculo');
+const LogUsuario = require('../models/LogUsuario');
 const Estacionamiento = require('../models/Estacionamiento');
+const emailService = require('../services/emailService');
 
 // Obtener todos los comprobantes pendientes
 const obtenerComprobantesPendientes = async (req, res) => {
@@ -411,11 +413,19 @@ const modificarUsuario = async (req, res) => {
 const eliminarUsuario = async (req, res) => {
   try {
     const { dni } = req.params;
+    const { motivo } = req.body; // Motivo obligatorio
+    const adminData = req.usuario; // Datos del admin autenticado
+    const ipOrigen = req.ip || req.connection.remoteAddress;
+
+    // Validar que se proporcione un motivo
+    if (!motivo || motivo.trim() === '') {
+      return res.status(400).json({ mensaje: 'Debe proporcionar un motivo para la desactivación' });
+    }
 
     // Buscar el usuario
-    const usuario = await Usuario.findOne({ dni });
+    const usuario = await Usuario.findOne({ dni, activo: true });
     if (!usuario) {
-      return res.status(404).json({ mensaje: 'Usuario no encontrado' });
+      return res.status(404).json({ mensaje: 'Usuario no encontrado o ya está desactivado' });
     }
 
     // Verificar que no sea un admin
@@ -423,13 +433,8 @@ const eliminarUsuario = async (req, res) => {
       return res.status(400).json({ mensaje: 'No se puede desactivar un usuario administrador' });
     }
 
-    // Verificar si ya está desactivado
-    if (!usuario.activo) {
-      return res.status(400).json({ mensaje: 'El usuario ya está desactivado' });
-    }
-
     // Verificar si el usuario tiene vehículos con estacionamiento activo
-    const vehiculosUsuario = await Vehiculo.find({ usuario: usuario._id });
+    const vehiculosUsuario = await Vehiculo.find({ usuario: usuario._id, activo: true });
     
     if (vehiculosUsuario.length > 0) {
       const dominios = vehiculosUsuario.map(v => v.dominio);
@@ -449,7 +454,7 @@ const eliminarUsuario = async (req, res) => {
         );
         
         return res.status(400).json({ 
-          mensaje: 'No se puede eliminar el usuario porque tiene un vehículo con estacionamiento en curso',
+          mensaje: 'No se puede desactivar el usuario porque tiene un vehículo con estacionamiento en curso',
           vehiculo: vehiculoActivo ? vehiculoActivo.dominio : estacionamientoActivo.vehiculoDominio || estacionamientoActivo.dominio,
           estacionamiento: {
             horaIngreso: estacionamientoActivo.horaInicio || estacionamientoActivo.horaIngreso,
@@ -463,10 +468,16 @@ const eliminarUsuario = async (req, res) => {
     const timestamp = Date.now();
     const dniDesactivado = `${dni}_DESACTIVADO_${timestamp}`;
     const emailDesactivado = `${usuario.email}_DESACTIVADO_${timestamp}`;
+    
+    // Guardar datos originales para el log
+    const emailOriginal = usuario.email;
+    const saldoDisponible = usuario.montoDisponible || 0;
+    const dominiosVehiculos = vehiculosUsuario.map(v => v.dominio);
 
-    // Desactivar el usuario y limpiar datos sensibles
+    // Desactivar el usuario
     usuario.activo = false;
     usuario.fechaDesactivacion = new Date();
+    usuario.motivoDesactivacion = motivo.trim();
     usuario.dni = dniDesactivado;
     usuario.email = emailDesactivado;
     usuario.tokenVerificacion = null;
@@ -474,35 +485,141 @@ const eliminarUsuario = async (req, res) => {
     usuario.fechaTokenRecuperacion = null;
 
     await usuario.save();
+    
+    // Desactivar TODOS los vehículos del usuario
+    const resultadoVehiculos = await Vehiculo.updateMany(
+      { usuario: usuario._id },
+      { 
+        $set: { 
+          activo: false,
+          estActivo: false // También desactivar estado de estacionamiento
+        } 
+      }
+    );
+
+    console.log(`🚗 Vehículos desactivados: ${resultadoVehiculos.modifiedCount}`);
+
+    // Registrar en el log
+    const logUsuario = await LogUsuario.create({
+      usuario: {
+        id: usuario._id,
+        dni: dni,
+        nombre: usuario.nombre,
+        apellido: usuario.apellido,
+        email: emailOriginal
+      },
+      admin: {
+        id: adminData._id,
+        dni: adminData.dni,
+        nombre: adminData.nombre,
+        apellido: adminData.apellido,
+        email: adminData.email
+      },
+      accion: 'desactivacion',
+      motivo: motivo.trim(),
+      datosAdicionales: {
+        vehiculosAfectados: dominiosVehiculos,
+        saldoDisponible: saldoDisponible,
+        emailNotificado: emailOriginal,
+        sesionCerrada: true, // Indicar que la sesión fue cerrada
+        ipOrigen: ipOrigen
+      }
+    });
+
+    console.log(`📝 Log de desactivación creado: ${logUsuario._id}`);
+
+    // Enviar email de notificación
+    let emailEnviado = false;
+    try {
+      await emailService.enviarNotificacionDesactivacion({
+        email: emailOriginal,
+        nombre: usuario.nombre,
+        apellido: usuario.apellido,
+        dni: dni,
+        motivo: motivo.trim()
+      });
+      emailEnviado = true;
+      console.log(`✅ Email de desactivación enviado a: ${emailOriginal}`);
+    } catch (emailError) {
+      console.error('⚠️ Error al enviar email de desactivación:', emailError);
+      // No fallar la operación si el email falla
+    }
 
     res.json({ 
-      mensaje: 'Usuario desactivado correctamente. El DNI y email están disponibles para nuevos registros.',
-      dniOriginal: dni
+      mensaje: 'Usuario desactivado correctamente',
+      detalles: {
+        dniOriginal: dni,
+        vehiculosDesactivados: resultadoVehiculos.modifiedCount,
+        emailEnviado: emailEnviado,
+        emailDestino: emailOriginal,
+        motivo: motivo.trim(),
+        logId: logUsuario._id
+      }
     });
   } catch (error) {
-    console.error('Error al desactivar usuario:', error);
-    res.status(500).json({ mensaje: 'Error al desactivar usuario' });
+    console.error('❌ Error al desactivar usuario:', error);
+    res.status(500).json({ mensaje: 'Error al desactivar usuario', error: error.message });
   }
 };
 
-// Obtener usuarios desactivados
+// Obtener usuarios desactivados con detalles completos
 const obtenerUsuariosDesactivados = async (req, res) => {
   try {
     const usuarios = await Usuario.find({ activo: false })
-      .select('-password')  // Excluir contraseñas
-      .sort({ fechaDesactivacion: -1 }); // Ordenar por fecha de desactivación
+      .select('-password -tokenVerificacion -tokenRecuperacion')
+      .sort({ fechaDesactivacion: -1 });
 
-    res.json({ usuarios });
+    // Enriquecer con información adicional
+    const usuariosConDetalles = await Promise.all(usuarios.map(async (usuario) => {
+      // Extraer DNI original del campo dni
+      const dniMatch = usuario.dni.match(/^(\d+)_DESACTIVADO_/);
+      const dniOriginal = dniMatch ? dniMatch[1] : usuario.dni;
+
+      // Contar vehículos asociados
+      const cantidadVehiculos = await Vehiculo.countDocuments({ usuario: usuario._id });
+
+      // Buscar el último log de desactivación
+      const ultimoLog = await LogUsuario.findOne({
+        'usuario.id': usuario._id,
+        accion: 'desactivacion'
+      }).sort({ fecha: -1 });
+
+      return {
+        _id: usuario._id,
+        dniOriginal,
+        nombre: usuario.nombre,
+        apellido: usuario.apellido,
+        emailDesactivado: usuario.email,
+        fechaDesactivacion: usuario.fechaDesactivacion,
+        motivoDesactivacion: usuario.motivoDesactivacion,
+        montoDisponible: usuario.montoDisponible,
+        cantidadVehiculos,
+        ultimaDesactivacion: ultimoLog ? {
+          motivo: ultimoLog.motivo,
+          admin: `${ultimoLog.admin.nombre} ${ultimoLog.admin.apellido}`,
+          fecha: ultimoLog.fecha
+        } : null
+      };
+    }));
+
+    res.json({ usuarios: usuariosConDetalles });
   } catch (error) {
-    console.error('Error al obtener usuarios desactivados:', error);
-    res.status(500).json({ mensaje: 'Error al obtener usuarios desactivados' });
+    console.error('❌ Error al obtener usuarios desactivados:', error);
+    res.status(500).json({ mensaje: 'Error al obtener usuarios desactivados', error: error.message });
   }
 };
 
 // Reactivar usuario
 const reactivarUsuario = async (req, res) => {
   try {
-    const { dni, nuevoEmail } = req.body;
+    const { dni, nuevoEmail, motivo } = req.body;
+    const adminData = req.usuario; // Datos del admin autenticado
+    const ipOrigen = req.ip || req.connection.remoteAddress;
+
+    // Validar motivo
+    if (!motivo || motivo.trim() === '') {
+      return res.status(400).json({ mensaje: 'Debe proporcionar un motivo para la reactivación' });
+    }
 
     // Buscar el usuario desactivado por su DNI original
     const usuario = await Usuario.findOne({ 
@@ -534,29 +651,88 @@ const reactivarUsuario = async (req, res) => {
       return res.status(400).json({ mensaje: 'El DNI ya está en uso por otro usuario activo' });
     }
 
+    // Obtener vehículos antes de reactivar
+    const vehiculosUsuario = await Vehiculo.find({ usuario: usuario._id });
+    const dominiosVehiculos = vehiculosUsuario.map(v => v.dominio);
+
     // Reactivar el usuario
     usuario.activo = true;
     usuario.dni = dni; // Restaurar DNI original
     usuario.email = nuevoEmail; // Asignar nuevo email
     usuario.fechaDesactivacion = null;
+    usuario.motivoDesactivacion = null; // Limpiar motivo anterior
     usuario.verificado = false; // Requerir nueva verificación
     usuario.tokenVerificacion = null;
     usuario.password = null; // Requerir nueva contraseña
 
     await usuario.save();
+    
+    // Reactivar todos los vehículos del usuario
+    const resultadoVehiculos = await Vehiculo.updateMany(
+      { usuario: usuario._id },
+      { $set: { activo: true, estActivo: false } } // Reactivar pero sin estacionamiento activo
+    );
 
-    res.json({ 
-      mensaje: 'Usuario reactivado correctamente. Deberá completar el proceso de verificación nuevamente.',
+    console.log(`🚗 Vehículos reactivados: ${resultadoVehiculos.modifiedCount}`);
+
+    // Registrar en el log
+    const logUsuario = await LogUsuario.create({
       usuario: {
-        dni: usuario.dni,
+        id: usuario._id,
+        dni: dni,
         nombre: usuario.nombre,
         apellido: usuario.apellido,
-        email: usuario.email
+        email: nuevoEmail
+      },
+      admin: {
+        id: adminData._id,
+        dni: adminData.dni,
+        nombre: adminData.nombre,
+        apellido: adminData.apellido,
+        email: adminData.email
+      },
+      accion: 'reactivacion',
+      motivo: motivo.trim(),
+      datosAdicionales: {
+        vehiculosAfectados: dominiosVehiculos,
+        saldoDisponible: usuario.montoDisponible || 0,
+        emailNotificado: nuevoEmail,
+        sesionCerrada: false,
+        ipOrigen: ipOrigen
+      }
+    });
+
+    console.log(`📝 Log de reactivación creado: ${logUsuario._id}`);
+
+    // Enviar email de notificación
+    let emailEnviado = false;
+    try {
+      await emailService.enviarNotificacionActivacion({
+        email: nuevoEmail,
+        nombre: usuario.nombre,
+        apellido: usuario.apellido,
+        dni: dni
+      });
+      emailEnviado = true;
+      console.log(`✅ Email de reactivación enviado a: ${nuevoEmail}`);
+    } catch (emailError) {
+      console.error('⚠️ Error al enviar email de reactivación:', emailError);
+      // No fallar la operación si el email falla
+    }
+
+    res.json({ 
+      mensaje: 'Usuario reactivado correctamente',
+      detalles: {
+        dni: dni,
+        email: nuevoEmail,
+        vehiculosReactivados: resultadoVehiculos.modifiedCount,
+        emailEnviado: emailEnviado,
+        logId: logUsuario._id
       }
     });
   } catch (error) {
-    console.error('Error al reactivar usuario:', error);
-    res.status(500).json({ mensaje: 'Error al reactivar usuario' });
+    console.error('❌ Error al reactivar usuario:', error);
+    res.status(500).json({ mensaje: 'Error al reactivar usuario', error: error.message });
   }
 };
 
@@ -1505,6 +1681,26 @@ const obtenerEstadisticasTransacciones = async (req, res) => {
   }
 };
 
+// Obtener historial de activaciones/desactivaciones de un usuario
+const obtenerHistorialActivaciones = async (req, res) => {
+  try {
+    const { dni } = req.params;
+
+    // Buscar logs tanto con DNI normal como con DNI desactivado
+    const logs = await LogUsuario.find({
+      $or: [
+        { 'usuario.dni': dni },
+        { 'usuario.dni': { $regex: `^${dni}_DESACTIVADO_` } }
+      ]
+    }).sort({ fecha: -1 });
+
+    res.json({ historial: logs });
+  } catch (error) {
+    console.error('❌ Error al obtener historial de activaciones:', error);
+    res.status(500).json({ mensaje: 'Error al obtener historial', error: error.message });
+  }
+};
+
 module.exports = {
   obtenerComprobantesPendientes,
   obtenerTodosLosComprobantes,
@@ -1516,6 +1712,7 @@ module.exports = {
   eliminarUsuario,
   obtenerUsuariosDesactivados,
   reactivarUsuario,
+  obtenerHistorialActivaciones,
   agregarVehiculoAdmin,
   modificarVehiculoAdmin,
   eliminarVehiculoAdmin,

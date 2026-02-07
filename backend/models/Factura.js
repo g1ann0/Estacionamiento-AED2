@@ -339,6 +339,22 @@ const facturaSchema = new mongoose.Schema({
     notaCreditoNumero: String
   },
   
+  // Nota de crédito asociada (si esta factura fue anulada)
+  notaCreditoAsociada: {
+    nroComprobante: String,
+    cae: String,
+    fechaEmision: Date,
+    motivo: String
+  },
+  
+  // Factura anulada (si este es un comprobante de NC)
+  facturaAnulada: {
+    nroFactura: String,
+    cae: String,
+    fechaEmision: Date,
+    motivo: String
+  },
+  
   // ========== DATOS ADICIONALES ==========
   
   observaciones: String,

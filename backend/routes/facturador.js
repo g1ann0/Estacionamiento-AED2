@@ -13,7 +13,10 @@ const {
   generarFactura,
   obtenerFacturas,
   generarPDFFactura,
-  obtenerFacturaCompleta
+  obtenerFacturaCompleta,
+  obtenerFacturasAnulables,
+  obtenerHistorialCompleto,
+  generarNotaCredito
 } = require('../controllers/facturadorController');
 
 // Middleware de autenticación para todas las rutas
@@ -28,13 +31,25 @@ router.post('/validar-cuit', validarCUITConAFIP);
 // Generar factura (admin elige tipo A o B)
 router.post('/generar-factura', generarFactura);
 
+// Generar nota de crédito para anular factura
+router.post('/generar-nota-credito', generarNotaCredito);
+
 // Obtener facturas generadas con filtros
 router.get('/facturas', obtenerFacturas);
+
+// Obtener facturas anulables (últimos 15 días)
+router.get('/facturas-anulables', obtenerFacturasAnulables);
+
+// Obtener historial completo (facturas y notas de crédito)
+router.get('/historial-completo', obtenerHistorialCompleto);
 
 // Obtener factura completa con comprobante asociado
 router.get('/facturas/:nroFactura/completa', obtenerFacturaCompleta);
 
-// Generar PDF de factura
+// Generar PDF de factura o nota de crédito
 router.get('/facturas/:nroFactura/pdf', generarPDFFactura);
+
+// Alias para notas de crédito (usa el mismo endpoint)
+router.get('/notas-credito/:nroFactura/pdf', generarPDFFactura);
 
 module.exports = router;

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -8,7 +9,11 @@ import {
   obtenerTodosLosVehiculos,
   agregarVehiculo,
   modificarVehiculo,
-  eliminarVehiculo
+  eliminarVehiculo,
+  obtenerHistorialSaldos,
+  obtenerEstadisticasSaldos,
+  obtenerHistorialVehiculos,
+  obtenerEstadisticasVehiculos
 } from '../services/adminGestionService';
 import '../styles/admin.css';
 
@@ -18,6 +23,8 @@ const AdminGestion = () => {
   const [usuarios, setUsuarios] = useState([]);
   const [vehiculos, setVehiculos] = useState([]);
   const [tarifasDisponibles, setTarifasDisponibles] = useState([]);
+  const [historialSaldos, setHistorialSaldos] = useState([]);
+  const [estadisticasSaldos, setEstadisticasSaldos] = useState(null);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState('');
   const [mensaje, setMensaje] = useState('');

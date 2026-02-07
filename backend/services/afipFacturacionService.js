@@ -290,10 +290,10 @@ class AfipFacturacionService {
       };
 
       // Agregar IVA según tipo de comprobante
-      // Factura A (1): discrimina IVA - alícuota 21%
-      // Factura B (6): IVA incluido - alícuota 0%
-      if (tipoComprobante === 1 && datosFactura.montoIVA > 0) {
-        // Factura A - IVA discriminado
+      // Factura A (1) / NC A (3): discrimina IVA - alícuota 21%
+      // Factura B (6) / NC B (8): IVA incluido - alícuota 0%
+      if ([1, 3].includes(tipoComprobante) && datosFactura.montoIVA > 0) {
+        // Factura A / NC A - IVA discriminado
         datosComprobanteAFIP.Iva = [
           {
             'Id': 5, // 21% - Alícuota general
@@ -301,8 +301,8 @@ class AfipFacturacionService {
             'Importe': parseFloat(datosFactura.montoIVA).toFixed(2)
           }
         ];
-      } else if (tipoComprobante === 6) {
-        // Factura B - IVA incluido en el precio
+      } else if ([6, 8].includes(tipoComprobante)) {
+        // Factura B / NC B - IVA incluido en el precio
         datosComprobanteAFIP.Iva = [
           {
             'Id': 3, // 0% - IVA no discriminado
@@ -325,6 +325,19 @@ class AfipFacturacionService {
         datosComprobanteAFIP.FchVtoPago = datosFactura.fechaVencimientoPago
           ? this.formatearFechaAFIP(new Date(datosFactura.fechaVencimientoPago))
           : fechaEmisionFactura;
+      }
+
+      // Si es Nota de Crédito/Débito, agregar comprobante asociado (OBLIGATORIO)
+      // Tipos: 2-3 (ND A/NC A), 7-8 (ND B/NC B), 12-13 (ND C/NC C)
+      const esNotaCredito = [3, 8, 13].includes(tipoComprobante);
+      const esNotaDebito = [2, 7, 12].includes(tipoComprobante);
+      
+      if ((esNotaCredito || esNotaDebito) && datosFactura.comprobantesAsociados) {
+        datosComprobanteAFIP.CbtesAsoc = datosFactura.comprobantesAsociados.map(comp => ({
+          'Tipo': comp.tipo,
+          'PtoVta': comp.puntoVenta,
+          'Nro': comp.numero
+        }));
       }
 
       // Solicitar CAE a AFIP

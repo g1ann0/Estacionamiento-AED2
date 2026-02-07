@@ -43,11 +43,6 @@ function AdminDashboard() {
       
       if (res.ok) {
         const data = await res.json();
-        console.log('📄 Comprobantes pendientes recibidos:', data.comprobantes);
-        if (data.comprobantes && data.comprobantes.length > 0) {
-          console.log('🔍 Primer comprobante pendiente:', data.comprobantes[0]);
-          console.log('🔍 Campo facturado:', data.comprobantes[0].facturado);
-        }
         setComprobantes(data.comprobantes || []);
       } else {
         throw new Error('Error al cargar comprobantes');
@@ -269,21 +264,7 @@ function AdminDashboard() {
             )
             .map(comprobante => (
               <div key={comprobante.nroComprobante} className="comprobante-card">
-                <div className="comprobante-header">
-                  <h4>Comprobante #{comprobante.nroComprobante}</h4>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <span className={`estado-badge estado-${comprobante.estado}`}>
-                      {comprobante.estado === 'pendiente' && '⏳ Pendiente'}
-                      {comprobante.estado === 'aprobado' && '✅ Aprobado'}
-                      {comprobante.estado === 'rechazado' && '❌ Rechazado'}
-                    </span>
-                    {comprobante.facturado && (
-                      <span className="facturado-badge" title="Este comprobante ya fue facturado">
-                        📄 Facturado
-                      </span>
-                    )}
-                  </div>
-                </div>
+                <h4>Comprobante #{comprobante.nroComprobante}</h4>
                 <div className="info-row">
                   <strong>Usuario:</strong> {comprobante.usuario.nombre} {comprobante.usuario.apellido}
                 </div>
@@ -292,9 +273,6 @@ function AdminDashboard() {
                 </div>
                 <div className="info-row">
                   <strong>Monto:</strong> ${comprobante.montoAcreditado}
-                </div>
-                <div className="info-row">
-                  <strong>Facturado:</strong> {comprobante.facturado ? 'Sí' : 'No'}
                 </div>
                 <div className="info-row">
                   <strong>Fecha:</strong> {new Date(comprobante.fecha).toLocaleString()}
@@ -947,26 +925,7 @@ function AdminDashboard() {
                 setFiltro('');
               }}
             >
-              📄 Todas las Facturas
-            </button>
-            <button 
-              className="button button-secondary"
-              onClick={() => navigate('/admin/facturador')}
-              style={{ background: '#4caf50', color: 'white', border: 'none' }}
-            >
-              📄 Facturador AFIP
-            </button>
-            <button 
-              className={`button ${vistaActual === 'precios' ? 'button-primary' : 'button-secondary'}`}
-              onClick={() => {
-                setVistaActual('precios');
-                setFiltro('');
-                cargarPrecios();
-                cargarHistorialPrecios();
-                cargarEstadisticasPrecios();
-              }}
-            >
-              Gestión de Precios
+              Gestión de Facturas
             </button>
           </div>
         </div>

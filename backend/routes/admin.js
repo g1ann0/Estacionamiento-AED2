@@ -9,6 +9,7 @@ const {
   obtenerTodosLosUsuarios,
   obtenerUsuariosDesactivados,
   reactivarUsuario,
+  obtenerHistorialActivaciones,
   obtenerTodosLosVehiculos,
   modificarUsuario,
   eliminarUsuario,
@@ -33,6 +34,7 @@ router.put('/comprobantes/:nroComprobante/rechazar', authMiddleware, rechazarCom
 // Rutas para gestión de usuarios
 router.get('/usuarios', authMiddleware, obtenerTodosLosUsuarios);
 router.get('/usuarios/desactivados', authMiddleware, obtenerUsuariosDesactivados);
+router.get('/usuarios/:dni/historial-activaciones', authMiddleware, obtenerHistorialActivaciones);
 router.post('/usuarios/reactivar', authMiddleware, reactivarUsuario);
 router.put('/usuarios/:dni', authMiddleware, modificarUsuario);
 router.delete('/usuarios/:dni', authMiddleware, eliminarUsuario);

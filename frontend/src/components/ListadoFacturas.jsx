@@ -50,6 +50,7 @@ const ListadoFacturas = ({ onMensaje }) => {
 
   useEffect(() => {
     cargarFacturas();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtros.pagina, filtros.limite]);
 
   // Descargar PDF

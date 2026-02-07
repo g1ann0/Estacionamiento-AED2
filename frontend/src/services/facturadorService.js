@@ -144,5 +144,111 @@ export const facturadorService = {
       console.error('Error en descargarFacturaPDF:', error);
       throw error;
     }
+  },
+
+  /**
+   * Obtener facturas anulables (últimos 15 días)
+   */
+  obtenerFacturasAnulables: async (token) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/facturador/facturas-anulables`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.mensaje || 'Error al obtener facturas anulables');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error en obtenerFacturasAnulables:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Generar nota de crédito (anular factura)
+   */
+  generarNotaCredito: async (datos, token) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/facturador/generar-nota-credito`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(datos)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.mensaje || 'Error al generar nota de crédito');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error en generarNotaCredito:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Descargar PDF de una nota de crédito
+   */
+  descargarNotaCreditoPDF: async (nroComprobante) => {
+    try {
+      const token = localStorage.getItem('token');
+      
+      const response = await fetch(
+        `${API_BASE_URL}/facturador/notas-credito/${nroComprobante}/pdf`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.mensaje || 'Error al descargar PDF');
+      }
+
+      const blob = await response.blob();
+      return { data: blob };
+    } catch (error) {
+      console.error('Error en descargarNotaCreditoPDF:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Obtener historial completo (facturas y notas de crédito)
+   */
+  obtenerHistorialCompleto: async (token) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/facturador/historial-completo`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.mensaje || 'Error al obtener historial');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error en obtenerHistorialCompleto:', error);
+      throw error;
+    }
   }
 };

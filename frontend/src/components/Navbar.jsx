@@ -119,6 +119,14 @@ function Navbar() {
                   <div className="menu-divider"></div>
                   
                   <button
+                    onClick={() => navegarA('/admin/precios')}
+                    className="menu-item"
+                  >
+                    <span className="menu-icon">💰</span>
+                    <span>Gestión de Precios</span>
+                  </button>
+                  
+                  <button
                     onClick={() => navegarA('/admin/configuracion')}
                     className="menu-item"
                   >

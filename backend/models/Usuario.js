@@ -28,6 +28,7 @@ const UsuarioSchema = new mongoose.Schema({
   montoDisponible: { type: Number, default: 0 },
   fechaRegistro: { type: Date, default: Date.now },
   fechaDesactivacion: { type: Date }, // Fecha cuando se desactivó el usuario
+  motivoDesactivacion: { type: String }, // Motivo por el cual se desactivó
   vehiculos: [{
     dominio: { type: String, required: true },
     tipo: { type: String, enum: ['auto', 'moto'], required: true },

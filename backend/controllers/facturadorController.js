@@ -466,34 +466,38 @@ const generarPDFFactura = async (req, res, next) => {
   try {
     const { nroFactura } = req.params;
 
-    console.log(`\n📄 [PDF] Generando PDF para factura: ${nroFactura}`);
+    console.log(`\n📄 [PDF] Generando PDF para comprobante: ${nroFactura}`);
 
-    // Buscar la factura
+    // Buscar la factura o nota de crédito
     const factura = await Factura.findOne({ nroFactura });
 
     if (!factura) {
       return res.status(404).json({
         success: false,
-        mensaje: 'Factura no encontrada'
+        mensaje: 'Comprobante no encontrado'
       });
     }
 
-    // Determinar tipo de factura (A, B, C)
+    // Determinar tipo de comprobante (A, B, C) y si es NC
     let tipoFactura = 'B'; // Por defecto
-    if (factura.tipoComprobanteDescripcion.includes('Factura A')) {
+    const esNotaCredito = factura.tipoComprobanteDescripcion.includes('Nota de Crédito') || 
+                          factura.tipoComprobanteDescripcion.includes('NC');
+    
+    if (factura.tipoComprobanteDescripcion.includes('A')) {
       tipoFactura = 'A';
-    } else if (factura.tipoComprobanteDescripcion.includes('Factura C')) {
+    } else if (factura.tipoComprobanteDescripcion.includes('C')) {
       tipoFactura = 'C';
     }
 
-    console.log(`📋 [PDF] Tipo de factura: ${tipoFactura}`);
+    console.log(`📋 [PDF] Tipo de comprobante: ${esNotaCredito ? 'NC' : 'Factura'} ${tipoFactura}`);
 
-    // Generar el PDF
+    // Generar el PDF (mismo template para factura y NC)
     const pdfStream = facturaPDFService.generarPDF(factura, tipoFactura);
 
     // Configurar headers de respuesta
+    const nombreArchivo = esNotaCredito ? `NC_${nroFactura}.pdf` : `Factura_${nroFactura}.pdf`;
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `inline; filename="Factura_${nroFactura}.pdf"`);
+    res.setHeader('Content-Disposition', `inline; filename="${nombreArchivo}"`);
 
     // Enviar el stream del PDF
     pdfStream.pipe(res);
@@ -501,7 +505,7 @@ const generarPDFFactura = async (req, res, next) => {
     console.log(`✅ [PDF] PDF generado y enviado exitosamente\n`);
 
   } catch (error) {
-    console.error('❌ Error al generar PDF de factura:', error);
+    console.error('❌ Error al generar PDF:', error);
     next(error);
   }
 };
@@ -547,11 +551,271 @@ const obtenerFacturaCompleta = async (req, res, next) => {
   }
 };
 
+/**
+ * Obtener facturas anulables (últimos 15 días)
+ * @route GET /api/facturador/facturas-anulables
+ * @access Private (Admin)
+ */
+const obtenerFacturasAnulables = async (req, res, next) => {
+  try {
+    console.log('\n🔍 [FACTURADOR] Obteniendo facturas anulables');
+    
+    // Calcular fecha hace 15 días
+    const hace15Dias = new Date();
+    hace15Dias.setDate(hace15Dias.getDate() - 15);
+    
+    console.log('📅 Fecha límite (15 días atrás):', hace15Dias.toISOString());
+    
+    // Buscar facturas emitidas en los últimos 15 días que no estén anuladas
+    const facturas = await Factura.find({
+      fechaEmision: { $gte: hace15Dias },
+      estado: { $ne: 'anulada' }
+    }).sort({ fechaEmision: -1 });
+    
+    console.log(`✅ Facturas anulables encontradas: ${facturas.length}`);
+    
+    if (facturas.length > 0) {
+      console.log('📄 Primeras facturas:');
+      facturas.slice(0, 3).forEach(f => {
+        const diasTranscurridos = Math.floor((new Date() - new Date(f.fechaEmision)) / (1000 * 60 * 60 * 24));
+        console.log(`   - ${f.nroFactura} | ${f.cliente.razonSocial || f.cliente.nombre} | $${f.importeTotal} | ${diasTranscurridos} días`);
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      count: facturas.length,
+      facturas
+    });
+    
+  } catch (error) {
+    console.error('❌ Error al obtener facturas anulables:', error);
+    next(error);
+  }
+};
+
+/**
+ * Obtener historial completo (facturas y notas de crédito)
+ * @route GET /api/facturador/historial-completo
+ * @access Private (Admin)
+ */
+const obtenerHistorialCompleto = async (req, res, next) => {
+  try {
+    console.log('\n🔍 [FACTURADOR] Obteniendo historial completo');
+    
+    // Por ahora solo obtener facturas (las notas de crédito se implementarán después)
+    const facturas = await Factura.find().sort({ fechaEmision: -1 });
+    
+    const facturasConTipo = facturas.map(f => ({
+      ...f.toObject(),
+      tipo: 'factura',
+      tipoComprobante: f.tipoComprobante
+    }));
+    
+    console.log(`✅ Total comprobantes en historial: ${facturasConTipo.length}`);
+    
+    res.status(200).json({
+      success: true,
+      count: facturasConTipo.length,
+      historial: facturasConTipo
+    });
+    
+  } catch (error) {
+    console.error('❌ Error al obtener historial completo:', error);
+    next(error);
+  }
+};
+
+/**
+ * Generar Nota de Crédito para anular una factura
+ * @route POST /api/facturador/generar-nota-credito
+ * @access Private (Admin)
+ */
+const generarNotaCredito = async (req, res, next) => {
+  try {
+    const { nroFactura, motivo } = req.body;
+    const { dni: adminDni, nombre: adminNombre, apellido: adminApellido } = req.usuario;
+
+    console.log(`📝 Generando Nota de Crédito para factura ${nroFactura}...`);
+
+    // Validación de datos
+    if (!nroFactura || !motivo) {
+      return next(new ErrorResponse('Número de factura y motivo son requeridos', 400));
+    }
+
+    // Buscar factura original
+    const facturaOriginal = await Factura.findOne({ nroFactura });
+    if (!facturaOriginal) {
+      return next(new ErrorResponse('Factura no encontrada', 404));
+    }
+
+    // Validar que no esté ya anulada
+    if (facturaOriginal.estado === 'anulada') {
+      return next(new ErrorResponse('La factura ya está anulada', 400));
+    }
+
+    // Validar límite de 15 días (ARCA)
+    const fechaEmision = new Date(facturaOriginal.fechaEmision);
+    const fechaActual = new Date();
+    const diasTranscurridos = Math.floor((fechaActual - fechaEmision) / (1000 * 60 * 60 * 24));
+
+    if (diasTranscurridos > 15) {
+      return next(new ErrorResponse(
+        `No se puede anular. Han transcurrido ${diasTranscurridos} días. Límite ARCA: 15 días`, 
+        400
+      ));
+    }
+
+    console.log(`✅ Factura válida para anular (${diasTranscurridos} días desde emisión)`);
+
+    // Obtener configuración de empresa
+    const configEmpresa = await ConfiguracionEmpresa.findOne();
+    if (!configEmpresa) {
+      return next(new ErrorResponse('Configuración de empresa no encontrada', 500));
+    }
+
+    // Determinar tipo de NC según tipo de factura original
+    let tipoComprobanteNC;
+    let tipoComprobanteDescripcion;
+    
+    if (facturaOriginal.tipoComprobante === 1) {
+      // Factura A → NC A
+      tipoComprobanteNC = 3;
+      tipoComprobanteDescripcion = 'Nota de Crédito A';
+    } else if (facturaOriginal.tipoComprobante === 6) {
+      // Factura B → NC B
+      tipoComprobanteNC = 8;
+      tipoComprobanteDescripcion = 'Nota de Crédito B';
+    } else {
+      return next(new ErrorResponse('Tipo de factura no soportado para NC', 400));
+    }
+
+    // Preparar datos para AFIP (similar a factura pero como NC)
+    const datosNCAfip = {
+      puntoVenta: facturaOriginal.puntoVenta,
+      tipoComprobante: tipoComprobanteNC,
+      concepto: 2, // Servicios
+      cliente: {
+        tipoDocumento: facturaOriginal.cliente.tipoDocumento,
+        numeroDocumento: facturaOriginal.cliente.numeroDocumento,
+        nombre: facturaOriginal.cliente.nombre,
+        apellido: facturaOriginal.cliente.apellido,
+        condicionIVA: facturaOriginal.cliente.condicionIva,
+        email: facturaOriginal.cliente.email
+      },
+      items: facturaOriginal.items,
+      montoTotal: facturaOriginal.importeTotal,
+      montoNeto: facturaOriginal.importeNeto,
+      montoIVA: facturaOriginal.importeIVA,
+      fechaServicioDesde: facturaOriginal.comprobanteRelacionado?.fecha || facturaOriginal.fechaEmision,
+      fechaServicioHasta: facturaOriginal.comprobanteRelacionado?.fecha || facturaOriginal.fechaEmision,
+      // Asociar con factura original
+      comprobantesAsociados: [{
+        tipo: facturaOriginal.tipoComprobante,
+        puntoVenta: facturaOriginal.puntoVenta,
+        numero: facturaOriginal.numeroComprobante,
+        cuit: facturaOriginal.cliente.numeroDocumento
+      }]
+    };
+
+    // Generar NC en AFIP
+    console.log(`📤 Generando ${tipoComprobanteDescripcion} en AFIP...`);
+    const respuestaAFIP = await afipFacturacionService.crearFacturaElectronica(datosNCAfip);
+    console.log(`✅ CAE recibido para NC: ${respuestaAFIP.CAE}`);
+
+    // Normalizar condición IVA del emisor
+    let condicionIvaEmisor = configEmpresa.condicionIva || 'Responsable Inscripto';
+    condicionIvaEmisor = condicionIvaEmisor.replace(/^IVA\s+/i, '');
+
+    // Crear NC en base de datos (usando el mismo modelo Factura)
+    const notaCredito = await Factura.create({
+      cae: respuestaAFIP.CAE,
+      caeFechaVencimiento: respuestaAFIP.CAEFchVto,
+      puntoVenta: facturaOriginal.puntoVenta,
+      tipoComprobante: tipoComprobanteNC,
+      tipoComprobanteDescripcion: tipoComprobanteDescripcion,
+      numeroComprobante: respuestaAFIP.CbteDesde,
+      nroFactura: `NC-${String(facturaOriginal.puntoVenta).padStart(5, '0')}-${String(respuestaAFIP.CbteDesde).padStart(8, '0')}`,
+      concepto: 2,
+      emisor: {
+        razonSocial: configEmpresa.razonSocial,
+        cuit: configEmpresa.cuit,
+        domicilio: {
+          calle: configEmpresa.domicilio.calle,
+          numero: configEmpresa.domicilio.numero,
+          piso: configEmpresa.domicilio.piso,
+          departamento: configEmpresa.domicilio.departamento,
+          localidad: configEmpresa.domicilio.localidad,
+          provincia: configEmpresa.domicilio.provincia,
+          codigoPostal: configEmpresa.domicilio.codigoPostal,
+          domicilioCompleto: configEmpresa.getDomicilioCompleto()
+        },
+        condicionIva: condicionIvaEmisor
+      },
+      cliente: facturaOriginal.cliente,
+      items: facturaOriginal.items.map(item => ({
+        ...item,
+        descripcion: `ANULACIÓN - ${item.descripcion}`
+      })),
+      importeNeto: facturaOriginal.importeNeto,
+      importeIVA: facturaOriginal.importeIVA,
+      importeTotal: facturaOriginal.importeTotal,
+      observaciones: `Nota de Crédito - Motivo: ${motivo} - Anula factura ${facturaOriginal.nroFactura}`,
+      estado: 'emitida',
+      comprobanteRelacionado: facturaOriginal.comprobanteRelacionado,
+      facturaAnulada: {
+        nroFactura: facturaOriginal.nroFactura,
+        cae: facturaOriginal.cae,
+        fechaEmision: facturaOriginal.fechaEmision,
+        motivo: motivo
+      },
+      generadaPor: {
+        dni: adminDni,
+        nombre: adminNombre,
+        apellido: adminApellido,
+        rol: 'admin'
+      }
+    });
+
+    // Marcar factura original como anulada
+    facturaOriginal.estado = 'anulada';
+    facturaOriginal.notaCreditoAsociada = {
+      nroComprobante: notaCredito.nroFactura,
+      cae: notaCredito.cae,
+      fechaEmision: notaCredito.fechaEmision,
+      motivo: motivo
+    };
+    await facturaOriginal.save();
+
+    console.log(`✅ Factura ${facturaOriginal.nroFactura} anulada correctamente`);
+
+    res.status(200).json({
+      success: true,
+      mensaje: `${tipoComprobanteDescripcion} generada exitosamente`,
+      notaCredito: {
+        nroComprobante: notaCredito.nroFactura,
+        cae: notaCredito.cae,
+        tipoComprobante: tipoComprobanteDescripcion,
+        importeTotal: notaCredito.importeTotal,
+        facturaAnulada: facturaOriginal.nroFactura,
+        motivo: motivo
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error al generar nota de crédito:', error);
+    next(error);
+  }
+};
+
 module.exports = {
   obtenerComprobantesAprobados,
   validarCUITConAFIP,
   generarFactura,
   obtenerFacturas,
   generarPDFFactura,
-  obtenerFacturaCompleta
+  obtenerFacturaCompleta,
+  obtenerFacturasAnulables,
+  obtenerHistorialCompleto,
+  generarNotaCredito
 };

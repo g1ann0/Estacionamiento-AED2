@@ -12,7 +12,8 @@ import AdminGestion from './components/AdminGestion';
 import ControlTransacciones from './components/ControlTransacciones';
 import ListadosAdmin from './components/ListadosAdmin';
 import ConfiguracionEmpresa from './components/ConfiguracionEmpresa';
-import FacturadorElectronico from './components/FacturadorElectronico';
+import FacturadorElectronicoNuevo from './components/FacturadorElectronicoNuevo';
+import GestionPrecios from './components/GestionPrecios';
 import Navbar from './components/Navbar';
 import SetearPassword from './components/SetearPassword';
 import OlvidePassword from './components/OlvidePassword';
@@ -45,6 +46,7 @@ const PageTracker = () => {
       '/admin/listados': 'Listados y Reportes',
       '/admin/configuracion-empresa': 'Configuración de Empresa',
       '/admin/facturador': 'Facturador Electrónico',
+      '/admin/precios': 'Gestión de Precios',
       '/admin/facturas': 'Facturas Electrónicas',
       '/perfil': 'Mi Perfil',
       '/historial': 'Historial',
@@ -185,7 +187,19 @@ const FacturadorElectronicoPage = () => {
             </button>
           </div>
         )}
-        <FacturadorElectronico onMensaje={setMensaje} />
+        <FacturadorElectronicoNuevo onMensaje={setMensaje} />
+      </div>
+    </div>
+  );
+};
+
+// Componente wrapper para la gestión de precios
+const GestionPreciosPage = () => {
+  return (
+    <div>
+      <Navbar />
+      <div className="container">
+        <GestionPrecios />
       </div>
     </div>
   );
@@ -292,6 +306,12 @@ function App() {
               <Route path="/admin/facturador" element={
                 <PrivateRoute requiredRole="admin">
                   <FacturadorElectronicoPage />
+                </PrivateRoute>
+              } />
+
+              <Route path="/admin/precios" element={
+                <PrivateRoute requiredRole="admin">
+                  <GestionPreciosPage />
                 </PrivateRoute>
               } />
 
