@@ -98,21 +98,32 @@ function SetearPassword() {
         
         // Redirigir al login después de 5 segundos
         setTimeout(() => {
-          navigate('/login');
-        }, 5000);
-      } else {
+          let count = 5;
+          const interval = setInterval(() => {
+            setMensaje({ 
+              type: 'success', 
+              text: `Redirigiendo en ${count}...`
+            });
+            count--;
+            if (count < 0) {
+              clearInterval(interval);
+              navigate('/login');
+            }
+          }, 1000);
+        }, 500);
+            } else {
         throw new Error(data.mensaje || 'Error al establecer la contraseña');
-      }
-    } catch (error) {
-      console.error('Error al establecer contraseña:', error);
-      setMensaje({ 
+            }
+          } catch (error) {
+            console.error('Error al establecer contraseña:', error);
+            setMensaje({ 
         type: 'error', 
         text: error.message || 'Error al establecer la contraseña. Por favor, intente nuevamente.'
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+            });
+          } finally {
+            setLoading(false);
+          }
+        };
 
 
 
