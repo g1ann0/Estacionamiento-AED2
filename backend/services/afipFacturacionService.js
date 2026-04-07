@@ -267,26 +267,27 @@ class AfipFacturacionService {
       console.log(`📊 Último número: ${ultimoNumero}, Próximo a usar: ${numeroComprobante}`);
 
       // Estructura de datos según especificación AFIP WSFEv1
+      // IMPORTANTE: Los campos numéricos deben ser números, no strings
       const datosComprobanteAFIP = {
         'CantReg': 1, // Cantidad de comprobantes (siempre 1 para registro individual)
-        'PtoVta': puntoVenta,
-        'CbteTipo': tipoComprobante,
-        'Concepto': datosFactura.concepto || 2, // Default: Servicios (estacionamiento)
-        'DocTipo': datosFactura.cliente.tipoDocumento || 96, // Default: DNI
+        'PtoVta': parseInt(puntoVenta, 10),
+        'CbteTipo': parseInt(tipoComprobante, 10),
+        'Concepto': parseInt(datosFactura.concepto || 2, 10), // Default: Servicios (estacionamiento)
+        'DocTipo': parseInt(datosFactura.cliente.tipoDocumento || 96, 10), // Default: DNI
         'DocNro': this.limpiarNumeroDocumento(datosFactura.cliente.numeroDocumento),
-        'CbteDesde': numeroComprobante,
-        'CbteHasta': numeroComprobante,
+        'CbteDesde': parseInt(numeroComprobante, 10),
+        'CbteHasta': parseInt(numeroComprobante, 10),
         'CbteFch': fechaEmisionFactura, // SIEMPRE la fecha de HOY
-        'ImpTotal': parseFloat(datosFactura.montoTotal).toFixed(2),
+        'ImpTotal': parseFloat(parseFloat(datosFactura.montoTotal).toFixed(2)),
         'ImpTotConc': 0, // Importe neto no gravado
-        'ImpNeto': parseFloat(datosFactura.montoNeto).toFixed(2),
+        'ImpNeto': parseFloat(parseFloat(datosFactura.montoNeto).toFixed(2)),
         'ImpOpEx': 0, // Importe exento
-        'ImpIVA': parseFloat(datosFactura.montoIVA || 0).toFixed(2),
+        'ImpIVA': parseFloat(parseFloat(datosFactura.montoIVA || 0).toFixed(2)),
         'ImpTrib': 0, // Otros tributos
         'MonId': 'PES', // Moneda: Pesos
         'MonCotiz': 1, // Cotización moneda
         // OBLIGATORIO según RG 5616/2024: Condición IVA del receptor
-        'CondicionIVAReceptorId': this.mapearCondicionIVAAFIP(datosFactura.cliente.condicionIVA || 'Consumidor Final')
+        'CondicionIVAReceptorId': parseInt(this.mapearCondicionIVAAFIP(datosFactura.cliente.condicionIVA || 'Consumidor Final'), 10)
       };
 
       // Agregar IVA según tipo de comprobante
@@ -297,8 +298,8 @@ class AfipFacturacionService {
         datosComprobanteAFIP.Iva = [
           {
             'Id': 5, // 21% - Alícuota general
-            'BaseImp': parseFloat(datosFactura.montoNeto).toFixed(2),
-            'Importe': parseFloat(datosFactura.montoIVA).toFixed(2)
+            'BaseImp': parseFloat(parseFloat(datosFactura.montoNeto).toFixed(2)),
+            'Importe': parseFloat(parseFloat(datosFactura.montoIVA).toFixed(2))
           }
         ];
       } else if ([6, 8].includes(tipoComprobante)) {
@@ -306,7 +307,7 @@ class AfipFacturacionService {
         datosComprobanteAFIP.Iva = [
           {
             'Id': 3, // 0% - IVA no discriminado
-            'BaseImp': parseFloat(datosFactura.montoNeto).toFixed(2),
+            'BaseImp': parseFloat(parseFloat(datosFactura.montoNeto).toFixed(2)),
             'Importe': 0.00
           }
         ];
@@ -334,9 +335,9 @@ class AfipFacturacionService {
       
       if ((esNotaCredito || esNotaDebito) && datosFactura.comprobantesAsociados) {
         datosComprobanteAFIP.CbtesAsoc = datosFactura.comprobantesAsociados.map(comp => ({
-          'Tipo': comp.tipo,
-          'PtoVta': comp.puntoVenta,
-          'Nro': comp.numero
+          'Tipo': parseInt(comp.tipo, 10),
+          'PtoVta': parseInt(comp.puntoVenta, 10),
+          'Nro': parseInt(comp.numero, 10)
         }));
       }
 
@@ -451,9 +452,11 @@ class AfipFacturacionService {
 
   /**
    * Limpia número de documento (remueve guiones y espacios)
+   * IMPORTANTE: Devuelve un número entero para cumplir con AFIP
    */
   limpiarNumeroDocumento(numero) {
-    return numero.toString().replace(/[-\s]/g, '');
+    const numeroLimpio = numero.toString().replace(/[-\s]/g, '');
+    return parseInt(numeroLimpio, 10);
   }
 
   /**
