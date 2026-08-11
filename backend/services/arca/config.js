@@ -35,10 +35,19 @@ const leerConfig = () => {
     // ARCA entrega el certificado como `.crt` en PEM, y la clave privada es la que se generó
     // junto al CSR. Ese par es el camino directo. El `.p12` —un contenedor de esos mismos dos
     // archivos— se acepta porque es lo que usa CGAS, pero no hace falta convertir nada.
+    //
+    // El certificado por defecto lleva el ambiente en el nombre: `arca-homologacion.crt` y
+    // `arca-produccion.crt` conviven, y cambiar ARCA_AMBIENTE cambia el certificado con él.
+    // Un solo archivo `arca.crt` para los dos ambientes es la forma de terminar emitiendo
+    // comprobantes fiscales reales creyendo que se estaba probando.
+    //
+    // La CLAVE PRIVADA sí es una sola: los dos certificados salen del mismo CSR.
     certificadoPath: process.env.ARCA_CERT_PATH
       ? path.resolve(process.env.ARCA_CERT_PATH)
-      : path.join(__dirname, '..', '..', 'certs', 'arca.crt'),
-    clavePath: process.env.ARCA_KEY_PATH ? path.resolve(process.env.ARCA_KEY_PATH) : null,
+      : path.join(__dirname, '..', '..', 'certs', `arca-${ambiente}.crt`),
+    clavePath: process.env.ARCA_KEY_PATH
+      ? path.resolve(process.env.ARCA_KEY_PATH)
+      : path.join(__dirname, '..', '..', 'certs', 'arca.key'),
     certificadoPassword: process.env.ARCA_CERT_PASSWORD || '',
     // El mock es andamio de desarrollo: devuelve un CAE falso para poder recorrer el circuito
     // sin certificado. PRODUCT.md fija que el objetivo es ARCA real sin mock permanente, así
