@@ -32,9 +32,13 @@ const leerConfig = () => {
     urls: AMBIENTES[ambiente],
     // El CUIT es el de la empresa emisora, el mismo con el que se generó el certificado.
     cuit: process.env.ARCA_CUIT || null,
+    // ARCA entrega el certificado como `.crt` en PEM, y la clave privada es la que se generó
+    // junto al CSR. Ese par es el camino directo. El `.p12` —un contenedor de esos mismos dos
+    // archivos— se acepta porque es lo que usa CGAS, pero no hace falta convertir nada.
     certificadoPath: process.env.ARCA_CERT_PATH
       ? path.resolve(process.env.ARCA_CERT_PATH)
-      : path.join(__dirname, '..', '..', 'certs', 'arca.p12'),
+      : path.join(__dirname, '..', '..', 'certs', 'arca.crt'),
+    clavePath: process.env.ARCA_KEY_PATH ? path.resolve(process.env.ARCA_KEY_PATH) : null,
     certificadoPassword: process.env.ARCA_CERT_PASSWORD || '',
     // El mock es andamio de desarrollo: devuelve un CAE falso para poder recorrer el circuito
     // sin certificado. PRODUCT.md fija que el objetivo es ARCA real sin mock permanente, así
@@ -49,7 +53,11 @@ const leerConfig = () => {
 const validarConfig = (config) => {
   const faltantes = [];
   if (!config.cuit) faltantes.push('ARCA_CUIT (CUIT de la empresa emisora, sin guiones)');
-  if (!config.certificadoPassword) faltantes.push('ARCA_CERT_PASSWORD (clave del archivo .p12)');
+  // Con PEM la clave puede estar sin cifrar, así que la contraseña solo es obligatoria en el
+  // camino del .p12, donde el contenedor siempre lo pide.
+  if (!config.clavePath && !config.certificadoPassword) {
+    faltantes.push('ARCA_KEY_PATH (clave privada .key) o ARCA_CERT_PASSWORD (si usás un .p12)');
+  }
   return faltantes;
 };
 

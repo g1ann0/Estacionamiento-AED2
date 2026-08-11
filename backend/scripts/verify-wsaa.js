@@ -47,12 +47,18 @@ function generarP12(destino) {
 
   const p12Asn1 = forge.pkcs12.toPkcs12Asn1(claves.privateKey, [cert], CLAVE, { algorithm: '3des' });
   fs.writeFileSync(destino, Buffer.from(forge.asn1.toDer(p12Asn1).getBytes(), 'binary'));
+
+  // El mismo par, en el formato que entrega ARCA.
+  fs.writeFileSync(destino.replace(/.p12$/, '.crt'), forge.pki.certificateToPem(cert));
+  fs.writeFileSync(destino.replace(/.p12$/, '.key'), forge.pki.privateKeyToPem(claves.privateKey));
   return cert;
 }
 
 async function main() {
   const carpeta = fs.mkdtempSync(path.join(os.tmpdir(), 'wsaa-'));
   const rutaP12 = path.join(carpeta, 'prueba.p12');
+  const rutaCrt = path.join(carpeta, 'prueba.crt');
+  const rutaKey = path.join(carpeta, 'prueba.key');
 
   try {
     generarP12(rutaP12);
@@ -62,21 +68,36 @@ async function main() {
     process.env.ARCA_CERT_PATH = rutaP12;
     process.env.ARCA_CERT_PASSWORD = CLAVE;
     process.env.ARCA_CUIT = '20123456786';
-    const { construirTRA, firmarCMS, leerCertificado, horaArgentina } = require('../services/arca/wsaa');
+    const {
+      construirTRA, firmarCMS, leerCertificadoP12, leerCertificadoPEM, horaArgentina
+    } = require('../services/arca/wsaa');
 
-    const certificado = leerCertificado(rutaP12, CLAVE);
+    const certificado = leerCertificadoP12(rutaP12, CLAVE);
     check(Boolean(certificado.clave && certificado.certificado), 'se lee el par clave + certificado del .p12');
 
+    // ARCA entrega el certificado en PEM y la clave privada la generó el titular: ese par es
+    // el camino directo, sin convertir nada a .p12.
+    const certPEM = leerCertificadoPEM(rutaCrt, rutaKey);
+    check(Boolean(certPEM.clave && certPEM.certificado), 'se lee el par .crt + .key en PEM, sin .p12');
+    check(
+      certPEM.certificado.publicKey.n.equals(certificado.certificado.publicKey.n),
+      'el certificado leído desde PEM es el mismo que el del .p12'
+    );
+
     let errorClaveMala = null;
-    try { leerCertificado(rutaP12, 'clave-incorrecta'); } catch (e) { errorClaveMala = e.message; }
+    try { leerCertificadoP12(rutaP12, 'clave-incorrecta'); } catch (e) { errorClaveMala = e.message; }
     check(
       errorClaveMala?.includes('ARCA_CERT_PASSWORD'),
       'una clave equivocada explica que el problema es ARCA_CERT_PASSWORD'
     );
 
     let errorFaltante = null;
-    try { leerCertificado(path.join(carpeta, 'no-existe.p12'), CLAVE); } catch (e) { errorFaltante = e.message; }
+    try { leerCertificadoP12(path.join(carpeta, 'no-existe.p12'), CLAVE); } catch (e) { errorFaltante = e.message; }
     check(errorFaltante?.includes('No se encontró'), 'un certificado inexistente dice dónde se lo buscó');
+
+    let errorKeyFaltante = null;
+    try { leerCertificadoPEM(rutaCrt, path.join(carpeta, 'no-existe.key')); } catch (e) { errorKeyFaltante = e.message; }
+    check(errorKeyFaltante?.includes('ARCA_KEY_PATH'), 'una clave privada faltante nombra ARCA_KEY_PATH');
 
     const tra = construirTRA('wsfe');
     check(tra.includes('<service>wsfe</service>'), 'el TRA nombra el servicio pedido');

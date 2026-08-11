@@ -12,6 +12,8 @@ backend/facturas_pdf/*
 # Certificados de ARCA: son secretos y nunca van al repo
 backend/certs/
 *.p12
+*.key
+*.crt
 
 # Logs
 *.log

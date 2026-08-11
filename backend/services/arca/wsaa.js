@@ -60,9 +60,48 @@ const construirTRA = (servicio) => {
 </loginTicketRequest>`;
 };
 
+// ARCA entrega el certificado como `.crt` en PEM. La clave privada es la que generaste vos
+// junto al CSR y ARCA nunca la ve. Firmar necesita las dos cosas.
+//
+// CGAS usa un `.p12` porque .NET empaqueta así, pero el `.p12` es solo un contenedor de esos
+// mismos dos archivos: acá se aceptan los dos caminos, y el PEM es el directo — evita un paso
+// de conversión que solo existía por el stack del otro sistema.
+const leerCertificadoPEM = (rutaCert, rutaClave) => {
+  for (const [ruta, que] of [[rutaCert, 'certificado (.crt)'], [rutaClave, 'clave privada (.key)']]) {
+    if (!fs.existsSync(ruta)) {
+      throw new Error(
+        `No se encontró el ${que} de ARCA en "${ruta}". ` +
+        'Configurá ARCA_CERT_PATH y ARCA_KEY_PATH.'
+      );
+    }
+  }
+
+  const certificado = forge.pki.certificateFromPem(fs.readFileSync(rutaCert, 'utf8'));
+
+  const pemClave = fs.readFileSync(rutaClave, 'utf8');
+  let clave;
+  try {
+    // Una clave privada puede venir cifrada con passphrase o en claro. Se prueban las dos
+    // formas para no obligar a declarar cuál es.
+    clave = pemClave.includes('ENCRYPTED')
+      ? forge.pki.decryptRsaPrivateKey(pemClave, process.env.ARCA_CERT_PASSWORD || '')
+      : forge.pki.privateKeyFromPem(pemClave);
+  } catch (error) {
+    throw new Error(`No se pudo leer la clave privada de ARCA: ${error.message}`);
+  }
+
+  if (!clave) {
+    throw new Error(
+      'La clave privada de ARCA está cifrada y ARCA_CERT_PASSWORD no la abre.'
+    );
+  }
+
+  return { clave, certificado };
+};
+
 // Lee el .p12 y devuelve la clave privada y el certificado. Si la clave del archivo está mal,
 // node-forge lanza un error de descifrado que no menciona el archivo: se traduce.
-const leerCertificado = (rutaP12, password) => {
+const leerCertificadoP12 = (rutaP12, password) => {
   if (!fs.existsSync(rutaP12)) {
     throw new Error(
       `No se encontró el certificado de ARCA en "${rutaP12}". ` +
@@ -92,6 +131,13 @@ const leerCertificado = (rutaP12, password) => {
   }
 
   return { clave: bolsaClave.key, certificado: bolsaCert.cert };
+};
+
+// Punto de entrada único: elige el formato por lo que haya configurado. El PEM gana cuando
+// están las dos rutas, porque es lo que ARCA entrega y no requiere conversión.
+const leerCertificado = (config) => {
+  if (config.clavePath) return leerCertificadoPEM(config.certificadoPath, config.clavePath);
+  return leerCertificadoP12(config.certificadoPath, config.certificadoPassword);
 };
 
 // Firma el TRA como CMS/PKCS#7 adjunto (el contenido viaja dentro de la firma), que es lo que
@@ -147,7 +193,7 @@ async function obtenerTicket({ forzarRenovacion = false } = {}) {
     throw new Error(`Falta configurar la integración con ARCA: ${faltantes.join(', ')}.`);
   }
 
-  const certificado = leerCertificado(config.certificadoPath, config.certificadoPassword);
+  const certificado = leerCertificado(config);
   const tra = construirTRA(config.servicio);
   const cms = firmarCMS(tra, certificado);
 
@@ -162,4 +208,13 @@ async function obtenerTicket({ forzarRenovacion = false } = {}) {
 // Para los tests y para el arranque: deja el cache limpio.
 const olvidarTicket = () => { ticketEnCache = null; };
 
-module.exports = { obtenerTicket, olvidarTicket, construirTRA, firmarCMS, leerCertificado, horaArgentina };
+module.exports = {
+  obtenerTicket,
+  olvidarTicket,
+  construirTRA,
+  firmarCMS,
+  leerCertificado,
+  leerCertificadoPEM,
+  leerCertificadoP12,
+  horaArgentina
+};
