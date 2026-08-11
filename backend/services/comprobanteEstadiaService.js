@@ -1,15 +1,32 @@
 // Generación del comprobante de una estadía cobrada (ver docs/analisis-gap-cgas/08 Etapa 3).
 // Distinto de Factura.js/Comprobante.js, que son exclusivos de la recarga de saldo.
 //
-// Por ahora todo comprobante se emite como 'ticket' (no fiscal, sin CAE) en estado
-// 'emitido' — la decisión de alcance es ARCA real sin modo mock permanente, pero esa
-// integración es Etapa 6; hasta entonces no corresponde marcar nada como 'pendiente_cae'
-// porque no hay ningún proceso que vaya a resolver ese estado todavía.
+// El comprobante se numera SIEMPRE con el talonario local y se emite como 'ticket': eso es lo
+// que el cliente se lleva en el momento, y no depende de que ARCA esté disponible.
+//
+// El estado en que nace depende de si la facturación electrónica está configurada (Etapa 6):
+//
+//   sin configurar  -> 'emitido'       el ticket es todo lo que hay, y es no fiscal
+//   configurada     -> 'pendiente_cae' un worker le pide el CAE a ARCA después
+//
+// La emisión es diferida a propósito: el cobro nunca se bloquea esperando a ARCA. Ver
+// services/facturacionElectronicaService.js.
 
 const Talonario = require('../models/Talonario');
 const ComprobanteEstadia = require('../models/ComprobanteEstadia');
 const ConfiguracionEmpresa = require('../models/ConfiguracionEmpresa');
 const ErrorResponse = require('../utils/errorResponse');
+
+// `pendiente_cae` solo tiene sentido si hay alguien que vaya a resolverlo. Si la integración
+// no está configurada, marcar comprobantes como pendientes sería dejar una cola que nadie
+// atiende y una promesa que la interfaz no puede cumplir.
+function estadoInicial() {
+  try {
+    return require('./arca').estadoIntegracion().habilitada ? 'pendiente_cae' : 'emitido';
+  } catch {
+    return 'emitido';
+  }
+}
 
 async function obtenerPuntoVenta(session) {
   const configuracion = await ConfiguracionEmpresa.findOne({ activa: true }).session(session);
@@ -71,9 +88,12 @@ async function generarComprobante({ estacionamiento, transaccion, usuario, clien
       receptor: resolverReceptor({ usuario, clienteOcasional }),
       medioPago,
       subtotal: montoTotal,
+      // El desglose de IVA lo calcula la emisión fiscal, cuando se sabe qué tipo de
+      // comprobante corresponde según la condición del emisor. El ticket muestra el total,
+      // que es lo que el cliente pagó.
       iva: { porcentaje: 0, monto: 0 },
       total: montoTotal,
-      estado: 'emitido'
+      estado: estadoInicial()
     }],
     { session }
   );

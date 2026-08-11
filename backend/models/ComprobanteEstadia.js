@@ -35,9 +35,21 @@ const ComprobanteEstadiaSchema = new mongoose.Schema({
   // Estado explícito (no inferido de flags — ver docs/analisis-gap-cgas/05, mejora sobre CGAS).
   estado: { type: String, enum: ['emitido', 'pendiente_cae', 'error_arca', 'anulado'], default: 'emitido' },
 
-  // Campos de integración ARCA real — sin uso hasta Etapa 6.
+  // Integración ARCA (Etapa 6).
+  //
+  // La numeración fiscal es SEPARADA de la del ticket. El cliente se llevó un ticket con el
+  // número del talonario local; cuando ARCA autoriza —después, porque la emisión es diferida—
+  // asigna su propio número, que es el que ARCA considera fuente de verdad. Pisar el número
+  // del ticket con el fiscal haría que el comprobante que el cliente tiene en la mano no
+  // coincida con el que figura en el sistema.
   cae: { type: String, default: null },
   caeFchVto: { type: Date, default: null },
+  numeroFiscal: { type: Number, default: null },
+  tipoComprobanteFiscal: { type: Number, default: null }, // código de ARCA: 6 = factura B, 11 = C
+  fechaAutorizacion: { type: Date, default: null },
+  // Un CAE de mock nunca se puede confundir con uno real: queda marcado en la base.
+  simulado: { type: Boolean, default: false },
+  intentosArca: { type: Number, default: 0 },
   observacionesArca: { type: [mongoose.Schema.Types.Mixed], default: [] },
   erroresArca: { type: [mongoose.Schema.Types.Mixed], default: [] },
 
@@ -50,5 +62,17 @@ const ComprobanteEstadiaSchema = new mongoose.Schema({
 // no solo aplicativa.
 ComprobanteEstadiaSchema.index({ puntoVenta: 1, tipoComprobante: 1, numero: 1 }, { unique: true });
 ComprobanteEstadiaSchema.index({ estadiaId: 1 });
+
+// La numeración fiscal también es única, y por el mismo motivo que la del ticket: dos
+// comprobantes con el mismo número fiscal es una inconsistencia que ARCA no perdona. El índice
+// es parcial porque la mayoría de los comprobantes todavía no tiene número fiscal, y `null`
+// se repetiría en todos.
+ComprobanteEstadiaSchema.index(
+  { puntoVenta: 1, tipoComprobanteFiscal: 1, numeroFiscal: 1 },
+  { unique: true, partialFilterExpression: { numeroFiscal: { $type: 'number' } } }
+);
+
+// El worker de emisión diferida busca por acá: los que esperan CAE, más viejos primero.
+ComprobanteEstadiaSchema.index({ estado: 1, fechaEmision: 1 });
 
 module.exports = mongoose.model('ComprobanteEstadia', ComprobanteEstadiaSchema);
