@@ -90,6 +90,28 @@ Homologación tiene su propio portal, separado del de producción:
 
 ---
 
+## Si el portal no abre
+
+Los portales de ARCA se caen seguido, y el error que devuelven no lo dice: la conexión se
+corta, y desde el navegador se parece bastante a un problema propio. Antes de pelearse con la
+configuración:
+
+```bash
+node scripts/arca-estado.js
+```
+
+Consulta los seis servicios que hacen falta y hace la distinción que importa: si los **web
+services** responden y solo falla un **portal web**, el problema es de ellos y no hay nada que
+corregir de este lado.
+
+> **Verificado el 11/08/2026:** WSASS —el portal donde se tramita el certificado de
+> homologación— cortaba la conexión en todas sus variantes de URL (http, https, con guión y sin
+> guión, y la raíz del sitio), mientras que el WSAA y el WSFE de homologación respondían 200.
+> El ambiente de homologación estaba vivo; lo único caído era el portal de autogestión de
+> certificados.
+
+---
+
 ## Paso 4 — Poner el certificado en su lugar
 
 Guardar el archivo descargado como:
