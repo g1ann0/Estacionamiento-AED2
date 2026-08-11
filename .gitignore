@@ -9,6 +9,10 @@ frontend/build/
 backend/facturas_pdf/*
 !backend/facturas_pdf/.gitkeep
 
+# Certificados de ARCA: son secretos y nunca van al repo
+backend/certs/
+*.p12
+
 # Logs
 *.log
 npm-debug.log*
