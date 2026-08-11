@@ -11,7 +11,7 @@ const UsuarioSchema = new mongoose.Schema({
   tokenVerificacion: { type: String },
   tokenRecuperacion: { type: String }, // Token para recuperar contraseña
   fechaTokenRecuperacion: { type: Date }, // Fecha del token de recuperación
-  rol: { type: String, enum: ['cliente', 'admin'], default: 'cliente' },
+  rol: { type: String, enum: ['cliente', 'admin', 'operador'], default: 'cliente' },
   asociado: { type: Boolean, default: false },
   tarifaAsignada: { 
     type: mongoose.Schema.Types.ObjectId, 
@@ -20,14 +20,14 @@ const UsuarioSchema = new mongoose.Schema({
   },
   montoDisponible: { type: Number, default: 0 },
   fechaRegistro: { type: Date, default: Date.now },
-  fechaDesactivacion: { type: Date }, // Fecha cuando se desactivó el usuario
-  vehiculos: [{
-    dominio: { type: String, required: true },
-    tipo: { type: String, enum: ['auto', 'moto'], required: true },
-    marca: { type: String, required: true },
-    modelo: { type: String, required: true },
-    año: { type: String, required: true }
-  }]
+  fechaDesactivacion: { type: Date } // Fecha cuando se desactivó el usuario
+
+  // `vehiculos[]` se eliminó. Era una copia embebida del catálogo que ya vive en la colección
+  // Vehiculo, mantenida a mano en paralelo: cada alta escribía en los dos lados, cada baja
+  // borraba en los dos, y cuando se desincronizaban aparecían duplicados. La prueba de que no
+  // funcionaba es que existía un endpoint dedicado a limpiar esos duplicados.
+  // Los vehículos de un usuario se consultan con: Vehiculo.find({ usuario: usuario._id }).
+  // Migración: scripts/migrar-vehiculos-embebidos.js
 });
 
 module.exports = mongoose.model('Usuario', UsuarioSchema);

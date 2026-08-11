@@ -5,6 +5,16 @@ const path = require('path');
 const { obtenerIPLocal, mostrarInfoRed } = require('./utils/networkUtils');
 require('dotenv').config();
 
+const REQUERIDAS = ['JWT_SECRET', 'MONGODB_URI'];
+const faltantes = REQUERIDAS.filter((clave) => !process.env[clave]);
+if (faltantes.length > 0) {
+  console.error(`❌ Faltan variables de entorno requeridas: ${faltantes.join(', ')}. Ver backend/.env.example.`);
+  process.exit(1);
+}
+if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+  console.warn('⚠️  SMTP_USER/SMTP_PASS no configurados: el envío de emails (verificación, recuperación de contraseña) va a fallar.');
+}
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 const HOST = '0.0.0.0'; // Escuchar en todas las interfaces de red
@@ -60,7 +70,12 @@ const facturasRoutes = require('./routes/facturas');
 const configuracionEmpresaRoutes = require('./routes/configuracionEmpresa');
 const perfilRoutes = require('./routes/perfil');
 const seoRoutes = require('./routes/seo');
-const analyticsRoutes = require('./routes/analytics');
+const turnosRoutes = require('./routes/turnos');
+const cajasRoutes = require('./routes/cajas');
+const estadiasRoutes = require('./routes/estadias');
+const comprobantesEstadiaRoutes = require('./routes/comprobantesEstadia');
+const sucursalesRoutes = require('./routes/sucursales');
+const reportesRoutes = require('./routes/reportes');
 
 // Ruta de prueba
 app.get('/', (req, res) => {
@@ -76,18 +91,26 @@ app.use('/api/comprobantes', comprobantesRoutes);
 app.use('/api/estacionamiento', estacionamientoRoutes);
 app.use('/api/estacionamiento-estado', estacionamientoEstadoRoutes);
 app.use('/api/admin', adminRoutes);
-app.use('/api/admin', auditoriaRoutes);
+app.use('/api/admin/auditoria', auditoriaRoutes);
 app.use('/api/precios', preciosRoutes);
 app.use('/api/facturas', facturasRoutes);
 app.use('/api/configuracion-empresa', configuracionEmpresaRoutes);
 app.use('/api/perfil', perfilRoutes);
+app.use('/api/turnos', turnosRoutes);
+app.use('/api/cajas', cajasRoutes);
+app.use('/api/estadias', estadiasRoutes);
+app.use('/api/comprobantes-estadia', comprobantesEstadiaRoutes);
+app.use('/api/sucursales', sucursalesRoutes);
+app.use('/api/reportes', reportesRoutes);
 
-// Rutas SEO y Analytics
+// Rutas SEO (superficie pública: home, login, registro)
 app.use('/', seoRoutes);
-app.use('/api/analytics', analyticsRoutes);
 
 // Middleware para manejar rutas de API no encontradas
-app.use('/api/*', (req, res) => {
+// Express 5 cambió el motor de rutas (path-to-regexp v8): '/api/*' ya no es un patrón válido.
+// Montado sobre '/api' y después de todos los routers, cumple la misma función de 404 de API
+// sin depender de la sintaxis de comodines.
+app.use('/api', (req, res) => {
   res.status(404).json({ mensaje: 'Ruta de API no encontrada' });
 });
 
@@ -96,9 +119,10 @@ if (process.env.NODE_ENV === 'production') {
   app.use(express.static('../frontend/build'));
 }
 
-// Para cualquier otra ruta que no sea de la API, enviar el index.html
-// Esto permite que el frontend maneje sus propias rutas
-app.get('*', (req, res) => {
+// Para cualquier otra ruta que no sea de la API, enviar el index.html: el frontend maneja
+// sus propias rutas. En Express 5 el comodín tiene que ir nombrado ('*splat'); el '*' pelado
+// que aceptaba Express 4 ahora hace fallar el arranque.
+app.get('/{*splat}', (req, res) => {
   res.sendFile(path.resolve(__dirname, '../frontend/build', 'index.html'));
 });
 
@@ -106,11 +130,9 @@ app.get('*', (req, res) => {
 const errorHandler = require('./middlewares/errorHandler');
 app.use(errorHandler);
 
-// Conexión a MongoDB
-mongoose.connect(process.env.MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-})
+// Conexión a MongoDB. `useNewUrlParser`/`useUnifiedTopology` dejaron de existir: el driver
+// moderno los rechaza como opciones desconocidas y la conexión fallaba en el arranque.
+mongoose.connect(process.env.MONGODB_URI)
 .then(async () => {
   console.log('✅ Conectado a MongoDB');
   

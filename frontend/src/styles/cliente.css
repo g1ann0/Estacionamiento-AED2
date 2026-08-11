@@ -1,0 +1,271 @@
+/* =============================================================================
+   APP DEL CONDUCTOR — capa de densidad sobre Playa pintada
+   =============================================================================
+
+   Hereda el mundo del panel (tokens.css) y NO hereda su densidad. Son dos
+   escenas distintas y eso es lo único que cambia:
+
+     Panel      garita o mostrador, monitor, teclado, ocho horas, el operador
+                conoce la pantalla de memoria → filas de 36px, texto de 13px,
+                todo a la vista.
+     Conductor  un celular en la mano, con el auto al lado, tres veces por
+                semana, a plena luz → blancos de toque de 48px, texto de 15px,
+                una columna, y una sola cosa importante por pantalla.
+
+   Por eso acá se redefinen las métricas y no los colores: el amarillo vial, el
+   asfalto y la chapa de la patente son los mismos. Un cliente que ve la app y
+   después ve el ticket que le dio el playero tiene que reconocer el mismo
+   sistema.
+   ============================================================================= */
+
+.cliente {
+  /* Métrica táctil. 48px es el mínimo cómodo con el pulgar, no 34. */
+  --alto-control: 48px;
+  --alto-fila: 56px;
+  --radio: 10px;
+  --radio-chico: 6px;
+
+  --texto-sm: 13px;
+  --texto-md: 15px;
+  --texto-lg: 18px;
+  --texto-xl: 24px;
+
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--fuente-ui);
+  font-size: var(--texto-md);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.cliente :focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: var(--radio-chico);
+}
+
+/* ------------------------------------------------------------------ Shell -- */
+
+.cliente-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+
+.cliente-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 56px;
+  padding: 0 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.cliente-marca {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.cliente-marca svg { color: var(--accent); }
+
+.cliente-header-acciones { display: flex; align-items: center; gap: 4px; margin-left: auto; }
+
+.cliente-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: var(--radio);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.cliente-icon-btn:hover { background: var(--row-hover); color: var(--text); }
+
+.cliente-contenido {
+  flex: 1;
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 20px 16px 96px;
+}
+
+/* Navegación inferior: en un celular el pulgar llega abajo, no arriba. En pantalla
+   ancha la barra se despega del borde y se centra con el contenido. */
+.cliente-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+.cliente-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-height: 60px;
+  color: var(--text-subtle);
+  font-size: var(--texto-sm);
+  text-decoration: none;
+}
+
+.cliente-nav-item.es-activo { color: var(--text); font-weight: 600; }
+.cliente-nav-item.es-activo svg { color: var(--accent); }
+
+/* ------------------------------------------------------------- Tipografía -- */
+
+.cliente-titulo { font-size: var(--texto-xl); font-weight: 600; line-height: 1.2; }
+.cliente-bajada { color: var(--text-muted); max-width: 46ch; }
+.cliente-etiqueta {
+  font-size: var(--texto-sm);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* --------------------------------------------------------------- Controles -- */
+
+.cliente-campo { display: flex; flex-direction: column; gap: 6px; }
+.cliente-campo > span { font-size: var(--texto-sm); color: var(--text-muted); }
+
+.cliente-control {
+  width: 100%;
+  height: var(--alto-control);
+  padding: 0 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radio);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--texto-md);
+}
+
+.cliente-control::placeholder { color: var(--text-subtle); }
+.cliente-control:disabled { background: var(--disabled-bg); color: var(--disabled-fg); }
+
+.cliente-boton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: var(--alto-control);
+  padding: 0 18px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radio);
+  background: var(--accent);
+  color: var(--accent-fg);
+  font: inherit;
+  font-size: var(--texto-lg);
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.cliente-boton:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); }
+.cliente-boton:disabled { background: var(--disabled-bg); border-color: var(--border); color: var(--disabled-fg); cursor: not-allowed; }
+
+.cliente-boton-secundario {
+  background: transparent;
+  border-color: var(--border-strong);
+  color: var(--text);
+  font-size: var(--texto-md);
+}
+
+.cliente-boton-secundario:hover:not(:disabled) { background: var(--row-hover); border-color: var(--border-strong); }
+
+.cliente-enlace { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
+.cliente-enlace:hover { color: var(--accent-hover); }
+
+/* --------------------------------------------------------------- Mensajes -- */
+
+.cliente-error,
+.cliente-exito {
+  padding: 12px 14px;
+  border-radius: var(--radio);
+  font-size: var(--texto-md);
+}
+
+.cliente-error { border: 1px solid var(--danger-border); background: var(--danger-bg); color: var(--danger-fg); }
+.cliente-exito { border: 1px solid var(--success-border); background: var(--success-bg); color: var(--success-fg); }
+
+/* ----------------------------------------------------------------- Acceso -- */
+
+/* Login, registro y recuperación comparten forma: una columna centrada, el
+   formulario ES la página. Antes el login escondía sus dos campos detrás de un
+   botón que abría un modal — la única tarea de la pantalla estaba a un clic de
+   distancia, arriba de una pared de ilustraciones. */
+.acceso {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 100dvh;
+  padding: 24px 16px;
+}
+
+.acceso-caja {
+  width: 100%;
+  max-width: 400px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.acceso-marca {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.acceso-marca svg { color: var(--accent); flex: none; }
+.acceso-marca span { font-size: var(--texto-lg); font-weight: 600; }
+
+/* El título y su bajada son un bloque, pero no la misma línea: sin este aire el subtítulo
+   se lee como parte del titular. */
+.acceso-caja .cliente-titulo + .cliente-bajada { margin-top: 8px; }
+
+.acceso-formulario { display: flex; flex-direction: column; gap: 14px; }
+
+.acceso-pie { color: var(--text-muted); font-size: var(--texto-md); text-align: center; }
+
+/* El acuse de "te mandamos el enlace" no es un mensaje de éxito de formulario: es el estado
+   en el que queda la pantalla, y por eso ocupa el lugar donde estaba el formulario. */
+.acceso-confirmacion {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--success-border);
+  border-radius: var(--radio);
+  background: var(--success-bg);
+  color: var(--success-fg);
+  font-weight: 600;
+}
+
+.acceso-olvide { align-self: flex-end; color: var(--text-muted); font-size: var(--texto-sm); }

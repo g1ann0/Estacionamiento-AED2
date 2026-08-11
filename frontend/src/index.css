@@ -1,13 +1,36 @@
+/* Base del documento. Todo lo demás vive en tokens.css y en las hojas de cada superficie.
+   El color de fondo se toma del token para que el rebote entre pantallas no muestre un
+   destello blanco en tema oscuro. */
+
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+html { color-scheme: light dark; }
+
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--fuente-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+/* Los títulos y listas del sistema se componen en cada superficie; acá solo se apaga el
+   margen que trae el navegador para que no aparezca donde el layout no lo espera. */
+h1, h2, h3, h4, p, figure, blockquote, dl, dd { margin: 0; }
+ul, ol { margin: 0; }
+
+img, svg, video { max-width: 100%; }
+
+button, input, select, textarea { font: inherit; color: inherit; }
+
+/* Estado de arranque: mientras se resuelve si hay sesión, la app no sabe todavía a qué
+   superficie pertenece el visitante, así que este es el único texto que vive fuera de las
+   dos. */
+.cargando-sesion {
+  padding: 48px 20px;
+  color: var(--text-muted);
+  text-align: center;
 }

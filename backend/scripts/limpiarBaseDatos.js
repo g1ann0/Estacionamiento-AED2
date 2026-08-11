@@ -10,10 +10,13 @@ const Factura = require('../models/Factura');
 const ConfiguracionEmpresa = require('../models/ConfiguracionEmpresa');
 const ConfiguracionPrecio = require('../models/ConfiguracionPrecio');
 const Estacionamiento = require('../models/Estacionamiento');
-const LogPrecio = require('../models/LogPrecio');
-const LogSaldo = require('../models/LogSaldo');
-const LogVehiculo = require('../models/LogVehiculo');
-const LogConfiguracionEmpresa = require('../models/LogConfiguracionEmpresa');
+const AuditLog = require('../models/AuditLog');
+const Caja = require('../models/Caja');
+const Turno = require('../models/Turno');
+const MovimientoCaja = require('../models/MovimientoCaja');
+const ComprobanteEstadia = require('../models/ComprobanteEstadia');
+const Talonario = require('../models/Talonario');
+const Sucursal = require('../models/Sucursal');
 
 async function limpiarBaseDatos() {
   try {
@@ -34,10 +37,16 @@ async function limpiarBaseDatos() {
       { modelo: ConfiguracionEmpresa, nombre: 'Configuración de Empresa' },
       { modelo: ConfiguracionPrecio, nombre: 'Configuración de Precios' },
       { modelo: Estacionamiento, nombre: 'Estacionamientos' },
-      { modelo: LogPrecio, nombre: 'Logs de Precios' },
-      { modelo: LogSaldo, nombre: 'Logs de Saldos' },
-      { modelo: LogVehiculo, nombre: 'Logs de Vehículos' },
-      { modelo: LogConfiguracionEmpresa, nombre: 'Logs de Configuración de Empresa' }
+      { modelo: AuditLog, nombre: 'Auditoría' },
+      // Faltaban acá: el script decía "elimina TODOS los datos" pero dejaba en pie las
+      // colecciones de caja, turno y comprobantes de estadía, así que una base "limpia"
+      // arrancaba con turnos abiertos y numeración de talonario a mitad de camino.
+      { modelo: Sucursal, nombre: 'Sucursales' },
+      { modelo: Caja, nombre: 'Cajas' },
+      { modelo: Turno, nombre: 'Turnos' },
+      { modelo: MovimientoCaja, nombre: 'Movimientos de Caja' },
+      { modelo: ComprobanteEstadia, nombre: 'Comprobantes de Estadía' },
+      { modelo: Talonario, nombre: 'Talonarios' }
     ];
 
     let totalEliminados = 0;

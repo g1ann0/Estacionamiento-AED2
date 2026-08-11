@@ -1,5 +1,0 @@
-# PDFs generados dinámicamente
-*.pdf
-
-# Mantener el directorio pero no los archivos
-!.gitkeep

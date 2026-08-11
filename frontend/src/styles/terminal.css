@@ -1,0 +1,214 @@
+/* Terminal de operación — Playa pintada.
+   Las primitivas compartidas (controles, tablas, mensajes, chips, diálogos) viven en
+   componentes.css; acá queda solo lo que es de la Terminal. Solo tokens semánticos:
+   separación por línea pintada, nunca por sombra. */
+
+.terminal { display: flex; flex-direction: column; gap: 12px; height: 100%; }
+
+/* Columna izquierda fija: el operador aprende UNA posición en la pantalla y el foco vuelve
+   siempre ahí. Derecha fluida: la playa, que se estira hasta el borde inferior y scrollea
+   sola — sin `stretch` la tabla quedaba del alto de su contenido y el resto de la pantalla
+   se leía como un hueco. */
+.terminal-columnas {
+  display: grid;
+  grid-template-columns: 420px minmax(0, 1fr);
+  gap: 16px;
+  align-items: stretch;
+  min-height: 0;
+  flex: 1;
+}
+
+/* La columna de comando sí se ajusta a su contenido: la tarjeta no se estira. */
+.terminal-comando { align-self: start; }
+
+/* ------------------------------------------------------------- Comando -- */
+
+.terminal-comando {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radio);
+}
+
+.terminal-etiqueta {
+  font-size: var(--texto-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.terminal-campo { position: relative; display: flex; align-items: center; }
+
+/* La patente entra como chapa: el gesto que identifica al mundo. */
+.terminal-input-patente {
+  width: 100%;
+  height: 56px;
+  padding: 0 44px 0 12px;
+  font-size: var(--texto-patente);
+  background: var(--surface-sunken);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radio);
+}
+
+.terminal-input-patente::placeholder { color: var(--text-subtle); }
+.terminal-input-patente:disabled { background: var(--disabled-bg); color: var(--disabled-fg); }
+
+.terminal-kbd { position: absolute; right: 10px; }
+
+/* La entrega del comprobante vive en el aviso del cobro: el cliente todavía está en la
+   salida y no hay que ir a buscarlo a otra pantalla. */
+.terminal-aviso-acciones { display: flex; gap: 6px; margin-left: 12px; }
+
+.terminal-resolviendo { color: var(--text-muted); font-size: var(--texto-md); }
+
+/* ------------------------------------------------------------ Tarjetas -- */
+
+.tarjeta {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radio);
+  background: var(--surface-raised);
+}
+
+.tarjeta-tipo {
+  font-size: var(--texto-xs);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.tarjeta-patente { font-size: var(--texto-patente); line-height: 1.1; }
+.tarjeta-vehiculo { color: var(--text-muted); font-size: var(--texto-md); }
+
+.tarjeta-datos { display: flex; flex-direction: column; gap: 6px; margin: 0; }
+.tarjeta-datos > div { display: grid; grid-template-columns: 92px 1fr; align-items: baseline; gap: 8px; }
+.tarjeta-datos dt { color: var(--text-muted); font-size: var(--texto-sm); }
+.tarjeta-datos dd { margin: 0; font-size: var(--texto-md); }
+
+/* El TOTAL: el elemento más grande de la pantalla. */
+.tarjeta-total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-strong);
+}
+
+.tarjeta-total span {
+  font-size: var(--texto-xs);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.tarjeta-total strong { font-size: var(--texto-total); line-height: 1; color: var(--text); }
+
+.tarjeta-medios { border: 0; padding: 0; margin: 0; }
+.tarjeta-medios legend {
+  padding: 0 0 6px;
+  font-size: var(--texto-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.tarjeta-motivo { margin-top: 4px; color: var(--text-subtle); font-size: var(--texto-xs); }
+
+.tarjeta-disclosure {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: var(--texto-sm);
+  cursor: pointer;
+}
+
+.tarjeta-disclosure svg { transition: transform 120ms ease; }
+.tarjeta-disclosure svg.abierto { transform: rotate(180deg); }
+.tarjeta-opcional { color: var(--text-subtle); font-size: var(--texto-xs); }
+
+.tarjeta-conductor { display: flex; flex-direction: column; gap: 8px; }
+.tarjeta-conductor label,
+.tarjeta-campo { display: flex; flex-direction: column; gap: 3px; }
+.tarjeta-conductor span,
+.tarjeta-campo > span { font-size: var(--texto-sm); color: var(--text-muted); }
+.tarjeta-campo em { font-style: normal; color: var(--text-subtle); font-size: var(--texto-xs); }
+
+/* Las salidas alternativas de la tarjeta de ingreso: separadas del botón principal por una
+   línea, en tamaño chico y sin jerarquía entre ellas. La excepción no debe competir
+   visualmente con "Confirmar ingreso". */
+.tarjeta-salidas {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.tarjeta-salidas p { color: var(--text-subtle); font-size: var(--texto-xs); margin-bottom: 2px; }
+
+.tarjeta-nota { color: var(--text-subtle); font-size: var(--texto-xs); }
+
+/* La excepción cobra de más: se distingue del cobro normal sin volverse una alarma. */
+.tarjeta-excepcion { border-color: var(--warning-border); }
+.tarjeta-excepcion .tarjeta-advertencia { display: flex; align-items: flex-start; gap: 6px; }
+.tarjeta-excepcion .tarjeta-advertencia svg { flex: none; margin-top: 2px; }
+
+/* La tarjeta de cobro ocupa el ancho completo de su columna aunque el botón alto de dentro
+   pida `align-self: flex-start`. */
+.tarjeta .boton-cobrar { align-self: stretch; }
+
+/* ---------------------------------------------------------------- Playa -- */
+
+.playa {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radio);
+}
+
+.playa-ocupacion { display: flex; align-items: baseline; gap: 8px; }
+
+.playa-ocupacion-valor { font-size: var(--texto-xl); color: var(--text); }
+.playa-ocupacion-capacidad { color: var(--text-subtle); font-weight: 400; }
+
+/* Ritmo del turno: cantidades, nunca plata. La caja ciega prohíbe el acumulado, no el
+   conteo — el operador necesita saber cómo viene el turno. */
+.playa-ritmo { display: flex; align-items: center; gap: 10px; color: var(--text-muted); font-size: var(--texto-sm); }
+.playa-ritmo strong { font-weight: 600; color: var(--text); }
+
+.playa-buscar { display: flex; align-items: center; gap: 6px; margin-left: auto; color: var(--text-subtle); }
+.playa-buscar .control { width: 220px; height: 28px; font-size: var(--texto-sm); }
+
+/* ----------------------------------------------------------- Responsive --
+   Reordena, nunca degrada la jerarquía: patente y cobro siguen siendo lo primero
+   y lo más grande en los tres tamaños. */
+
+@media (max-width: 1280px) {
+  .terminal-columnas { grid-template-columns: 380px minmax(0, 1fr); }
+}
+
+@media (max-width: 900px) {
+  .terminal-columnas { grid-template-columns: 1fr; align-items: start; }
+  .playa { min-height: 320px; }
+  .playa-buscar .control { width: 100%; }
+  .playa-ritmo { display: none; }
+}

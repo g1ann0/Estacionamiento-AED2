@@ -19,7 +19,8 @@ async function verificarToken(req, res, next) {
         return res.status(403).json({ mensaje: 'Usuario inactivo o no encontrado' });
       }
       
-      req.usuario = decoded; // contendra req.usuario.id, etc.
+      req.usuario = decoded; // contendra req.usuario.id, etc. (payload del JWT, congelado desde el login)
+      req.usuarioActual = usuario; // documento vivo de la DB — fuente de verdad para autorización (rol actual, no el del login)
       next();
     } catch (error) {
       return res.status(500).json({ mensaje: 'Error al verificar usuario' });

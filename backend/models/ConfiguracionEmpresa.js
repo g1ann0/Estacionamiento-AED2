@@ -188,9 +188,8 @@ const configuracionEmpresaSchema = new mongoose.Schema({
 });
 
 // Middleware para actualizar fechaActualizacion
-configuracionEmpresaSchema.pre('save', function(next) {
+configuracionEmpresaSchema.pre('save', async function () {
   this.fechaActualizacion = new Date();
-  next();
 });
 
 // Método para obtener domicilio completo

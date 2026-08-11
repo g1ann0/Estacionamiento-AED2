@@ -1,7 +1,9 @@
 const Usuario = require('../models/Usuario');
+const Vehiculo = require('../models/Vehiculo');
 const Comprobante = require('../models/Comprobante');
 const Transaccion = require('../models/Transaccion');
 const ConfiguracionPrecio = require('../models/ConfiguracionPrecio');
+const auditoriaService = require('../services/auditoriaService');
 const { v4: uuidv4 } = require('uuid');  // para generar nroComprobante único
 
 
@@ -9,6 +11,10 @@ const { v4: uuidv4 } = require('uuid');  // para generar nroComprobante único
 const recargarUsuario = async (req, res) => {
   try {
     const { dni, monto } = req.body;
+
+    if (req.usuario.dni !== dni && req.usuario.rol !== 'admin') {
+      return res.status(403).json({ mensaje: 'No tenés permiso para recargar saldo de otro usuario' });
+    }
 
     // Validar que el monto sea un número válido
     const montoAcreditar = parseFloat(monto);
@@ -26,6 +32,8 @@ const recargarUsuario = async (req, res) => {
     usuario.montoDisponible = montoActual + montoAcreditar;
     await usuario.save();
 
+    const vehiculosDelUsuario = await Vehiculo.find({ usuario: usuario._id }).select('dominio').lean();
+
     const nroComprobante = uuidv4().slice(0, 8);
     const comprobante = new Comprobante({
       usuario: {
@@ -35,7 +43,7 @@ const recargarUsuario = async (req, res) => {
       },
       montoAcreditado: montoAcreditar,
       montoDisponible: usuario.montoDisponible,
-      vehiculos: usuario.vehiculos.map(v => v.dominio),
+      vehiculos: vehiculosDelUsuario.map(v => v.dominio),
       nroComprobante
     });
     await comprobante.save();
@@ -58,12 +66,10 @@ const recargarUsuario = async (req, res) => {
 const agregarVehiculo = async (req, res) => {
   try {
     const { dni, nuevoVehiculo } = req.body;
-    
-    // Imprimir los datos recibidos para diagnóstico
-    console.log('Datos recibidos:', {
-      dni,
-      nuevoVehiculo
-    });
+
+    if (req.usuario.dni !== dni && req.usuario.rol !== 'admin') {
+      return res.status(403).json({ mensaje: 'No tenés permiso para agregar un vehículo a otro usuario' });
+    }
 
     const usuario = await Usuario.findOne({ dni, activo: true });
     if (!usuario) {
@@ -93,7 +99,6 @@ const agregarVehiculo = async (req, res) => {
       });
     }
 
-    const Vehiculo = require('../models/Vehiculo');
     
     // Verificar si ya existe un vehículo con ese dominio
     const vehiculoExistente = await Vehiculo.findOne({
@@ -128,55 +133,10 @@ const agregarVehiculo = async (req, res) => {
   }
 };
 
-/*---------------------------------------------------------------------------------------*/
-const registrarIngreso = async (req, res) => {
-  try {
-    const { dni, dominio, tipoRegistro } = req.body;
-
-    const usuario = await Usuario.findOne({ dni, activo: true });
-    if (!usuario) {
-      return res.status(404).json({ mensaje: 'Usuario no encontrado o inactivo' });
-    }
-
-    const vehiculo = usuario.vehiculos.find(v => v.dominio === dominio);
-    if (!vehiculo) {
-      return res.status(404).json({ mensaje: 'Vehículo no registrado' });
-    }
-
-    // Verificar si ya tiene un estacionamiento activo
-    const Estacionamiento = require('../models/Estacionamiento');
-    const estacionamientoActivo = await Estacionamiento.findOne({
-      usuarioDNI: dni,
-      vehiculoDominio: dominio,
-      estado: 'activo'
-    });
-
-    if (estacionamientoActivo) {
-      return res.status(400).json({ mensaje: 'Ya tiene un estacionamiento activo para este vehículo' });
-    }
-
-    // Crear nuevo registro de estacionamiento
-    const nuevoEstacionamiento = new Estacionamiento({
-      usuarioDNI: dni,
-      vehiculoDominio: dominio,
-      tipoRegistro,
-      horaInicio: new Date()
-    });
-
-    await nuevoEstacionamiento.save();
-
-    res.status(200).json({
-      mensaje: 'Estacionamiento iniciado correctamente',
-      estacionamiento: nuevoEstacionamiento
-    });
-
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ mensaje: 'Error al registrar ingreso', error });
-  }
-};
-
-
+// `registrarIngreso` vivía acá como una de las tres puertas al mismo flujo de ingreso
+// (junto con estacionamientoController y transaccionController). La Tarea 0.2 unificó la
+// lógica en estadiaService; esta puerta quedó sin llamadores y se eliminó. El ingreso entra
+// hoy por POST /api/estacionamiento/iniciar (app) o POST /api/estadias/ingreso-manual (caja).
 
 // ✅ Exportar todos los controladores en un solo module.exports
 // Obtener datos del usuario
@@ -190,23 +150,11 @@ const obtenerUsuario = async (req, res) => {
       return res.status(404).json({ mensaje: 'Usuario no encontrado o inactivo' });
     }
 
-    // Buscar todos los vehículos del usuario
-    const Vehiculo = require('../models/Vehiculo');
-    const vehiculos = await Vehiculo.find({ 
-      usuario: usuario._id
-    }).sort({ dominio: 1 }); // Ordenar por dominio
+    // El índice único de `dominio` garantiza que no haya repetidos: la deduplicación en
+    // memoria que había acá ("por si acaso") era un síntoma del array embebido, no del modelo.
+    const vehiculos = await Vehiculo.find({ usuario: usuario._id }).sort({ dominio: 1 }).lean();
 
-    // Eliminar duplicados basados en el dominio (por si acaso)
-    const vehiculosUnicos = vehiculos.reduce((acc, current) => {
-      const x = acc.find(item => item.dominio === current.dominio);
-      if (!x) {
-        return acc.concat([current]);
-      } else {
-        return acc;
-      }
-    }, []);
-
-    res.status(200).json({ 
+    res.status(200).json({
       usuario: {
         dni: usuario.dni,
         nombre: usuario.nombre,
@@ -216,7 +164,7 @@ const obtenerUsuario = async (req, res) => {
         asociado: usuario.asociado,
         tarifaAsignada: usuario.tarifaAsignada, // ✅ Agregar tarifa asignada
         fechaRegistro: usuario.fechaRegistro,
-        vehiculos: vehiculosUnicos.map(v => ({
+        vehiculos: vehiculos.map(v => ({
           dominio: v.dominio,
           tipo: v.tipo,
           marca: v.marca,
@@ -245,7 +193,6 @@ const modificarVehiculo = async (req, res) => {
       });
     }
 
-    const Vehiculo = require('../models/Vehiculo');
     
     // Si el dominio va a cambiar, verificar que el nuevo no exista
     if (nuevoDominio.toUpperCase() !== dominio.toUpperCase()) {
@@ -266,20 +213,24 @@ const modificarVehiculo = async (req, res) => {
       return res.status(404).json({ mensaje: 'Vehículo no encontrado' });
     }
 
+    // Vehículo de cliente ocasional/caja (sin propietario) — no editable desde este
+    // endpoint de autoservicio; ver adminController.modificarVehiculoAdmin para el caso admin.
+    if (!vehiculoActual.usuario) {
+      return res.status(400).json({ mensaje: 'Este vehículo no tiene un propietario registrado' });
+    }
+
     // Encontrar el usuario que posee el vehículo
     const usuarioDelVehiculo = await Usuario.findById(vehiculoActual.usuario);
     if (!usuarioDelVehiculo) {
       return res.status(404).json({ mensaje: 'Usuario no encontrado' });
     }
 
-    // Si el dominio va a cambiar, verificar que no cause conflictos
+    if (req.usuario.dni !== usuarioDelVehiculo.dni && req.usuario.rol !== 'admin') {
+      return res.status(403).json({ mensaje: 'No tenés permiso para modificar este vehículo' });
+    }
+
+    // Si el dominio va a cambiar, eliminar el registro anterior antes del upsert.
     if (nuevoDominio.toUpperCase() !== dominio.toUpperCase()) {
-      // Eliminar el vehículo antiguo de la lista de vehículos del usuario
-      usuarioDelVehiculo.vehiculos = usuarioDelVehiculo.vehiculos.filter(
-        v => v.dominio.toUpperCase() !== dominio.toUpperCase()
-      );
-      
-      // Eliminar el vehículo antiguo
       await Vehiculo.deleteOne({ dominio: dominio.toUpperCase() });
     }
 
@@ -296,30 +247,10 @@ const modificarVehiculo = async (req, res) => {
           usuario: usuarioDelVehiculo._id
         }
       },
-      { new: true, upsert: true }
+      { returnDocument: 'after', upsert: true }
     );
 
-    // Actualizar el vehículo en el array de vehículos del usuario
-    const vehiculoIndex = usuarioDelVehiculo.vehiculos.findIndex(
-      v => v.dominio.toUpperCase() === dominio.toUpperCase()
-    );
-
-    const vehiculoData = {
-      dominio: nuevoDominio.toUpperCase(),
-      tipo: tipo.toLowerCase(),
-      marca,
-      modelo,
-      año
-    };
-
-    if (vehiculoIndex === -1) {
-      usuarioDelVehiculo.vehiculos.push(vehiculoData);
-    } else {
-      usuarioDelVehiculo.vehiculos[vehiculoIndex] = vehiculoData;
-    }
-
-    // Guardar los cambios en el usuario
-    await usuarioDelVehiculo.save();
+    // El upsert de arriba es la única escritura: el vehículo vive solo en su colección.
 
     res.status(200).json({ 
       mensaje: 'Vehículo actualizado correctamente',
@@ -336,12 +267,18 @@ const modificarVehiculo = async (req, res) => {
 const eliminarVehiculo = async (req, res) => {
   try {
     const { dominio } = req.params;
-    
-    const Vehiculo = require('../models/Vehiculo');
+
     const vehiculo = await Vehiculo.findOne({ dominio: dominio.toUpperCase() });
 
     if (!vehiculo) {
       return res.status(404).json({ mensaje: 'Vehículo no encontrado' });
+    }
+
+    if (vehiculo.usuario) {
+      const usuarioDelVehiculo = await Usuario.findById(vehiculo.usuario);
+      if (usuarioDelVehiculo && req.usuario.dni !== usuarioDelVehiculo.dni && req.usuario.rol !== 'admin') {
+        return res.status(403).json({ mensaje: 'No tenés permiso para eliminar este vehículo' });
+      }
     }
 
     // Eliminar el vehículo completamente
@@ -354,81 +291,6 @@ const eliminarVehiculo = async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ mensaje: 'Error al eliminar el vehículo', error });
-  }
-};
-
-const finalizarEstacionamiento = async (req, res) => {
-  try {
-    const { dni, dominio } = req.body;
-
-    const Estacionamiento = require('../models/Estacionamiento');
-    const estacionamiento = await Estacionamiento.findOne({
-      usuarioDNI: dni,
-      vehiculoDominio: dominio,
-      estado: 'activo'
-    });
-
-    if (!estacionamiento) {
-      return res.status(404).json({ mensaje: 'No se encontró un estacionamiento activo para este vehículo' });
-    }
-
-    const horaFin = new Date();
-    const duracionMilisegundos = horaFin - estacionamiento.horaInicio;
-    const duracionHoras = Math.ceil(duracionMilisegundos / (1000 * 60 * 60)); // Redondear hacia arriba
-
-    // Calcular tarifa según tipo de registro
-    const tarifaPorHora = estacionamiento.tipoRegistro === 'normal' ? 500 : 250;
-    const montoTotal = duracionHoras * tarifaPorHora;
-
-    // Buscar usuario activo y verificar saldo
-    const usuario = await Usuario.findOne({ dni, activo: true });
-    if (!usuario) {
-      return res.status(404).json({ mensaje: 'Usuario no encontrado o inactivo' });
-    }
-
-    if (usuario.montoDisponible < montoTotal) {
-      return res.status(400).json({ mensaje: 'Saldo insuficiente para completar la operación' });
-    }
-
-    // Actualizar estacionamiento
-    estacionamiento.horaFin = horaFin;
-    estacionamiento.duracionHoras = duracionHoras;
-    estacionamiento.montoTotal = montoTotal;
-    estacionamiento.estado = 'finalizado';
-    await estacionamiento.save();
-
-    // Descontar del saldo
-    usuario.montoDisponible -= montoTotal;
-    await usuario.save();
-
-    // Generar comprobante
-    const nroComprobante = uuidv4().slice(0, 8);
-    const comprobante = new Comprobante({
-      usuario: {
-        dni: usuario.dni,
-        nombre: usuario.nombre,
-        apellido: usuario.apellido
-      },
-      montoAcreditado: -montoTotal,
-      montoDisponible: usuario.montoDisponible,
-      vehiculos: [dominio],
-      nroComprobante
-    });
-    await comprobante.save();
-
-    // El estacionamiento ya se registra en las transacciones del controlador de estacionamiento
-    // No necesitamos duplicar esta información aquí
-
-    res.status(200).json({
-      mensaje: 'Estacionamiento finalizado correctamente',
-      duracionHoras,
-      montoTotal,
-      comprobante
-    });
-
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ mensaje: 'Error al finalizar el estacionamiento', error });
   }
 };
 
@@ -447,11 +309,13 @@ const obtenerTodosUsuarios = async (req, res) => {
   }
 };
 
-// Actualizar usuario (incluyendo tarifa y estado de asociado)
+const ROLES_VALIDOS = ['cliente', 'admin', 'operador'];
+
+// Actualizar usuario (incluyendo tarifa, rol y estado de asociado)
 const actualizarUsuario = async (req, res) => {
   try {
     const { dni } = req.params;
-    const { asociado, tarifaAsignada, ...otrosDatos } = req.body;
+    const { asociado, tarifaAsignada, rol, ...otrosDatos } = req.body;
 
     // Buscar el usuario
     const usuario = await Usuario.findOne({ dni, activo: true });
@@ -467,13 +331,23 @@ const actualizarUsuario = async (req, res) => {
       }
     }
 
+    if (rol !== undefined && !ROLES_VALIDOS.includes(rol)) {
+      return res.status(400).json({ mensaje: `Rol inválido. Debe ser uno de: ${ROLES_VALIDOS.join(', ')}` });
+    }
+
+    const estadoAnterior = { rol: usuario.rol, asociado: usuario.asociado, tarifaAsignada: usuario.tarifaAsignada };
+
     // Actualizar campos
     if (typeof asociado !== 'undefined') {
       usuario.asociado = asociado;
     }
-    
+
     if (tarifaAsignada !== undefined) {
       usuario.tarifaAsignada = tarifaAsignada === '' ? null : tarifaAsignada;
+    }
+
+    if (rol !== undefined) {
+      usuario.rol = rol;
     }
 
     // Actualizar otros datos permitidos
@@ -485,6 +359,30 @@ const actualizarUsuario = async (req, res) => {
     });
 
     await usuario.save();
+
+    if (rol !== undefined && rol !== estadoAnterior.rol) {
+      await auditoriaService.registrar({
+        entidad: 'Usuario',
+        entidadId: usuario._id,
+        accion: 'cambio_rol',
+        usuarioId: req.usuarioActual?._id ?? null,
+        usuarioDni: req.usuario.dni,
+        datosAnteriores: { rol: estadoAnterior.rol },
+        datosNuevos: { rol },
+        motivo: `Admin ${req.usuario.dni} cambió el rol de ${dni} de "${estadoAnterior.rol}" a "${rol}"`
+      });
+    }
+    if (tarifaAsignada !== undefined && String(tarifaAsignada) !== String(estadoAnterior.tarifaAsignada ?? '')) {
+      await auditoriaService.registrar({
+        entidad: 'Usuario',
+        entidadId: usuario._id,
+        accion: 'cambio_tarifa',
+        usuarioId: req.usuarioActual?._id ?? null,
+        usuarioDni: req.usuario.dni,
+        datosAnteriores: { tarifaAsignada: estadoAnterior.tarifaAsignada },
+        datosNuevos: { tarifaAsignada: usuario.tarifaAsignada }
+      });
+    }
 
     // Devolver usuario actualizado con tarifa poblada
     const usuarioActualizado = await Usuario.findById(usuario._id)
@@ -518,11 +416,9 @@ const obtenerTarifasDisponibles = async (req, res) => {
 module.exports = {
   recargarUsuario,
   agregarVehiculo,
-  registrarIngreso,
   obtenerUsuario,
   modificarVehiculo,
   eliminarVehiculo,
-  finalizarEstacionamiento,
   obtenerTodosUsuarios,
   actualizarUsuario,
   obtenerTarifasDisponibles

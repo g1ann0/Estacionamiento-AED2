@@ -3,31 +3,21 @@ const Usuario = require('../models/Usuario');
 const ErrorResponse = require('../utils/errorResponse');
 const PDFDocument = require('pdfkit');
 
-const crearComprobante = async (req, res, next) => {
-  try {
-    const { dni, montoAcreditado, usuario } = req.body;
-    
-    if (!dni || !montoAcreditado || !usuario) {
-      return next(new ErrorResponse('Faltan datos requeridos', 400));
-    }
-
-    const nroComprobante = 'COMP-' + Date.now();
-    
-    const comprobante = await Comprobante.create({
-      nroComprobante,
-      usuario,
-      montoAcreditado,
-      montoDisponible: usuario.montoDisponible || 0 + montoAcreditado,
-      fecha: new Date()
-    });
-
-    res.status(200).json({
-      success: true,
-      comprobante
-    });
-  } catch (error) {
-    next(error);
-  }
+// Alta de recarga de saldo — DISCONTINUADA.
+//
+// El circuito era: el cliente transfería por fuera del sistema, subía un comprobante, un
+// administrador lo aprobaba a mano, y recién entonces se acreditaba saldo. Requería trabajo
+// administrativo por transacción y quedó sin razón de ser desde que el cobro directo
+// (efectivo/tarjeta/QR, Etapa 3) existe. Su reemplazo previsto es el abono mensual.
+//
+// Se cierra el alta, no el circuito: los saldos ya cargados se siguen gastando como medio de
+// pago `saldo_prepago`, y las recargas pendientes se siguen pudiendo aprobar o rechazar desde
+// el panel. El endpoint responde 410 (Gone) en vez de 404 para que quede explícito que la
+// funcionalidad existió y fue retirada, no que la ruta esté mal escrita.
+const crearComprobante = async (req, res) => {
+  res.status(410).json({
+    mensaje: 'La carga de saldo por comprobante fue discontinuada. El pago se realiza al retirar el vehículo, en efectivo, tarjeta o QR.'
+  });
 };
 
 const obtenerComprobantes = async (req, res, next) => {

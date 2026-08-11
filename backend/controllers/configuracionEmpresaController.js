@@ -1,6 +1,23 @@
 const ConfiguracionEmpresa = require('../models/ConfiguracionEmpresa');
-const LogConfiguracionEmpresa = require('../models/LogConfiguracionEmpresa');
+const AuditLog = require('../models/AuditLog');
 const Usuario = require('../models/Usuario');
+const auditoriaService = require('../services/auditoriaService');
+
+// La auditoría de la configuración de empresa vive en AuditLog (antes en el modelo
+// LogConfiguracionEmpresa). Se traduce a la forma vieja en la lectura para no romper la
+// pantalla que la consume.
+const aFormaLogEmpresa = (registro) => ({
+  _id: registro._id,
+  usuario: registro.usuarioId,
+  usuarioInfo: registro.actor,
+  tipoOperacion: registro.accion.replace('empresa_', ''),
+  configuracionAnterior: registro.datosAnteriores ?? null,
+  configuracionNueva: registro.datosNuevos?.configuracion ?? null,
+  camposModificados: registro.datosNuevos?.camposModificados ?? [],
+  fecha: registro.fecha,
+  motivo: registro.motivo || '',
+  ipUsuario: registro.ip || ''
+});
 
 // Obtener configuración actual
 const obtenerConfiguracion = async (req, res) => {
@@ -130,27 +147,19 @@ const actualizarConfiguracion = async (req, res) => {
       }));
     }
 
-    // Crear log de la operación
-    try {
-      await LogConfiguracionEmpresa.crearLog({
-        usuario: usuario._id,
-        usuarioInfo: {
-          dni: usuario.dni,
-          nombre: usuario.nombre,
-          apellido: usuario.apellido,
-          email: usuario.email
-        },
-        tipoOperacion,
-        configuracionAnterior: configuracionAnterior ? configuracionAnterior.toObject() : null,
-        configuracionNueva: configuracion.toObject(),
-        camposModificados,
-        motivo: datosConfiguracion.motivo || `${tipoOperacion === 'crear' ? 'Creación' : 'Actualización'} de configuración de empresa`,
-        ipUsuario: req.ip || req.connection.remoteAddress || ''
-      });
-    } catch (logError) {
-      console.error('Error al crear log de configuración empresa:', logError);
-      // No fallar la operación principal por error en el log
-    }
+    // auditoriaService ya absorbe sus propios errores: registrar la auditoría nunca puede
+    // hacer fallar el guardado de la configuración.
+    await auditoriaService.registrar({
+      entidad: auditoriaService.ENTIDADES.EMPRESA,
+      entidadId: configuracion._id,
+      accion: `empresa_${tipoOperacion}`,
+      usuarioId: usuario._id,
+      actor: auditoriaService.persona(usuario),
+      ip: req.ip || '',
+      datosAnteriores: configuracionAnterior ? configuracionAnterior.toObject() : null,
+      datosNuevos: { configuracion: configuracion.toObject(), camposModificados },
+      motivo: datosConfiguracion.motivo || `${tipoOperacion === 'crear' ? 'Creación' : 'Actualización'} de configuración de empresa`
+    });
 
     // Validar CUIT usando el método del modelo
     if (!configuracion.validarCuit()) {
@@ -322,50 +331,27 @@ const obtenerHistorialConfiguracion = async (req, res) => {
     }
 
     const skip = (parseInt(pagina) - 1) * parseInt(limite);
-    
-    // Obtener logs con paginación
-    const logs = await LogConfiguracionEmpresa.find(
-      filtros.usuario ? { usuario: filtros.usuario } : {},
-      null,
-      {
-        skip,
-        limit: parseInt(limite),
-        sort: { fecha: -1 }
-      }
-    ).populate('usuario', 'dni nombre apellido email activo');
 
-    // Filtrar por otros criterios si es necesario
-    let logsFiltrados = logs;
-    
-    if (filtros.tipoOperacion) {
-      logsFiltrados = logs.filter(log => log.tipoOperacion === filtros.tipoOperacion);
-    }
-    
+    // Todos los filtros van ahora a la consulta, no a un filtrado en memoria posterior: antes
+    // se traía una página y se la recortaba en Node, así que el total y la página no
+    // coincidían con lo filtrado.
+    const consulta = { accion: { $regex: '^empresa_' } };
+    if (filtros.usuario) consulta.usuarioId = filtros.usuario;
+    if (filtros.tipoOperacion) consulta.accion = `empresa_${filtros.tipoOperacion}`;
     if (filtros.fechaDesde || filtros.fechaHasta) {
-      logsFiltrados = logs.filter(log => {
-        const fechaLog = new Date(log.fecha);
-        let cumpleFiltro = true;
-        
-        if (filtros.fechaDesde) {
-          cumpleFiltro = cumpleFiltro && fechaLog >= new Date(filtros.fechaDesde);
-        }
-        
-        if (filtros.fechaHasta) {
-          cumpleFiltro = cumpleFiltro && fechaLog <= new Date(filtros.fechaHasta);
-        }
-        
-        return cumpleFiltro;
-      });
+      consulta.fecha = {};
+      if (filtros.fechaDesde) consulta.fecha.$gte = new Date(filtros.fechaDesde);
+      if (filtros.fechaHasta) consulta.fecha.$lte = new Date(filtros.fechaHasta);
     }
 
-    // Contar total para paginación
-    const total = await LogConfiguracionEmpresa.countDocuments(
-      filtros.usuario ? { usuario: filtros.usuario } : {}
-    );
+    const [registros, total] = await Promise.all([
+      AuditLog.find(consulta).sort({ fecha: -1 }).skip(skip).limit(parseInt(limite)).lean(),
+      AuditLog.countDocuments(consulta)
+    ]);
 
     res.json({
       success: true,
-      logs: logsFiltrados,
+      logs: registros.map(aFormaLogEmpresa),
       pagination: {
         total,
         pagina: parseInt(pagina),
@@ -395,27 +381,29 @@ const obtenerEstadisticasConfiguracion = async (req, res) => {
       if (fechaHasta) filtroFecha.fecha.$lte = new Date(fechaHasta);
     }
 
+    const soloEmpresa = { ...filtroFecha, accion: { $regex: '^empresa_' } };
+
     // Estadísticas por tipo de operación
-    const operacionesPorTipo = await LogConfiguracionEmpresa.aggregate([
-      { $match: filtroFecha },
+    const operacionesPorTipo = await AuditLog.aggregate([
+      { $match: soloEmpresa },
       {
         $group: {
-          _id: '$tipoOperacion',
+          _id: { $replaceOne: { input: '$accion', find: 'empresa_', replacement: '' } },
           cantidad: { $sum: 1 }
         }
       }
     ]);
 
     // Estadísticas por usuario
-    const operacionesPorUsuario = await LogConfiguracionEmpresa.aggregate([
-      { $match: filtroFecha },
+    const operacionesPorUsuario = await AuditLog.aggregate([
+      { $match: soloEmpresa },
       {
         $group: {
           _id: {
-            usuario: '$usuario',
-            dni: '$usuarioInfo.dni',
-            nombre: '$usuarioInfo.nombre',
-            apellido: '$usuarioInfo.apellido'
+            usuario: '$usuarioId',
+            dni: '$actor.dni',
+            nombre: '$actor.nombre',
+            apellido: '$actor.apellido'
           },
           cantidad: { $sum: 1 },
           ultimaOperacion: { $max: '$fecha' }
@@ -425,12 +413,12 @@ const obtenerEstadisticasConfiguracion = async (req, res) => {
     ]);
 
     // Campos más modificados
-    const camposMasModificados = await LogConfiguracionEmpresa.aggregate([
-      { $match: filtroFecha },
-      { $unwind: '$camposModificados' },
+    const camposMasModificados = await AuditLog.aggregate([
+      { $match: soloEmpresa },
+      { $unwind: '$datosNuevos.camposModificados' },
       {
         $group: {
-          _id: '$camposModificados.campo',
+          _id: '$datosNuevos.camposModificados.campo',
           cantidad: { $sum: 1 }
         }
       },
@@ -439,7 +427,7 @@ const obtenerEstadisticasConfiguracion = async (req, res) => {
     ]);
 
     // Total de operaciones
-    const totalOperaciones = await LogConfiguracionEmpresa.countDocuments(filtroFecha);
+    const totalOperaciones = await AuditLog.countDocuments(soloEmpresa);
 
     res.json({
       success: true,

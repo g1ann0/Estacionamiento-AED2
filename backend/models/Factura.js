@@ -146,7 +146,8 @@ const facturaSchema = new mongoose.Schema({
 });
 
 // Índices para búsqueda eficiente
-facturaSchema.index({ nroFactura: 1 });
+// `nroFactura` ya declara su índice en la definición del campo; repetirlo acá generaba una
+// definición duplicada que Mongoose reporta en cada arranque.
 facturaSchema.index({ 'cliente.dni': 1 });
 facturaSchema.index({ 'comprobanteRelacionado.nroComprobante': 1 });
 facturaSchema.index({ fechaEmision: -1 });

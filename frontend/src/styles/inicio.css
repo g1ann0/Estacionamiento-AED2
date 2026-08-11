@@ -1,0 +1,173 @@
+/* Inicio — la superficie pública, sobre el mismo mundo Playa pintada.
+   Es la única pantalla del sistema que tiene que convencer, así que respira más que el panel:
+   más aire vertical y tipografía más grande. El acento sigue siendo el amarillo vial y sigue
+   ocupando poco: dos botones y tres números. */
+
+.inicio-barra {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: 64px;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.inicio-barra .cliente-marca { font-size: var(--texto-lg); }
+.inicio-barra-acciones { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+
+.inicio-boton-compacto { width: auto; height: 40px; font-size: var(--texto-md); padding: 0 16px; }
+
+/* ------------------------------------------------------------------ Hero -- */
+
+.inicio-hero {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 72px 20px 56px;
+  text-align: center;
+}
+
+/* El titular es lo más grande de la pantalla y se detiene bastante antes del tope de 6rem:
+   una playa de barrio que grita en 96px se lee como otra cosa. */
+.inicio-titulo {
+  font-size: clamp(30px, 5.5vw, 46px);
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+.inicio-bajada {
+  margin: 16px auto 0;
+  max-width: 52ch;
+  color: var(--text-muted);
+  font-size: var(--texto-lg);
+  line-height: 1.55;
+  text-wrap: pretty;
+}
+
+.inicio-acciones {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-top: 28px;
+}
+
+.inicio-cta { width: auto; padding: 0 28px; }
+
+/* --------------------------------------------------------------- Secciones -- */
+
+.inicio-pasos,
+.inicio-cuenta {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 40px 20px;
+}
+
+/* Más aire arriba del título que abajo: el encabezado pertenece a lo que sigue. */
+.inicio-seccion-titulo {
+  font-size: var(--texto-xl);
+  font-weight: 600;
+  margin-bottom: 20px;
+  padding-top: 8px;
+}
+
+.pasos { list-style: none; display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; }
+
+/* Los pasos son una secuencia, no tres tarjetas iguales: van en una columna con la guía
+   vertical que conecta un número con el siguiente, como la línea pintada del piso. */
+.paso {
+  position: relative;
+  display: grid;
+  grid-template-columns: 40px 1fr;
+  gap: 16px;
+  padding: 0 0 28px;
+}
+
+.paso::before {
+  content: '';
+  position: absolute;
+  left: 19px;
+  top: 34px;
+  bottom: 6px;
+  width: 1px;
+  background: var(--border);
+}
+
+.paso:last-child { padding-bottom: 0; }
+.paso:last-child::before { display: none; }
+
+.paso-numero {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--texto-lg);
+  font-weight: 600;
+}
+
+.paso-titulo { font-size: var(--texto-lg); font-weight: 600; margin-bottom: 4px; }
+.paso-texto { color: var(--text-muted); line-height: 1.55; max-width: 56ch; }
+
+/* ----------------------------------------------------------------- Cuenta -- */
+
+.cuenta-lista { list-style: none; display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 0; }
+
+.cuenta-lista > li {
+  display: grid;
+  grid-template-columns: 24px 1fr;
+  gap: 14px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.cuenta-lista > li:last-child { border-bottom: 0; }
+.cuenta-lista svg { color: var(--text-subtle); margin-top: 2px; }
+
+.cuenta-titulo { font-size: var(--texto-md); font-weight: 600; margin-bottom: 2px; }
+.cuenta-texto { color: var(--text-muted); line-height: 1.5; max-width: 56ch; }
+
+/* ----------------------------------------------------------------- Cierre -- */
+
+.inicio-cierre {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 48px 20px 64px;
+  border-top: 1px solid var(--border);
+  text-align: center;
+}
+
+.inicio-cierre-texto { color: var(--text-muted); font-size: var(--texto-lg); }
+
+/* -------------------------------------------------------------------- Pie -- */
+
+.inicio-pie {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 20px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: var(--texto-sm);
+}
+
+.inicio-pie .cliente-marca { color: var(--text-muted); font-weight: 500; }
+.inicio-pie-enlaces { display: flex; gap: 16px; margin-left: auto; }
+
+@media (max-width: 560px) {
+  .inicio-hero { padding: 48px 20px 40px; }
+  .inicio-acciones { flex-direction: column; gap: 14px; }
+  .inicio-cta { width: 100%; }
+  .inicio-barra .cliente-marca span { display: none; }
+}

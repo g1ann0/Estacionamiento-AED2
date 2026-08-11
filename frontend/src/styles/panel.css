@@ -1,0 +1,261 @@
+/* Shell del panel — Playa pintada.
+   Todo consume tokens semánticos de tokens.css. Ningún hex literal acá. */
+
+.panel-shell {
+  display: grid;
+  grid-template-columns: var(--ancho-sidebar) 1fr;
+  grid-template-rows: var(--alto-header) 1fr;
+  grid-template-areas:
+    'header header'
+    'sidebar contenido';
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  background: var(--bg);
+  transition: grid-template-columns 140ms ease;
+}
+
+.panel-shell.esta-colapsada {
+  grid-template-columns: var(--ancho-sidebar-colapsada) 1fr;
+}
+
+/* ---------------------------------------------------------------- Header -- */
+
+.panel-header {
+  grid-area: header;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 12px;
+  background: var(--surface);
+  /* La línea pintada: separación por borde, no por sombra. */
+  border-bottom: 1px solid var(--border);
+}
+
+.panel-contexto {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--texto-md);
+  color: var(--text-muted);
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.panel-sep { color: var(--text-subtle); }
+
+/* El dueño del turno, un escalón por debajo del estado: importa cuando hay diferencia de
+   caja, no mientras se cobra. */
+.panel-contexto-operador {
+  color: var(--text-subtle);
+  font-size: var(--texto-sm);
+}
+
+.panel-turno {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+}
+
+.panel-turno-punto {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: none;
+}
+
+/* El estado del turno usa color Y texto: el color solo no sirve para daltonismo
+   ni bajo el sol directo de una garita. */
+.panel-turno.abierto { color: var(--success-fg); }
+.panel-turno.cerrado { color: var(--warning-fg); }
+
+.panel-header-acciones {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.panel-usuario {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  font-size: var(--texto-sm);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.panel-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--alto-control);
+  height: var(--alto-control);
+  border: 1px solid transparent;
+  border-radius: var(--radio);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  flex: none;
+}
+
+.panel-icon-btn:hover {
+  background: var(--row-hover);
+  color: var(--text);
+  border-color: var(--border);
+}
+
+/* --------------------------------------------------------------- Sidebar -- */
+
+.panel-sidebar {
+  grid-area: sidebar;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 8px 6px;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.panel-nav-grupo { display: flex; flex-direction: column; }
+
+.panel-nav-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 0 10px;
+  height: var(--alto-control);
+  border: 0;
+  border-radius: var(--radio);
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: var(--texto-md);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.esta-colapsada .panel-nav-item {
+  justify-content: center;
+  padding: 0;
+}
+
+.panel-nav-item:hover { background: var(--row-hover); color: var(--text); }
+
+/* Activo = franja + fondo + peso, como una plaza demarcada. Nunca solo color:
+   falla en daltonismo y se pierde en tema oscuro. */
+.panel-nav-item.es-activo {
+  background: var(--row-selected);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.panel-nav-item.es-activo::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  border-radius: 0 2px 2px 0;
+  background: var(--accent);
+}
+
+.panel-nav-item.contiene-activo { color: var(--text); }
+
+.panel-punto-activo {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.panel-chevron {
+  margin-left: auto;
+  transition: transform 120ms ease;
+  color: var(--text-subtle);
+}
+
+.panel-chevron.abierto { transform: rotate(180deg); }
+
+.panel-nav-subitems {
+  display: flex;
+  flex-direction: column;
+  /* La guía vertical continúa la lógica de la línea pintada. */
+  margin: 2px 0 4px 20px;
+  padding-left: 10px;
+  border-left: 1px solid var(--border);
+}
+
+.panel-nav-subitem {
+  padding: 6px 8px;
+  border-radius: var(--radio-chico);
+  color: var(--text-muted);
+  font-size: var(--texto-sm);
+  text-decoration: none;
+}
+
+.panel-nav-subitem:hover { background: var(--row-hover); color: var(--text); }
+
+.panel-nav-subitem.es-activo {
+  background: var(--row-selected);
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------- Contenido -- */
+
+.panel-contenido {
+  grid-area: contenido;
+  overflow: auto;
+  padding: 16px;
+  background: var(--bg);
+}
+
+/* ------------------------------------------------------------ Responsive --
+   La sidebar deja de ser columna del grid y pasa a ser una hoja sobre el
+   contenido. La jerarquía operativa no cambia: patente y cobro siguen siendo
+   lo primero y lo más grande. */
+
+@media (max-width: 1024px) {
+  .panel-shell { grid-template-columns: var(--ancho-sidebar-colapsada) 1fr; }
+}
+
+@media (max-width: 768px) {
+  .panel-shell {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      'header'
+      'contenido';
+  }
+
+  .panel-sidebar {
+    position: fixed;
+    top: var(--alto-header);
+    bottom: 0;
+    left: 0;
+    width: var(--ancho-sidebar);
+    z-index: 20;
+    box-shadow: var(--shadow-dialog);
+    transform: translateX(-100%);
+    transition: transform 160ms ease;
+  }
+
+  .panel-shell:not(.esta-colapsada) .panel-sidebar { transform: translateX(0); }
+
+  .panel-contexto { font-size: var(--texto-sm); }
+  .panel-usuario { display: none; }
+}

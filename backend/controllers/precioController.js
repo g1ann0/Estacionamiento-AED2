@@ -1,6 +1,26 @@
 const ConfiguracionPrecio = require('../models/ConfiguracionPrecio');
-const LogPrecio = require('../models/LogPrecio');
+const AuditLog = require('../models/AuditLog');
 const Usuario = require('../models/Usuario');
+const auditoriaService = require('../services/auditoriaService');
+const { TIPOS_TARIFA_AUTOMATICA } = require('../utils/tiposTarifa');
+
+// La auditoría de precios se guarda en AuditLog (antes en el modelo LogPrecio). El frontend
+// que consume el historial espera todavía la forma vieja, así que se traduce en la lectura
+// en vez de arrastrar el modelo entero solo por el formato de respuesta.
+const ACCIONES_PRECIO = ['precio_creacion', 'precio_modificacion', 'precio_eliminacion'];
+
+const aFormaHistorialPrecio = (registro) => ({
+  _id: registro._id,
+  tipoUsuario: registro.entidadId,
+  precioAnterior: registro.datosAnteriores?.precioPorHora ?? null,
+  precioNuevo: registro.datosNuevos?.precioPorHora ?? null,
+  descripcionAnterior: registro.datosAnteriores?.descripcion ?? '',
+  descripcionNueva: registro.datosNuevos?.descripcion ?? '',
+  modificadoPor: registro.actor ?? { dni: registro.usuarioDni, nombre: '', apellido: '', email: '' },
+  fechaModificacion: registro.fecha,
+  motivo: registro.motivo || '',
+  ip: registro.ip || ''
+});
 
 // Obtener todas las configuraciones de precios
 const obtenerPrecios = async (req, res) => {
@@ -49,27 +69,24 @@ const obtenerPrecios = async (req, res) => {
 // Actualizar precio específico
 const actualizarPrecio = async (req, res) => {
   try {
-    console.log('=== ACTUALIZAR PRECIO CONTROLLER ===');
-    console.log('Params:', req.params);
-    console.log('Body:', req.body);
-    console.log('Usuario autenticado:', req.usuario?.dni);
-    
     const { tipoUsuario } = req.params;
     const { precioPorHora, descripcion, motivo } = req.body;
     const { dni } = req.usuario; // Del middleware de auth
 
-    // Validar que el tipo de usuario sea válido
-    if (!['asociado', 'no_asociado', 'estudiantes', 'para travestis'].includes(tipoUsuario)) {
-      console.log('ERROR: Tipo de usuario inválido:', tipoUsuario);
-      return res.status(400).json({
+    // Se puede editar cualquiera de las dos tarifas automáticas, o cualquier tarifa con nombre
+    // que ya exista. Lo que no se puede es "actualizar" una que nunca se creó: antes, la lista
+    // de tipos válidos estaba hardcodeada y arrastraba nombres de prueba.
+    const esAutomatica = TIPOS_TARIFA_AUTOMATICA.includes(tipoUsuario);
+    const existe = esAutomatica || await ConfiguracionPrecio.exists({ tipoUsuario });
+    if (!existe) {
+      return res.status(404).json({
         success: false,
-        mensaje: 'Tipo de usuario inválido'
+        mensaje: `No existe una tarifa "${tipoUsuario}". Creála antes de modificarla.`
       });
     }
 
     // Validar precio
     if (!precioPorHora || precioPorHora < 0) {
-      console.log('ERROR: Precio inválido:', precioPorHora);
       return res.status(400).json({
         success: false,
         mensaje: 'El precio debe ser un número mayor o igual a 0'
@@ -102,42 +119,31 @@ const actualizarPrecio = async (req, res) => {
         actualizadoPor: dni
       },
       { 
-        new: true, 
+        returnDocument: 'after', 
         upsert: true 
       }
     );
 
-    console.log('Precio actualizado:', precioActualizado);
-
-    // Crear entrada en el log de cambios
-    const logEntry = new LogPrecio({
-      tipoUsuario,
-      precioAnterior: configuracionActual ? configuracionActual.precioPorHora : 0,
-      precioNuevo: Number(precioPorHora),
-      descripcionAnterior: configuracionActual ? configuracionActual.descripcion : '',
-      descripcionNueva: descripcion || '',
-      modificadoPor: {
-        dni: usuarioModificador.dni,
-        nombre: usuarioModificador.nombre,
-        apellido: usuarioModificador.apellido,
-        email: usuarioModificador.email
+    await auditoriaService.registrar({
+      entidad: auditoriaService.ENTIDADES.PRECIO,
+      entidadId: tipoUsuario,
+      accion: configuracionActual ? 'precio_modificacion' : 'precio_creacion',
+      usuarioId: usuarioModificador._id,
+      actor: auditoriaService.persona(usuarioModificador),
+      ip: req.ip || '',
+      datosAnteriores: {
+        precioPorHora: configuracionActual ? configuracionActual.precioPorHora : null,
+        descripcion: configuracionActual ? configuracionActual.descripcion : ''
       },
-      motivo: motivo || '',
-      ip: req.ip || req.connection.remoteAddress || ''
+      datosNuevos: { precioPorHora: Number(precioPorHora), descripcion: descripcion || '' },
+      motivo: motivo || ''
     });
 
-    const logGuardado = await logEntry.save();
-    console.log('Log guardado:', logGuardado._id);
-
-    const respuesta = {
+    res.json({
       success: true,
       mensaje: `Precio para ${tipoUsuario.replace('_', ' ')} actualizado correctamente`,
-      precio: precioActualizado,
-      logId: logEntry._id
-    };
-
-    console.log('Respuesta a enviar:', respuesta);
-    res.json(respuesta);
+      precio: precioActualizado
+    });
   } catch (error) {
     console.error('Error al actualizar precio:', error);
     console.error('Error stack:', error.stack);
@@ -192,22 +198,21 @@ const obtenerHistorialPrecios = async (req, res) => {
   try {
     const { tipoUsuario, limite = 50, pagina = 1 } = req.query;
     
-    const filtro = tipoUsuario && ['asociado', 'no_asociado'].includes(tipoUsuario) 
-      ? { tipoUsuario } 
-      : {};
-    
+    const filtro = { accion: { $in: ACCIONES_PRECIO } };
+    if (tipoUsuario && TIPOS_TARIFA_AUTOMATICA.includes(tipoUsuario)) {
+      filtro.entidadId = tipoUsuario;
+    }
+
     const skip = (parseInt(pagina) - 1) * parseInt(limite);
-    
-    const historial = await LogPrecio.find(filtro)
-      .sort({ fechaModificacion: -1 })
-      .limit(parseInt(limite))
-      .skip(skip);
-    
-    const total = await LogPrecio.countDocuments(filtro);
-    
+
+    const [registros, total] = await Promise.all([
+      AuditLog.find(filtro).sort({ fecha: -1 }).skip(skip).limit(parseInt(limite)).lean(),
+      AuditLog.countDocuments(filtro)
+    ]);
+
     res.json({
       success: true,
-      historial,
+      historial: registros.map(aFormaHistorialPrecio),
       pagination: {
         total,
         pagina: parseInt(pagina),
@@ -227,56 +232,34 @@ const obtenerHistorialPrecios = async (req, res) => {
 // Obtener estadísticas de cambios de precios
 const obtenerEstadisticasPrecios = async (req, res) => {
   try {
-    const totalCambios = await LogPrecio.countDocuments();
-    
-    // Estadísticas por tipo de usuario con mejor formato
-    const cambiosPorTipo = await LogPrecio.aggregate([
-      {
-        $group: {
-          _id: '$tipoUsuario',
-          cantidad: { $sum: 1 },
-          ultimoCambio: { $max: '$fechaModificacion' }
-        }
-      },
+    // Todas las agregaciones corren ahora sobre AuditLog, filtradas por las acciones de precio.
+    const soloPrecios = { accion: { $in: ACCIONES_PRECIO } };
+    const totalCambios = await AuditLog.countDocuments(soloPrecios);
+
+    // Estadísticas por tipo de tarifa (el tipo vive en entidadId)
+    const cambiosPorTipo = await AuditLog.aggregate([
+      { $match: soloPrecios },
+      { $group: { _id: '$entidadId', cantidad: { $sum: 1 }, ultimoCambio: { $max: '$fecha' } } },
       { $sort: { cantidad: -1 } }
     ]);
-    
-    // Estadísticas por tipo de operación
-    const operacionesPorTipo = await LogPrecio.aggregate([
-      {
-        $addFields: {
-          tipoOperacion: {
-            $cond: {
-              if: { $and: [{ $eq: ['$precioAnterior', null] }, { $ne: ['$precioNuevo', null] }] },
-              then: 'creacion',
-              else: {
-                $cond: {
-                  if: { $and: [{ $ne: ['$precioAnterior', null] }, { $eq: ['$precioNuevo', null] }] },
-                  then: 'eliminacion',
-                  else: 'modificacion'
-                }
-              }
-            }
-          }
-        }
-      },
-      {
-        $group: {
-          _id: '$tipoOperacion',
-          cantidad: { $sum: 1 }
-        }
-      }
+
+    // El tipo de operación ya es explícito en la acción; antes había que deducirlo de qué
+    // campo venía en null.
+    const operacionesPorTipo = await AuditLog.aggregate([
+      { $match: soloPrecios },
+      { $group: { _id: { $replaceOne: { input: '$accion', find: 'precio_', replacement: '' } }, cantidad: { $sum: 1 } } }
     ]);
-    
+
     // Administradores más activos
-    const cambiosPorUsuario = await LogPrecio.aggregate([
+    const cambiosPorUsuario = await AuditLog.aggregate([
+      { $match: soloPrecios },
       {
         $group: {
-          _id: '$modificadoPor.dni',
-          nombre: { $first: '$modificadoPor.nombre' },
-          apellido: { $first: '$modificadoPor.apellido' },
+          _id: '$actor.dni',
+          nombre: { $first: '$actor.nombre' },
+          apellido: { $first: '$actor.apellido' },
           cantidad: { $sum: 1 },
-          ultimoCambio: { $max: '$fechaModificacion' }
+          ultimoCambio: { $max: '$fecha' }
         }
       },
       { $sort: { cantidad: -1 } },
@@ -286,26 +269,23 @@ const obtenerEstadisticasPrecios = async (req, res) => {
     // Actividad reciente (últimos 30 días)
     const fechaHace30Dias = new Date();
     fechaHace30Dias.setDate(fechaHace30Dias.getDate() - 30);
-    
-    const actividadReciente = await LogPrecio.countDocuments({
-      fechaModificacion: { $gte: fechaHace30Dias }
+
+    const actividadReciente = await AuditLog.countDocuments({
+      ...soloPrecios,
+      fecha: { $gte: fechaHace30Dias }
     });
 
     // Cambios por mes (últimos 6 meses)
-    const cambiosPorMes = await LogPrecio.aggregate([
+    const cambiosPorMes = await AuditLog.aggregate([
       {
         $match: {
-          fechaModificacion: { 
-            $gte: new Date(new Date().setMonth(new Date().getMonth() - 6))
-          }
+          ...soloPrecios,
+          fecha: { $gte: new Date(new Date().setMonth(new Date().getMonth() - 6)) }
         }
       },
       {
         $group: {
-          _id: {
-            año: { $year: '$fechaModificacion' },
-            mes: { $month: '$fechaModificacion' }
-          },
+          _id: { año: { $year: '$fecha' }, mes: { $month: '$fecha' } },
           cantidad: { $sum: 1 }
         }
       },
@@ -354,6 +334,10 @@ const crearPrecio = async (req, res) => {
       });
     }
 
+    // Una tarifa con nombre propio es válida, pero no se aplica sola: hay que asignársela a un
+    // cliente. Solo `asociado` y `no_asociado` se resuelven automáticamente (ver utils/tiposTarifa).
+    const requiereAsignacion = !TIPOS_TARIFA_AUTOMATICA.includes(tipoUsuario.trim().toLowerCase());
+
     // Validar precio
     if (precioPorHora < 0) {
       return res.status(400).json({
@@ -395,29 +379,24 @@ const crearPrecio = async (req, res) => {
 
     await nuevoPrecio.save();
 
-    // Crear entrada en el log de cambios
-    const logEntry = new LogPrecio({
-      tipoUsuario: nuevoPrecio.tipoUsuario,
-      precioAnterior: null,
-      precioNuevo: nuevoPrecio.precioPorHora,
-      descripcionAnterior: '',
-      descripcionNueva: nuevoPrecio.descripcion,
-      motivo: 'Creación de nueva configuración de precio',
-      modificadoPor: {
-        dni: usuarioCreador.dni,
-        nombre: usuarioCreador.nombre,
-        apellido: usuarioCreador.apellido,
-        email: usuarioCreador.email
-      },
-      ip: req.ip || req.connection.remoteAddress || '',
-      fechaModificacion: new Date()
+    await auditoriaService.registrar({
+      entidad: auditoriaService.ENTIDADES.PRECIO,
+      entidadId: nuevoPrecio.tipoUsuario,
+      accion: 'precio_creacion',
+      usuarioId: usuarioCreador._id,
+      actor: auditoriaService.persona(usuarioCreador),
+      ip: req.ip || '',
+      datosAnteriores: null,
+      datosNuevos: { precioPorHora: nuevoPrecio.precioPorHora, descripcion: nuevoPrecio.descripcion },
+      motivo: 'Creación de nueva configuración de precio'
     });
-
-    await logEntry.save();
 
     res.status(201).json({
       success: true,
-      mensaje: 'Configuración de precio creada exitosamente',
+      mensaje: requiereAsignacion
+        ? `Tarifa "${nuevoPrecio.tipoUsuario}" creada. No se aplica sola: asignásela a los clientes que corresponda.`
+        : 'Configuración de precio creada exitosamente',
+      requiereAsignacion,
       precio: nuevoPrecio
     });
   } catch (error) {
@@ -462,25 +441,21 @@ const eliminarPrecio = async (req, res) => {
       });
     }
 
-    // Crear entrada en el log antes de eliminar
-    const logEntry = new LogPrecio({
-      tipoUsuario: configuracionPrecio.tipoUsuario,
-      precioAnterior: configuracionPrecio.precioPorHora,
-      precioNuevo: null,
-      descripcionAnterior: configuracionPrecio.descripcion,
-      descripcionNueva: '',
-      motivo: 'Eliminación de configuración de precio',
-      modificadoPor: {
-        dni: usuarioEliminador.dni,
-        nombre: usuarioEliminador.nombre,
-        apellido: usuarioEliminador.apellido,
-        email: usuarioEliminador.email
+    // Se audita antes de borrar, para que el registro conserve el valor que se pierde.
+    await auditoriaService.registrar({
+      entidad: auditoriaService.ENTIDADES.PRECIO,
+      entidadId: configuracionPrecio.tipoUsuario,
+      accion: 'precio_eliminacion',
+      usuarioId: usuarioEliminador._id,
+      actor: auditoriaService.persona(usuarioEliminador),
+      ip: req.ip || '',
+      datosAnteriores: {
+        precioPorHora: configuracionPrecio.precioPorHora,
+        descripcion: configuracionPrecio.descripcion
       },
-      ip: req.ip || req.connection.remoteAddress || '',
-      fechaModificacion: new Date()
+      datosNuevos: null,
+      motivo: 'Eliminación de configuración de precio'
     });
-
-    await logEntry.save();
 
     // Eliminar la configuración
     await ConfiguracionPrecio.findOneAndDelete({ tipoUsuario });

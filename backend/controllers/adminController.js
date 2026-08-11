@@ -2,8 +2,38 @@ const Comprobante = require('../models/Comprobante');
 const Usuario = require('../models/Usuario');
 const Vehiculo = require('../models/Vehiculo');
 const Transaccion = require('../models/Transaccion');
-const LogSaldo = require('../models/LogSaldo');
-const LogVehiculo = require('../models/LogVehiculo');
+const AuditLog = require('../models/AuditLog');
+const auditoriaService = require('../services/auditoriaService');
+
+// La auditoría de saldos y vehículos vive en AuditLog (antes en LogSaldo y LogVehiculo).
+// Las pantallas que consumen estos historiales esperan todavía la forma vieja, así que se
+// traduce en la lectura en vez de sostener dos modelos solo por el formato de respuesta.
+const aFormaHistorialSaldo = (registro) => ({
+  _id: registro._id,
+  usuarioAfectado: registro.afectado,
+  saldoAnterior: registro.datosAnteriores?.saldo ?? null,
+  saldoNuevo: registro.datosNuevos?.saldo ?? null,
+  diferencia: registro.datosNuevos?.diferencia ?? null,
+  tipoOperacion: registro.accion.replace('saldo_', ''),
+  modificadoPor: registro.actor,
+  fechaModificacion: registro.fecha,
+  motivo: registro.motivo || '',
+  ip: registro.ip || '',
+  observaciones: registro.datosNuevos?.observaciones || ''
+});
+
+const aFormaHistorialVehiculo = (registro) => ({
+  _id: registro._id,
+  vehiculo: registro.datosNuevos ?? registro.datosAnteriores ?? { dominio: registro.entidadId },
+  tipoOperacion: registro.accion.replace('vehiculo_', ''),
+  propietarioNuevo: registro.afectado,
+  propietarioAnterior: registro.datosAnteriores?.propietario ?? null,
+  cambiosRealizados: registro.datosNuevos ?? null,
+  modificadoPor: registro.actor,
+  fechaModificacion: registro.fecha,
+  motivo: registro.motivo || '',
+  ip: registro.ip || ''
+});
 const { generarFacturaPorComprobante } = require('./facturaController');
 
 // Obtener todos los comprobantes pendientes
@@ -175,6 +205,15 @@ const validarComprobante = async (req, res) => {
     comprobante.estado = 'aprobado';
     await comprobante.save();
 
+    await auditoriaService.registrar({
+      entidad: 'Comprobante',
+      entidadId: comprobante._id,
+      accion: 'aprobar_comprobante',
+      usuarioId: req.usuarioActual?._id ?? null,
+      usuarioDni: adminDni,
+      datosNuevos: { nroComprobante, montoAcreditado: comprobante.montoAcreditado, usuarioDni: usuario.dni }
+    });
+
     // Generar factura automáticamente
     let facturaGenerada = null;
     try {
@@ -222,6 +261,15 @@ const rechazarComprobante = async (req, res) => {
     // Rechazar el comprobante
     comprobante.estado = 'rechazado';
     await comprobante.save();
+
+    await auditoriaService.registrar({
+      entidad: 'Comprobante',
+      entidadId: comprobante._id,
+      accion: 'rechazar_comprobante',
+      usuarioId: req.usuarioActual?._id ?? null,
+      usuarioDni: req.usuario.dni,
+      datosNuevos: { nroComprobante }
+    });
 
     let mensajeFactura = '';
     
@@ -357,29 +405,19 @@ const modificarUsuario = async (req, res) => {
       usuario.montoDisponible = montoDisponible;
       const diferencia = montoDisponible - saldoAnterior;
 
-      // Crear entrada en el log de saldos
-      logSaldo = new LogSaldo({
-        usuarioAfectado: {
-          dni: usuario.dni,
-          nombre: usuario.nombre,
-          apellido: usuario.apellido,
-          email: usuario.email
-        },
-        saldoAnterior,
-        saldoNuevo: montoDisponible,
-        diferencia,
-        tipoOperacion: diferencia > 0 ? 'ajuste_admin' : 'correccion',
-        modificadoPor: {
-          dni: adminModificador.dni,
-          nombre: adminModificador.nombre,
-          apellido: adminModificador.apellido,
-          email: adminModificador.email
-        },
-        motivo: motivo.trim(),
-        ip: req.ip || req.connection.remoteAddress || ''
+      logSaldo = { diferencia };
+      await auditoriaService.registrar({
+        entidad: auditoriaService.ENTIDADES.USUARIO,
+        entidadId: usuario.dni,
+        accion: diferencia > 0 ? 'saldo_ajuste_admin' : 'saldo_correccion',
+        usuarioId: adminModificador._id,
+        actor: auditoriaService.persona(adminModificador),
+        afectado: auditoriaService.persona(usuario),
+        ip: req.ip || '',
+        datosAnteriores: { saldo: saldoAnterior },
+        datosNuevos: { saldo: montoDisponible, diferencia },
+        motivo: motivo.trim()
       });
-
-      await logSaldo.save();
     }
 
     await usuario.save();
@@ -394,7 +432,6 @@ const modificarUsuario = async (req, res) => {
     };
 
     if (logSaldo) {
-      respuesta.logSaldo = logSaldo._id;
       respuesta.cambioSaldo = {
         anterior: saldoAnterior,
         nuevo: montoDisponible,
@@ -600,33 +637,24 @@ const agregarVehiculoAdmin = async (req, res) => {
     });
     await usuario.save();
 
-    // Crear entrada en el log de vehículos
-    const logVehiculo = new LogVehiculo({
-      vehiculo: {
+    await auditoriaService.registrar({
+      entidad: auditoriaService.ENTIDADES.VEHICULO,
+      entidadId: vehiculo.dominio,
+      accion: 'vehiculo_crear',
+      usuarioId: adminModificador._id,
+      actor: auditoriaService.persona(adminModificador),
+      afectado: auditoriaService.persona(usuario),
+      ip: req.ip || '',
+      datosAnteriores: null,
+      datosNuevos: {
         dominio: vehiculo.dominio,
         tipo: vehiculo.tipo,
         marca: vehiculo.marca,
         modelo: vehiculo.modelo,
         año: vehiculo.año
       },
-      tipoOperacion: 'crear',
-      propietarioNuevo: {
-        dni: usuario.dni,
-        nombre: usuario.nombre,
-        apellido: usuario.apellido,
-        email: usuario.email
-      },
-      modificadoPor: {
-        dni: adminModificador.dni,
-        nombre: adminModificador.nombre,
-        apellido: adminModificador.apellido,
-        email: adminModificador.email
-      },
-      motivo: motivo.trim(),
-      ip: req.ip || req.connection.remoteAddress || ''
+      motivo: motivo.trim()
     });
-
-    await logVehiculo.save();
 
     res.status(201).json({ 
       mensaje: 'Vehículo agregado correctamente',
@@ -811,51 +839,28 @@ const modificarVehiculoAdmin = async (req, res) => {
       tipoOperacion = 'cambio_propietario';
     }
 
-    // Crear entrada en el log de vehículos
-    const logData = {
-      vehiculo: {
+    await auditoriaService.registrar({
+      entidad: auditoriaService.ENTIDADES.VEHICULO,
+      entidadId: vehiculoActual.dominio,
+      accion: `vehiculo_${tipoOperacion}`,
+      usuarioId: adminModificador._id,
+      actor: auditoriaService.persona(adminModificador),
+      afectado: auditoriaService.persona(nuevoUsuario),
+      ip: req.ip || '',
+      datosAnteriores: {
         dominio: vehiculoActual.dominio,
         tipo: vehiculoActual.tipo,
         marca: vehiculoActual.marca,
         modelo: vehiculoActual.modelo,
-        año: vehiculoActual.año
+        año: vehiculoActual.año,
+        propietario: huboCambioPropietario ? datosOriginales.propietario : undefined
       },
-      tipoOperacion,
-      modificadoPor: {
-        dni: adminModificador.dni,
-        nombre: adminModificador.nombre,
-        apellido: adminModificador.apellido,
-        email: adminModificador.email
+      datosNuevos: {
+        ...cambiosRealizados,
+        propietario: auditoriaService.persona(nuevoUsuario)
       },
-      motivo: motivo.trim(),
-      ip: req.ip || req.connection.remoteAddress || ''
-    };
-
-    // Agregar información específica según el tipo de operación
-    if (tipoOperacion === 'cambio_propietario') {
-      logData.propietarioAnterior = datosOriginales.propietario;
-      logData.propietarioNuevo = {
-        dni: nuevoUsuario.dni,
-        nombre: nuevoUsuario.nombre,
-        apellido: nuevoUsuario.apellido,
-        email: nuevoUsuario.email
-      };
-    } else {
-      logData.propietarioNuevo = {
-        dni: nuevoUsuario.dni,
-        nombre: nuevoUsuario.nombre,
-        apellido: nuevoUsuario.apellido,
-        email: nuevoUsuario.email
-      };
-    }
-
-    // Agregar cambios realizados si los hay
-    if (Object.keys(cambiosRealizados).length > 0) {
-      logData.cambiosRealizados = cambiosRealizados;
-    }
-
-    const logVehiculo = new LogVehiculo(logData);
-    await logVehiculo.save();
+      motivo: motivo.trim()
+    });
 
     res.json({ 
       mensaje: 'Vehículo actualizado correctamente',
@@ -919,46 +924,42 @@ const eliminarVehiculoAdmin = async (req, res) => {
       año: vehiculo.año
     };
 
-    const datosPropietario = {
+    // vehiculo.usuario puede ser null desde Etapa 2 (vehículo de cliente ocasional/caja).
+    const datosPropietario = vehiculo.usuario ? {
       dni: vehiculo.usuario.dni,
       nombre: vehiculo.usuario.nombre,
       apellido: vehiculo.usuario.apellido,
       email: vehiculo.usuario.email
-    };
+    } : null;
 
-    // Remover del array de vehículos del usuario
-    const usuario = await Usuario.findById(vehiculo.usuario._id);
-    if (usuario && usuario.vehiculos) {
-      usuario.vehiculos = usuario.vehiculos.filter(
-        v => v.dominio.toUpperCase() !== dominio.toUpperCase()
-      );
-      await usuario.save();
+    // Remover del array de vehículos del usuario (solo si tiene uno)
+    if (vehiculo.usuario) {
+      const usuario = await Usuario.findById(vehiculo.usuario._id);
+      if (usuario && usuario.vehiculos) {
+        usuario.vehiculos = usuario.vehiculos.filter(
+          v => v.dominio.toUpperCase() !== dominio.toUpperCase()
+        );
+        await usuario.save();
+      }
     }
 
     // Eliminar el vehículo
     await Vehiculo.deleteOne({ _id: vehiculo._id });
 
-    // Crear entrada en el log de vehículos
-    const logVehiculo = new LogVehiculo({
-      vehiculo: datosVehiculo,
-      tipoOperacion: 'eliminar',
-      propietarioAnterior: datosPropietario,
-      modificadoPor: {
-        dni: adminModificador.dni,
-        nombre: adminModificador.nombre,
-        apellido: adminModificador.apellido,
-        email: adminModificador.email
-      },
-      motivo: motivo.trim(),
-      ip: req.ip || req.connection.remoteAddress || ''
+    await auditoriaService.registrar({
+      entidad: auditoriaService.ENTIDADES.VEHICULO,
+      entidadId: datosVehiculo.dominio,
+      accion: 'vehiculo_eliminar',
+      usuarioId: adminModificador._id,
+      actor: auditoriaService.persona(adminModificador),
+      afectado: datosPropietario,
+      ip: req.ip || '',
+      datosAnteriores: datosVehiculo,
+      datosNuevos: null,
+      motivo: motivo.trim()
     });
 
-    await logVehiculo.save();
-
-    res.json({ 
-      mensaje: 'Vehículo eliminado correctamente',
-      logId: logVehiculo._id
-    });
+    res.json({ mensaje: 'Vehículo eliminado correctamente' });
 
   } catch (error) {
     console.error('Error al eliminar vehículo:', error);
@@ -971,20 +972,19 @@ const obtenerHistorialSaldos = async (req, res) => {
   try {
     const { usuarioDni, limite = 50, pagina = 1 } = req.query;
     
-    const filtro = usuarioDni ? { 'usuarioAfectado.dni': usuarioDni } : {};
-    
+    const filtro = { accion: { $regex: '^saldo_' } };
+    if (usuarioDni) filtro['afectado.dni'] = usuarioDni;
+
     const skip = (parseInt(pagina) - 1) * parseInt(limite);
-    
-    const historial = await LogSaldo.find(filtro)
-      .sort({ fechaModificacion: -1 })
-      .limit(parseInt(limite))
-      .skip(skip);
-    
-    const total = await LogSaldo.countDocuments(filtro);
-    
+
+    const [registros, total] = await Promise.all([
+      AuditLog.find(filtro).sort({ fecha: -1 }).skip(skip).limit(parseInt(limite)).lean(),
+      AuditLog.countDocuments(filtro)
+    ]);
+
     res.json({
       success: true,
-      historial,
+      historial: registros.map(aFormaHistorialSaldo),
       pagination: {
         total,
         pagina: parseInt(pagina),
@@ -1004,49 +1004,49 @@ const obtenerHistorialSaldos = async (req, res) => {
 // Obtener estadísticas de cambios de saldo
 const obtenerEstadisticasSaldos = async (req, res) => {
   try {
-    const totalCambios = await LogSaldo.countDocuments();
-    
-    const cambiosPorTipo = await LogSaldo.aggregate([
+    const soloSaldos = { accion: { $regex: '^saldo_' } };
+    const totalCambios = await AuditLog.countDocuments(soloSaldos);
+
+    const cambiosPorTipo = await AuditLog.aggregate([
+      { $match: soloSaldos },
       {
         $group: {
-          _id: '$tipoOperacion',
+          _id: { $replaceOne: { input: '$accion', find: 'saldo_', replacement: '' } },
           cantidad: { $sum: 1 },
-          montoTotal: { $sum: '$diferencia' },
-          ultimoCambio: { $max: '$fechaModificacion' }
+          montoTotal: { $sum: '$datosNuevos.diferencia' },
+          ultimoCambio: { $max: '$fecha' }
         }
       }
     ]);
-    
-    const cambiosPorAdmin = await LogSaldo.aggregate([
+
+    const cambiosPorAdmin = await AuditLog.aggregate([
+      { $match: soloSaldos },
       {
         $group: {
-          _id: '$modificadoPor.dni',
-          nombre: { $first: '$modificadoPor.nombre' },
-          apellido: { $first: '$modificadoPor.apellido' },
+          _id: '$actor.dni',
+          nombre: { $first: '$actor.nombre' },
+          apellido: { $first: '$actor.apellido' },
           cantidad: { $sum: 1 },
-          montoTotalModificado: { $sum: { $abs: '$diferencia' } },
-          ultimoCambio: { $max: '$fechaModificacion' }
+          montoTotalModificado: { $sum: { $abs: '$datosNuevos.diferencia' } },
+          ultimoCambio: { $max: '$fecha' }
         }
       },
       { $sort: { cantidad: -1 } },
       { $limit: 10 }
     ]);
 
-    const resumenMontos = await LogSaldo.aggregate([
+    const resumenMontos = await AuditLog.aggregate([
+      { $match: soloSaldos },
       {
         $group: {
           _id: null,
-          totalAumentado: { 
-            $sum: { 
-              $cond: [{ $gt: ['$diferencia', 0] }, '$diferencia', 0] 
-            } 
+          totalAumentado: {
+            $sum: { $cond: [{ $gt: ['$datosNuevos.diferencia', 0] }, '$datosNuevos.diferencia', 0] }
           },
-          totalDisminuido: { 
-            $sum: { 
-              $cond: [{ $lt: ['$diferencia', 0] }, { $abs: '$diferencia' }, 0] 
-            } 
+          totalDisminuido: {
+            $sum: { $cond: [{ $lt: ['$datosNuevos.diferencia', 0] }, { $abs: '$datosNuevos.diferencia' }, 0] }
           },
-          diferenciaNeta: { $sum: '$diferencia' }
+          diferenciaNeta: { $sum: '$datosNuevos.diferencia' }
         }
       }
     ]);
@@ -1078,34 +1078,33 @@ const obtenerHistorialVehiculos = async (req, res) => {
   try {
     const { dominio, tipoOperacion, usuarioDni, limite = 50, pagina = 1 } = req.query;
     
-    let filtro = {};
-    
+    const filtro = { accion: { $regex: '^vehiculo_' } };
+
     if (dominio) {
-      filtro['vehiculo.dominio'] = new RegExp(dominio.toUpperCase(), 'i');
+      filtro.entidadId = new RegExp(dominio.toUpperCase(), 'i');
     }
-    
+
     if (tipoOperacion) {
-      filtro.tipoOperacion = tipoOperacion;
+      filtro.accion = `vehiculo_${tipoOperacion}`;
     }
-    
+
     if (usuarioDni) {
       filtro.$or = [
-        { 'propietarioAnterior.dni': usuarioDni },
-        { 'propietarioNuevo.dni': usuarioDni }
+        { 'afectado.dni': usuarioDni },
+        { 'datosAnteriores.propietario.dni': usuarioDni }
       ];
     }
-    
+
     const skip = (parseInt(pagina) - 1) * parseInt(limite);
-    
-    const total = await LogVehiculo.countDocuments(filtro);
-    const historial = await LogVehiculo.find(filtro)
-      .sort({ fechaModificacion: -1 })
-      .skip(skip)
-      .limit(parseInt(limite));
-      
+
+    const [registros, total] = await Promise.all([
+      AuditLog.find(filtro).sort({ fecha: -1 }).skip(skip).limit(parseInt(limite)).lean(),
+      AuditLog.countDocuments(filtro)
+    ]);
+
     res.json({
       success: true,
-      historial,
+      historial: registros.map(aFormaHistorialVehiculo),
       pagination: {
         total,
         pagina: parseInt(pagina),
@@ -1125,36 +1124,42 @@ const obtenerHistorialVehiculos = async (req, res) => {
 // Obtener estadísticas de cambios de vehículos
 const obtenerEstadisticasVehiculos = async (req, res) => {
   try {
-    const totalCambios = await LogVehiculo.countDocuments();
-    
-    const cambiosPorTipo = await LogVehiculo.aggregate([
+    const soloVehiculos = { accion: { $regex: '^vehiculo_' } };
+    const totalCambios = await AuditLog.countDocuments(soloVehiculos);
+
+    const cambiosPorTipo = await AuditLog.aggregate([
+      { $match: soloVehiculos },
       {
         $group: {
-          _id: '$tipoOperacion',
+          _id: { $replaceOne: { input: '$accion', find: 'vehiculo_', replacement: '' } },
           cantidad: { $sum: 1 },
-          ultimoCambio: { $max: '$fechaModificacion' }
+          ultimoCambio: { $max: '$fecha' }
         }
       }
     ]);
-    
-    const cambiosPorAdmin = await LogVehiculo.aggregate([
+
+    const cambiosPorAdmin = await AuditLog.aggregate([
+      { $match: soloVehiculos },
       {
         $group: {
-          _id: '$modificadoPor.dni',
-          nombre: { $first: '$modificadoPor.nombre' },
-          apellido: { $first: '$modificadoPor.apellido' },
+          _id: '$actor.dni',
+          nombre: { $first: '$actor.nombre' },
+          apellido: { $first: '$actor.apellido' },
           cantidad: { $sum: 1 },
-          ultimoCambio: { $max: '$fechaModificacion' }
+          ultimoCambio: { $max: '$fecha' }
         }
       },
       { $sort: { cantidad: -1 } },
       { $limit: 10 }
     ]);
 
-    const vehiculosPorTipo = await LogVehiculo.aggregate([
+    const vehiculosPorTipo = await AuditLog.aggregate([
+      { $match: soloVehiculos },
       {
         $group: {
-          _id: '$vehiculo.tipo',
+          // El tipo puede venir en los datos nuevos (alta/modificación) o en los anteriores
+          // (eliminación), según la operación.
+          _id: { $ifNull: ['$datosNuevos.tipo', '$datosAnteriores.tipo'] },
           cantidad: { $sum: 1 }
         }
       }

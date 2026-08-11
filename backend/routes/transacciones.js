@@ -1,15 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middlewares/authMiddleware');
-const { obtenerTransacciones, crearTransaccionIngreso, registrarSalida } = require('../controllers/transaccionController');
+const { obtenerTransacciones } = require('../controllers/transaccionController');
 
-// GET /api/transacciones
+// Consulta del historial de transacciones del usuario autenticado.
+//
+// El ingreso y el egreso ya no entran por acá: eran la tercera copia de un flujo que la
+// Tarea 0.2 unificó en estadiaService, y quedaron sin llamadores. Hoy el ingreso/egreso
+// entra por /api/estacionamiento (app) o /api/estadias (caja).
 router.get('/', authMiddleware, obtenerTransacciones);
-
-// POST /api/transacciones/ingreso
-router.post('/ingreso', authMiddleware, crearTransaccionIngreso);
-
-// PUT /api/transacciones/:transaccionId/salida
-router.put('/:transaccionId/salida', authMiddleware, registrarSalida);
 
 module.exports = router;

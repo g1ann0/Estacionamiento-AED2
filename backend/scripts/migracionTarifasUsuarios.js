@@ -75,7 +75,7 @@ const migrarUsuariosATarifas = async () => {
         await Usuario.findByIdAndUpdate(
           usuario._id,
           { tarifaAsignada: tarifaAAsignar },
-          { new: true }
+          { returnDocument: 'after' }
         );
 
         console.log(`✅ Usuario ${usuario.nombre} ${usuario.apellido} (${usuario.dni}) - Tarifa: ${usuario.asociado ? 'Asociado' : 'No Asociado'}`);

@@ -1,0 +1,297 @@
+/* Caja y turno — Playa pintada.
+   Apertura, turno en curso, movimientos, cierre en dos pasos e histórico de arqueos.
+   Solo tokens semánticos; las primitivas están en componentes.css. */
+
+/* ------------------------------------------------------------ Encabezado -- */
+
+.turno-encabezado {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.turno-acciones { display: flex; align-items: center; gap: 8px; }
+.turno-acciones .boton-secundario { height: var(--alto-control); }
+
+/* -------------------------------------------------------------- Apertura -- */
+
+.apertura {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radio);
+  background: var(--surface);
+  max-width: 380px;
+}
+
+/* -------------------------------------------------------------- Tablero --
+   Una franja demarcada por líneas pintadas, no cuatro tarjetas flotando: son cuatro
+   lecturas del mismo turno, no cuatro objetos distintos. */
+
+.turno-tablero {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radio);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.turno-tablero > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 14px;
+  border-left: 1px solid var(--border);
+}
+
+.turno-tablero > div:first-child { border-left: 0; }
+
+.turno-tablero dt {
+  font-size: var(--texto-xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.turno-tablero dd { margin: 0; font-size: var(--texto-xl); color: var(--text); }
+
+/* ----------------------------------------------------------- Movimientos -- */
+
+.turno-movimientos {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radio);
+}
+
+.turno-desde { margin-left: auto; color: var(--text-subtle); font-size: var(--texto-sm); }
+
+/* El egreso se lee como plata que sale sin pintarse de rojo: rojo es error, no salida. */
+.col-monto.es-egreso { color: var(--text-muted); }
+
+.fila-anulada td { color: var(--text-subtle); text-decoration: line-through; }
+.fila-anulada .chip-alerta { text-decoration: none; margin-left: 8px; }
+
+/* --------------------------------------------------------------- Cierre -- */
+
+.cierre { display: flex; flex-direction: column; gap: 14px; max-width: 560px; }
+
+.cierre-encabezado {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.cierre-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radio);
+  background: var(--surface);
+}
+
+.cierre-instruccion { color: var(--text-muted); max-width: 60ch; }
+
+.cierre-resumen,
+.cierre-arqueo { display: flex; flex-direction: column; gap: 6px; margin: 0; }
+
+.cierre-resumen > div,
+.cierre-arqueo > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.cierre-resumen dt { color: var(--text-muted); }
+.cierre-resumen dd,
+.cierre-arqueo dd { margin: 0; }
+
+.cierre-arqueo {
+  padding-top: 12px;
+  border-top: 1px solid var(--border-strong);
+  font-size: var(--texto-lg);
+}
+
+/* Cero no es un logro: es lo esperado, y va neutro. La diferencia distinta de cero pide
+   revisión —ámbar—, no alarma: todavía no se sabe si es un error o un gasto sin asentar. */
+.cierre-diferencia dd { font-weight: 600; }
+
+/* `.tabla td` ya fija un color, así que la celda necesita ganar por especificidad: sin el
+   `td.` la diferencia se pintaba igual que cualquier importe y dejaba de saltar a la vista. */
+.hay-diferencia,
+.hay-diferencia dt,
+.hay-diferencia dd,
+.tabla td.hay-diferencia { color: var(--warning-fg); font-weight: 600; }
+
+.cierre-acciones { display: flex; align-items: center; gap: 10px; }
+.cierre-acciones .boton-secundario { height: var(--alto-control); }
+.cierre-nota { color: var(--text-subtle); font-size: var(--texto-sm); }
+
+/* -------------------------------------------------------- Magnitud en fila --
+   Una sola magnitud, un solo tono, y el número SIEMPRE escrito al lado: la barra ayuda a ver
+   la forma de la semana de un vistazo, pero ningún dato depende de ella ni del color. Por eso
+   tampoco hay leyenda ni segunda serie: no hay identidad que distinguir, solo tamaño. */
+
+.col-magnitud { width: 220px; }
+
+.magnitud {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  height: 22px;
+  padding: 0 8px;
+}
+
+.magnitud-barra {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: var(--proporcion, 0%);
+  min-width: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+  /* El acento no puede pasar del 5% del área de pantalla: acá vive apagado, como marca de
+     nivel, y sube a pleno solo en la acción primaria de la Terminal. */
+  opacity: 0.28;
+}
+
+.magnitud-valor { position: relative; }
+
+/* -------------------------------------------------------------- Cierres -- */
+
+.detalle-cierre {
+  display: grid;
+  grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+/* El detalle de auditoría es el dato crudo que se guardó: acá la mono no es disfraz técnico,
+   es que se está leyendo un registro, y el valor tiene que poder compararse carácter a
+   carácter contra el de la fila de al lado. */
+.detalle-json {
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radio-chico);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-family: var(--fuente-mono);
+  font-size: var(--texto-xs);
+  line-height: 1.5;
+  max-height: 220px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.detalle-observacion { color: var(--text); }
+.detalle-observacion span {
+  display: block;
+  margin-bottom: 4px;
+  font-size: var(--texto-xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* ----------------------------------------------------------- Formulario --
+   Pantallas de configuración: bloques con una línea pintada por título, campos en filas que
+   se parten solas. Ancho acotado — un formulario a 1900px de ancho obliga a barrer la cabeza
+   de un borde al otro para leer una etiqueta y su campo. */
+
+.pantalla-formulario { max-width: 900px; }
+
+.formulario { display: flex; flex-direction: column; gap: 16px; }
+
+.formulario-bloque {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radio);
+  background: var(--surface);
+}
+
+.formulario-bloque > legend,
+.formulario-bloque > .bloque-titulo {
+  padding: 0 6px;
+  margin-left: -6px;
+  font-size: var(--texto-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.formulario-fila { display: flex; gap: 12px; flex-wrap: wrap; }
+.formulario-fila > .campo { flex: 1 1 160px; min-width: 0; }
+.formulario-fila > .campo-ancho { flex: 3 1 260px; }
+
+.formulario-acciones { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+
+.bloque-informativo { gap: 10px; }
+
+/* ------------------------------------------------------------- Veredicto --
+   El estado fiscal antes que los campos: es la pregunta que trae a alguien a esta pantalla.
+   Ámbar cuando falta algo —pide acción, no es una falla del sistema— y neutro cuando está
+   bien: estar en condiciones es lo esperado, no un logro que merezca color. */
+
+.veredicto {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid var(--warning-border);
+  border-radius: var(--radio);
+  background: var(--warning-bg);
+  color: var(--warning-fg);
+}
+
+.veredicto.es-valido {
+  border-color: var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+}
+
+.veredicto-titulo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  font-size: var(--texto-md);
+}
+
+.veredicto-lista { margin: 0; padding-left: 22px; font-size: var(--texto-sm); }
+.veredicto-lista.es-advertencia { color: var(--text-muted); }
+.veredicto.es-valido .veredicto-lista.es-advertencia { color: var(--text-subtle); }
+
+/* ----------------------------------------------------------- Responsive -- */
+
+@media (max-width: 900px) {
+  .turno-tablero { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .turno-tablero > div:nth-child(odd) { border-left: 0; }
+  .turno-tablero > div:nth-child(n + 3) { border-top: 1px solid var(--border); }
+  .detalle-cierre { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .turno-encabezado .turno-acciones { width: 100%; }
+}

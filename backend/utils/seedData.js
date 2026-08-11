@@ -1,6 +1,9 @@
 const Usuario = require('../models/Usuario');
 const ConfiguracionPrecio = require('../models/ConfiguracionPrecio');
 const ConfiguracionEmpresa = require('../models/ConfiguracionEmpresa');
+const Sucursal = require('../models/Sucursal');
+const Talonario = require('../models/Talonario');
+const Caja = require('../models/Caja');
 const bcrypt = require('bcryptjs');
 
 /**
@@ -19,6 +22,15 @@ const inicializarDatosPorDefecto = async () => {
     
     // 3. Crear configuración de empresa por defecto
     await crearConfiguracionEmpresaPorDefecto();
+
+    // 4. Crear sucursal principal por defecto
+    await crearSucursalPrincipalPorDefecto();
+
+    // 5. Crear talonarios por defecto para la sucursal principal
+    await crearTalonariosPorDefecto();
+
+    // 6. Crear caja principal por defecto
+    await crearCajaPrincipalPorDefecto();
 
     console.log('✅ Sistema inicializado correctamente con datos por defecto');
     
@@ -47,8 +59,7 @@ const crearAdminPorDefecto = async () => {
         rol: 'admin',
         asociado: true,
         montoDisponible: 0,
-        verificado: true,
-        vehiculos: []
+        verificado: true
       });
 
       await adminDefault.save();
@@ -168,6 +179,77 @@ const crearConfiguracionEmpresaPorDefecto = async () => {
 };
 
 /**
+ * Crear sucursal principal por defecto (ver docs/analisis-gap-cgas/08 Etapa 2).
+ * En un despliegue de un solo local, esta es la sucursal que estadiaService usa
+ * por defecto cuando no se especifica sucursalId explícitamente.
+ */
+const crearSucursalPrincipalPorDefecto = async () => {
+  try {
+    const existePrincipal = await Sucursal.findOne({ esPrincipal: true });
+
+    if (!existePrincipal) {
+      const sucursalDefault = new Sucursal({
+        nombre: 'Sucursal Principal',
+        activa: true,
+        esPrincipal: true
+      });
+
+      await sucursalDefault.save();
+      console.log('🏬 Sucursal principal creada por defecto');
+    }
+  } catch (error) {
+    console.error('Error creando sucursal principal por defecto:', error);
+  }
+};
+
+/**
+ * Crear talonarios por defecto para la sucursal principal (ver docs/analisis-gap-cgas/08
+ * Etapa 3). Se siembran explícitamente (no por upsert lazy) — ver el comentario en
+ * models/Talonario.js sobre por qué un talonario faltante debe ser un error de
+ * configuración, no algo auto-creado en caliente.
+ */
+const crearTalonariosPorDefecto = async () => {
+  try {
+    const sucursal = await Sucursal.findOne({ esPrincipal: true });
+    if (!sucursal) return; // se crea en el paso anterior; si falló, no hay nada que sembrar acá
+
+    const configuracion = await ConfiguracionEmpresa.findOne({ activa: true });
+    const puntoVenta = configuracion?.puntoVenta || '00001';
+
+    const tiposComprobante = ['ticket', 'factura_b', 'factura_c'];
+    for (const tipoComprobante of tiposComprobante) {
+      const existente = await Talonario.findOne({ sucursalId: sucursal._id, puntoVenta, tipoComprobante });
+      if (!existente) {
+        await Talonario.create({ sucursalId: sucursal._id, puntoVenta, tipoComprobante, proximoNumero: 1 });
+      }
+    }
+    console.log(`📋 Talonarios creados para "${sucursal.nombre}" (punto de venta ${puntoVenta})`);
+  } catch (error) {
+    console.error('Error creando talonarios por defecto:', error);
+  }
+};
+
+/**
+ * Crear caja principal por defecto (ver docs/analisis-gap-cgas/08 Etapa 4). En un
+ * despliegue de un solo local, esta es la caja que finalizarEstadia usa para los cobros
+ * en efectivo/tarjeta/QR del canal caja/manual.
+ */
+const crearCajaPrincipalPorDefecto = async () => {
+  try {
+    const sucursal = await Sucursal.findOne({ esPrincipal: true });
+    if (!sucursal) return;
+
+    const existente = await Caja.findOne({ sucursalId: sucursal._id });
+    if (!existente) {
+      await Caja.create({ nombre: 'Caja Principal', sucursalId: sucursal._id, activa: true });
+      console.log(`🏦 Caja principal creada para "${sucursal.nombre}"`);
+    }
+  } catch (error) {
+    console.error('Error creando caja principal por defecto:', error);
+  }
+};
+
+/**
  * Crear usuario de prueba (opcional)
  */
 const crearUsuarioPrueba = async () => {
@@ -186,19 +268,28 @@ const crearUsuarioPrueba = async () => {
         rol: 'cliente',
         asociado: false,
         montoDisponible: 1000,
-        verificado: true,
-        vehiculos: [
-          {
+        verificado: true
+      });
+
+      await usuarioDefault.save();
+
+      // El vehículo de prueba va a su colección, que es donde vive el catálogo.
+      const Vehiculo = require('../models/Vehiculo');
+      await Vehiculo.updateOne(
+        { dominio: 'ABC123' },
+        {
+          $setOnInsert: {
             dominio: 'ABC123',
             tipo: 'auto',
             marca: 'Toyota',
             modelo: 'Corolla',
-            año: 2020
+            año: '2020',
+            usuario: usuarioDefault._id
           }
-        ]
-      });
+        },
+        { upsert: true }
+      );
 
-      await usuarioDefault.save();
       console.log('👤 Usuario de prueba creado: usuario@test.com / user123');
     }
   } catch (error) {
@@ -216,6 +307,9 @@ const resetearSistema = async () => {
     await Usuario.deleteMany({});
     await ConfiguracionPrecio.deleteMany({});
     await ConfiguracionEmpresa.deleteMany({});
+    await Sucursal.deleteMany({});
+    await Talonario.deleteMany({});
+    await Caja.deleteMany({});
     
     console.log('🗑️  Datos eliminados. Reinicializando...');
     await inicializarDatosPorDefecto();
@@ -232,6 +326,9 @@ module.exports = {
   crearAdminPorDefecto,
   crearPreciosPorDefecto,
   crearConfiguracionEmpresaPorDefecto,
+  crearSucursalPrincipalPorDefecto,
+  crearTalonariosPorDefecto,
+  crearCajaPrincipalPorDefecto,
   crearUsuarioPrueba,
   resetearSistema
 };

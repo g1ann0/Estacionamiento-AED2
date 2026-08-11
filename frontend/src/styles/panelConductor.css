@@ -1,0 +1,196 @@
+/* Panel del conductor — una columna, y una sola cosa importante arriba de todo.
+   Métrica y colores vienen de cliente.css; acá solo vive la composición. */
+
+.conductor { display: flex; flex-direction: column; gap: 28px; }
+.conductor-cargando { color: var(--text-muted); padding: 24px 0; }
+
+.conductor-seccion-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.conductor-seccion-titulo { font-size: var(--texto-lg); font-weight: 600; }
+
+.conductor-agregar {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radio);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--texto-md);
+  cursor: pointer;
+}
+
+.conductor-agregar:hover { background: var(--row-hover); }
+
+.conductor-vacio { color: var(--text-muted); line-height: 1.55; }
+
+/* ----------------------------------------------------------------- Estado -- */
+
+/* La respuesta a "¿tengo el auto adentro?" ocupa el tamaño de la pregunta: la patente en
+   chapa, grande, y debajo las dos cifras que importan. */
+.estado { display: flex; flex-direction: column; gap: 12px; }
+
+.estado-vacio {
+  padding: 20px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radio);
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.estado-tarjeta {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radio);
+  background: var(--surface);
+}
+
+.estado-patente { font-size: 34px; line-height: 1.05; }
+
+.estado-datos { display: flex; gap: 32px; margin: 0; }
+.estado-datos dt { color: var(--text-muted); font-size: var(--texto-sm); margin-bottom: 2px; }
+.estado-datos dd { margin: 0; font-size: var(--texto-xl); }
+
+.estado-nota { color: var(--text-subtle); font-size: var(--texto-sm); }
+
+/* -------------------------------------------------------------- Vehículos -- */
+
+.vehiculos { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+
+.vehiculo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  min-height: var(--alto-fila);
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.vehiculo:last-child { border-bottom: 0; }
+.vehiculo-patente { font-size: var(--texto-lg); }
+.vehiculo-detalle { color: var(--text-muted); font-size: var(--texto-sm); }
+
+.vehiculo-estado {
+  margin-left: auto;
+  padding: 2px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-sunken);
+  color: var(--text-muted);
+  font-size: var(--texto-sm);
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------------ Saldo -- */
+
+.saldo {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 18px 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radio);
+  background: var(--surface);
+}
+
+.saldo-monto { font-size: 28px; line-height: 1.1; margin-top: 2px; }
+.saldo-nota { color: var(--text-muted); font-size: var(--texto-sm); line-height: 1.5; max-width: 48ch; }
+
+/* -------------------------------------------------------------- Historial --
+   Cada estadía es una ficha, no una fila de tabla: en un celular, siete columnas obligan a
+   scrollear de costado para leer un dato que entra perfectamente en dos líneas. */
+
+.estadias { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+
+.estadia {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radio);
+  background: var(--surface);
+}
+
+.estadia-fila { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.estadia-patente { font-size: var(--texto-lg); }
+.estadia-monto { font-size: var(--texto-xl); }
+.estadia-detalle { color: var(--text-muted); font-size: var(--texto-sm); }
+.estadia-nota { color: var(--warning-fg); font-size: var(--texto-sm); }
+
+.estadia-comprobante {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  align-self: flex-start;
+  min-height: 40px;
+  margin-top: 4px;
+  padding: 0 12px 0 0;
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: var(--texto-sm);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.estadia-comprobante:hover { color: var(--text); }
+
+.conductor-paginacion { display: flex; align-items: center; justify-content: center; gap: 14px; color: var(--text-muted); }
+.conductor-paginacion .cliente-boton { width: auto; padding: 0 16px; }
+
+/* ----------------------------------------------------------------- Perfil -- */
+
+.perfil-identidad {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 16px 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radio);
+  background: var(--surface);
+}
+
+.perfil-identidad dt { color: var(--text-muted); font-size: var(--texto-sm); margin-bottom: 2px; }
+.perfil-identidad dd { margin: 0; }
+
+.perfil-formulario { display: flex; flex-direction: column; gap: 14px; }
+
+/* ---------------------------------------------------------------- Diálogo -- */
+
+/* A ancho de celular el diálogo ocupa la pantalla; en escritorio se acota. Los botones van
+   uno al lado del otro y del alto de toque, no chiquitos en una esquina. */
+.conductor-dialogo {
+  width: min(420px, calc(100vw - 24px));
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radio);
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--fuente-ui);
+  font-size: var(--texto-md);
+  box-shadow: var(--shadow-dialog);
+}
+
+.conductor-dialogo::backdrop { background: var(--overlay); }
+
+.conductor-dialogo-cuerpo { display: flex; flex-direction: column; gap: 14px; padding: 20px; }
+.conductor-dialogo-cuerpo .cliente-campo em { font-style: normal; color: var(--text-subtle); }
+.conductor-dialogo-acciones { display: flex; gap: 10px; padding-top: 4px; }
+.conductor-dialogo :focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }

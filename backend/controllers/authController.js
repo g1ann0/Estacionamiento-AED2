@@ -2,17 +2,11 @@
 const Usuario = require('../models/Usuario');
 const { v4: uuidv4 } = require('uuid');
 const bcrypt = require('bcrypt');
-const nodemailer = require('nodemailer');
 const jwt = require('jsonwebtoken');
 
-// Configuramos nodemailer (podés cambiar esto con tu propio mail SMTP)
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: 'giancastellino44@gmail.com', // reemplazar con tu email
-    pass: 'kyhdqanmmzijvbao'    // usar contraseña de app generada desde Gmail
-  }
-});
+// El transporte vive en services/mailService.js desde que el comprobante de estadía también
+// se manda por mail: una sola configuración SMTP para todo el sistema.
+const { transporter } = require('../services/mailService');
 
 // REGISTRO - Paso 1: crear usuario y enviar correo de verificacion
 const registrarConEmail = async (req, res) => {

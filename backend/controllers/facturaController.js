@@ -2,6 +2,7 @@ const Factura = require('../models/Factura');
 const Comprobante = require('../models/Comprobante');
 const Usuario = require('../models/Usuario');
 const ConfiguracionEmpresa = require('../models/ConfiguracionEmpresa');
+const auditoriaService = require('../services/auditoriaService');
 const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const path = require('path');
@@ -374,8 +375,18 @@ const anularFactura = async (req, res) => {
     factura.estado = 'anulada';
     factura.motivoAnulacion = motivo;
     factura.fechaAnulacion = new Date();
-    
+
     await factura.save();
+
+    await auditoriaService.registrar({
+      entidad: 'Factura',
+      entidadId: factura._id,
+      accion: 'anular_factura',
+      usuarioId: req.usuarioActual?._id ?? null,
+      usuarioDni: req.usuario.dni,
+      motivo,
+      datosNuevos: { nroFactura }
+    });
 
     res.json({
       success: true,
