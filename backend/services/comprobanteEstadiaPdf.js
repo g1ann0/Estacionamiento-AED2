@@ -13,6 +13,67 @@ const pesos = (n) => `$${Number(n ?? 0).toLocaleString('es-AR', { minimumFractio
 const fechaHora = (valor) =>
   valor ? new Date(valor).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }) : '—';
 
+const fecha = (valor) =>
+  valor ? new Date(valor).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';
+
+// Los códigos de ARCA, escritos como los conoce el cliente.
+const TITULO_FISCAL = { 6: 'FACTURA B', 11: 'FACTURA C', 8: 'NOTA DE CRÉDITO B', 13: 'NOTA DE CRÉDITO C' };
+
+// QUÉ DICE EL DOCUMENTO, decidido aparte de cómo se dibuja.
+//
+// Es la parte delicada del PDF: un comprobante que dice "no fiscal" teniendo CAE, o que se
+// presenta como factura llevando un CAE de prueba, es el tipo de error que después hay que
+// explicarle a ARCA. Vive en una función pura para poder verificarlo de verdad — el texto
+// dentro de un PDF generado va codificado con la fuente embebida y buscarlo como string da
+// falsos positivos en los dos sentidos.
+function leyendaFiscal(comprobante) {
+  const autorizado = Boolean(comprobante.cae) && !comprobante.simulado;
+  const esPrueba = Boolean(comprobante.simulado);
+  const esperandoCae = !comprobante.cae && comprobante.estado === 'pendiente_cae';
+
+  if (autorizado) {
+    return {
+      estado: 'autorizado',
+      titulo: TITULO_FISCAL[comprobante.tipoComprobanteFiscal] ?? 'COMPROBANTE',
+      subtitulo: 'Comprobante autorizado electrónicamente por ARCA',
+      pie: `Comprobante autorizado por ARCA con CAE ${comprobante.cae}` +
+        `${comprobante.caeFchVto ? `, con vencimiento el ${fecha(comprobante.caeFchVto)}` : ''}.`,
+      resaltado: false
+    };
+  }
+
+  if (esPrueba) {
+    return {
+      estado: 'prueba',
+      titulo: 'COMPROBANTE DE ESTADÍA',
+      subtitulo: 'DOCUMENTO DE PRUEBA — CAE simulado, sin validez alguna',
+      pie: 'DOCUMENTO DE PRUEBA. El CAE de este comprobante fue generado por el modo de ' +
+        'simulación del sistema y no proviene de ARCA: no tiene validez de ningún tipo.',
+      resaltado: true
+    };
+  }
+
+  if (esperandoCae) {
+    return {
+      estado: 'pendiente',
+      titulo: 'COMPROBANTE DE ESTADÍA',
+      subtitulo: 'DOCUMENTO NO FISCAL — el comprobante fiscal está en trámite',
+      pie: 'Este documento es el comprobante interno de la estadía. El comprobante fiscal está ' +
+        'en trámite ante ARCA y se envía por correo cuando queda autorizado.',
+      resaltado: false
+    };
+  }
+
+  return {
+    estado: 'no_fiscal',
+    titulo: 'COMPROBANTE DE ESTADÍA',
+    subtitulo: 'DOCUMENTO NO FISCAL — no válido como factura',
+    pie: 'Este documento no tiene validez fiscal: es el comprobante interno de la estadía. ' +
+      'La emisión de comprobantes fiscales electrónicos todavía no está habilitada en este sistema.',
+    resaltado: false
+  };
+}
+
 const ETIQUETA_MEDIO = {
   efectivo: 'Efectivo',
   tarjeta: 'Tarjeta',
@@ -33,11 +94,14 @@ const nombreArchivo = (comprobante) => `comprobante_estadia_${numeroFormateado(c
 
 // Escribe el documento sobre cualquier stream: `res` para la descarga directa, un buffer en
 // memoria para adjuntarlo a un mail. Una sola definición del documento para los dos caminos.
-async function escribirPdf(comprobante, destino) {
+// `comprimir: false` deja el texto legible dentro del PDF. Solo lo usan las verificaciones:
+// un test que solo comprueba que el archivo empiece con "%PDF" no prueba que el documento
+// diga lo que tiene que decir, y lo que dice es justamente lo delicado acá.
+async function escribirPdf(comprobante, destino, { comprimir = true } = {}) {
   const configuracion = await ConfiguracionEmpresa.obtenerConfiguracionActiva();
   const estadia = comprobante.estadiaId;
 
-  const doc = new PDFDocument({ margin: 50, size: 'A4' });
+  const doc = new PDFDocument({ margin: 50, size: 'A4', compress: comprimir });
   doc.pipe(destino);
 
   const linea = () => {
@@ -45,8 +109,13 @@ async function escribirPdf(comprobante, destino) {
     doc.moveDown(0.6);
   };
 
-  doc.fontSize(16).fillColor('#000000').text('COMPROBANTE DE ESTADÍA', { align: 'center' });
-  doc.fontSize(9).fillColor('#666666').text('DOCUMENTO NO FISCAL — no válido como factura', { align: 'center' });
+  // El encabezado dice lo que el documento ES en este momento, y eso cambia con el CAE.
+  const leyenda = leyendaFiscal(comprobante);
+
+  doc.fontSize(16).fillColor('#000000').text(leyenda.titulo, { align: 'center' });
+  doc.fontSize(9).fillColor(leyenda.resaltado ? '#b45309' : '#666666');
+  doc.text(leyenda.subtitulo, { align: 'center' });
+
   doc.moveDown(0.8);
   doc.fillColor('#000000');
 
@@ -66,9 +135,20 @@ async function escribirPdf(comprobante, destino) {
 
   doc.fontSize(11).text('Comprobante');
   doc.fontSize(9);
-  doc.text(`Número: ${numeroFormateado(comprobante)}`);
+  doc.text(`Número interno: ${numeroFormateado(comprobante)}`);
   doc.text(`Emitido: ${fechaHora(comprobante.fechaEmision)}`);
-  doc.text(`Tipo: ${comprobante.tipoComprobante} (no fiscal, sin CAE)`);
+
+  if (comprobante.cae) {
+    // La numeración fiscal es la de ARCA y es distinta de la del ticket: se muestran las dos,
+    // porque el cliente puede tener en la mano el ticket con el número interno.
+    if (comprobante.numeroFiscal) {
+      doc.text(`Número fiscal: ${comprobante.puntoVenta}-${String(comprobante.numeroFiscal).padStart(8, '0')}`);
+    }
+    doc.text(`CAE: ${comprobante.cae}`);
+    if (comprobante.caeFchVto) doc.text(`Vencimiento del CAE: ${fecha(comprobante.caeFchVto)}`);
+  } else {
+    doc.text(`Tipo: ${comprobante.tipoComprobante} (sin CAE)`);
+  }
   if (comprobante.estado === 'anulado') {
     doc.fillColor('#b45309').text(`ANULADO — ${comprobante.motivoAnulacion || 'sin motivo registrado'}`).fillColor('#000000');
   }
@@ -113,18 +193,17 @@ async function escribirPdf(comprobante, destino) {
   doc.fontSize(14).text(`TOTAL: ${pesos(comprobante.total)}`, { align: 'right' });
   doc.moveDown(1);
 
-  doc.fontSize(8).fillColor('#666666').text(
-    'Este documento no tiene validez fiscal: es el comprobante interno de la estadía. ' +
-    'La emisión de comprobantes fiscales electrónicos todavía no está habilitada en este sistema.',
-    { align: 'left' }
-  );
+  // El pie repite el estado real del documento. Es lo último que lee alguien que lo revisa, y
+  // tiene que coincidir con el encabezado: un comprobante no puede decir dos cosas.
+  doc.fontSize(8).fillColor(leyenda.resaltado ? '#b45309' : '#666666');
+  doc.text(leyenda.pie, { align: 'left' });
 
   doc.end();
 }
 
 // Devuelve el PDF completo en memoria. Se usa para adjuntarlo a un mail, donde no hay stream
 // de respuesta al que escribir.
-async function generarBuffer(comprobante) {
+async function generarBuffer(comprobante, opciones = {}) {
   const { PassThrough } = require('stream');
   const stream = new PassThrough();
   const partes = [];
@@ -135,8 +214,8 @@ async function generarBuffer(comprobante) {
     stream.on('error', rechazar);
   });
 
-  await escribirPdf(comprobante, stream);
+  await escribirPdf(comprobante, stream, opciones);
   return listo;
 }
 
-module.exports = { escribirPdf, generarBuffer, nombreArchivo, numeroFormateado };
+module.exports = { escribirPdf, generarBuffer, nombreArchivo, numeroFormateado, leyendaFiscal };

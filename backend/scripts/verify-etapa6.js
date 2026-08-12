@@ -25,6 +25,9 @@ const check = (condicion, descripcion, detalle = '') => {
   }
 };
 
+// Las pruebas usan su propio punto de venta para no mezclarse jamás con comprobantes reales.
+const PV_PRUEBA = '09999';
+
 const catalogos = require('../services/arca/catalogos');
 const mock = require('../services/arca/mock');
 
@@ -127,6 +130,12 @@ async function verificarEmision() {
   const { emitirComprobante, procesarPendientes, construirPedido } = require('../services/facturacionElectronicaService');
 
   mock.reiniciar();
+
+  // Los comprobantes de prueba de corridas anteriores se borran antes de empezar. El mock
+  // reinicia su numeración en cada corrida, y el índice único —correctamente— rechazaría el
+  // número fiscal repetido. Es la misma protección que evita numeración duplicada en serio.
+  await ComprobanteEstadia.deleteMany({ puntoVenta: PV_PRUEBA });
+
   const marca = `VERIF6${Date.now()}`.slice(0, 12);
 
   const estadia = await Estacionamiento.create({
@@ -141,7 +150,7 @@ async function verificarEmision() {
 
   const comprobante = await ComprobanteEstadia.create({
     numero: Math.floor(Math.random() * 1e9),
-    puntoVenta: '00001',
+    puntoVenta: PV_PRUEBA,
     tipoComprobante: 'ticket',
     estadiaId: estadia._id,
     receptor: { tipo: 'consumidor_final', nombre: 'Consumidor', apellido: 'Final', condicionIva: 'Consumidor Final' },
@@ -208,10 +217,82 @@ async function verificarEmision() {
   }
 }
 
+// Lo que el PDF dice en cada estado. Un test que solo comprueba que el archivo empiece con
+// "%PDF" no prueba nada de lo que importa acá: lo delicado es exactamente qué texto lleva —
+// un comprobante que dice "no fiscal" teniendo CAE, o que se presenta como factura teniendo
+// un CAE de prueba, es el tipo de error que termina en un problema con ARCA.
+async function verificarPdf() {
+  console.log('\n— Lo que dice el PDF en cada estado —');
+
+  const { leyendaFiscal, generarBuffer, numeroFormateado } = require('../services/comprobanteEstadiaPdf');
+
+  const base = {
+    numero: 42,
+    puntoVenta: '00001',
+    tipoComprobante: 'ticket',
+    receptor: { tipo: 'clienteOcasional', nombre: 'Juan', apellido: 'Final', condicionIva: 'Consumidor Final' },
+    medioPago: 'efectivo',
+    total: 12100,
+    fechaEmision: new Date(),
+    estado: 'emitido',
+    estadiaId: { vehiculoDominio: 'AA111BB', horaInicio: new Date(Date.now() - 7200000), horaFin: new Date(), duracionHoras: 2 }
+  };
+
+  const sinIntegracion = leyendaFiscal(base);
+  check(sinIntegracion.estado === 'no_fiscal', 'sin integración: el documento se declara no fiscal');
+  check(sinIntegracion.subtitulo.includes('NO FISCAL'), 'sin integración: lo dice en el encabezado');
+  check(!sinIntegracion.pie.includes('CAE'), 'sin integración: el pie no menciona ningún CAE');
+
+  const pendiente = leyendaFiscal({ ...base, estado: 'pendiente_cae' });
+  check(pendiente.estado === 'pendiente', 'esperando CAE: estado pendiente');
+  check(pendiente.subtitulo.includes('trámite'), 'esperando CAE: avisa que el fiscal está en trámite');
+  check(pendiente.titulo === 'COMPROBANTE DE ESTADÍA', 'esperando CAE: no se titula factura');
+
+  const simulado = leyendaFiscal({
+    ...base, cae: '00001234567890', caeFchVto: new Date(), numeroFiscal: 7, tipoComprobanteFiscal: 6, simulado: true
+  });
+  check(simulado.estado === 'prueba', 'CAE simulado: estado de prueba');
+  check(simulado.subtitulo.includes('PRUEBA'), 'CAE simulado: el encabezado avisa que es de prueba');
+  check(simulado.titulo !== 'FACTURA B', 'CAE simulado: NO se presenta como factura');
+  check(simulado.resaltado === true, 'CAE simulado: se resalta para que no pase desapercibido');
+
+  const real = leyendaFiscal({
+    ...base, cae: '75123456789012', caeFchVto: new Date(), numeroFiscal: 7, tipoComprobanteFiscal: 6, simulado: false
+  });
+  check(real.estado === 'autorizado', 'autorizado: estado autorizado');
+  check(real.titulo === 'FACTURA B', 'autorizado: el documento se titula FACTURA B');
+  check(real.pie.includes('75123456789012'), 'autorizado: el pie lleva el CAE');
+  check(!real.subtitulo.includes('NO FISCAL'), 'autorizado: ya no dice NO FISCAL');
+
+  const monotributo = leyendaFiscal({ ...base, cae: '1', tipoComprobanteFiscal: 11 });
+  check(monotributo.titulo === 'FACTURA C', 'un monotributista emite factura C');
+
+  // El número interno del ticket es el que el cliente tiene en la mano: se conserva aunque
+  // ARCA haya asignado otro para lo fiscal.
+  check(numeroFormateado(base) === '00001-00000042', 'el número interno mantiene su formato');
+
+  // Y que el PDF efectivamente se genere en los cuatro estados.
+  await mongoose.connect(process.env.MONGODB_URI);
+  try {
+    for (const [nombre, comprobante] of [
+      ['sin integración', base],
+      ['pendiente', { ...base, estado: 'pendiente_cae' }],
+      ['simulado', { ...base, cae: '0000123', simulado: true, tipoComprobanteFiscal: 6, numeroFiscal: 7 }],
+      ['autorizado', { ...base, cae: '75123456789012', caeFchVto: new Date(), tipoComprobanteFiscal: 6, numeroFiscal: 7 }]
+    ]) {
+      const pdf = await generarBuffer(comprobante);
+      check(pdf.slice(0, 4).toString() === '%PDF', `el PDF se genera con el comprobante ${nombre}`, `${pdf.length} bytes`);
+    }
+  } finally {
+    await mongoose.disconnect();
+  }
+}
+
 async function main() {
   await verificarCatalogos();
   await verificarMock();
   await verificarEmision();
+  await verificarPdf();
 
   console.log(`\n${fallos === 0 ? '✅ TODO OK' : `❌ ${fallos} fallas`} — ${ok} verificaciones`);
   process.exit(fallos === 0 ? 0 : 1);

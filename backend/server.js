@@ -139,6 +139,10 @@ mongoose.connect(process.env.MONGODB_URI)
   // Inicializar datos por defecto del sistema
   const { inicializarDatosPorDefecto } = require('./utils/seedData');
   await inicializarDatosPorDefecto();
+
+  // Worker de facturación electrónica. Arranca solo si ARCA está configurado; si no, avisa por
+  // qué no y los comprobantes se siguen emitiendo como ticket no fiscal.
+  require('./services/arca/worker').iniciar();
 })
 .catch((err) => console.error('❌ Error de conexión a MongoDB:', err));
 

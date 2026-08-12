@@ -11,6 +11,63 @@ const auditoriaService = require('../services/auditoriaService');
 const { enviarMail } = require('../services/mailService');
 const { escribirPdf, generarBuffer, nombreArchivo, numeroFormateado } = require('../services/comprobanteEstadiaPdf');
 
+// Estado de la facturación electrónica: si está configurada, cuántos comprobantes esperan CAE
+// y cuántos quedaron con error. Es lo que el panel muestra arriba de la lista — una cola que
+// crece sin que nadie la mire es exactamente el problema que la emisión diferida podría causar
+// si no se hiciera visible.
+const estadoFiscal = async (req, res, next) => {
+  try {
+    const { estadoIntegracion } = require('../services/arca');
+    const { estadoWorker } = require('../services/arca/worker');
+    const { MAX_INTENTOS } = require('../services/facturacionElectronicaService');
+
+    const [pendientes, conError, agotados, emitidos, simulados] = await Promise.all([
+      ComprobanteEstadia.countDocuments({ estado: 'pendiente_cae', cae: null }),
+      ComprobanteEstadia.countDocuments({ estado: 'error_arca', cae: null, intentosArca: { $lt: MAX_INTENTOS } }),
+      // Los que agotaron los reintentos ya no los toma el worker: necesitan que alguien mire.
+      ComprobanteEstadia.countDocuments({ cae: null, intentosArca: { $gte: MAX_INTENTOS } }),
+      ComprobanteEstadia.countDocuments({ cae: { $ne: null } }),
+      ComprobanteEstadia.countDocuments({ simulado: true })
+    ]);
+
+    res.status(200).json({
+      integracion: estadoIntegracion(),
+      worker: estadoWorker(),
+      comprobantes: { pendientes, conError, agotados, emitidos, simulados },
+      maxIntentos: MAX_INTENTOS
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Reintento manual de un comprobante puntual. Sirve para los que agotaron los intentos
+// automáticos: alguien corrigió el dato que ARCA rechazaba y quiere volver a probar sin
+// esperar la próxima vuelta del worker.
+const reintentarCae = async (req, res, next) => {
+  try {
+    const { emitirComprobante } = require('../services/facturacionElectronicaService');
+    const resultado = await emitirComprobante(req.params.id);
+
+    if (resultado.yaEmitido) {
+      return res.status(200).json({ mensaje: 'Este comprobante ya tenía CAE', comprobante: resultado.comprobante });
+    }
+
+    res.status(200).json({
+      mensaje: `ARCA autorizó el comprobante${resultado.simulado ? ' (simulado)' : ''}`,
+      cae: resultado.cae,
+      comprobante: resultado.comprobante
+    });
+  } catch (error) {
+    // Un rechazo de ARCA no es un error del servidor: es una respuesta que el operador tiene
+    // que leer. Va con 409 y el detalle, no con un 500.
+    if (error.rechazadoPorArca) {
+      return res.status(409).json({ mensaje: error.message, erroresArca: error.erroresArca ?? [] });
+    }
+    next(error);
+  }
+};
+
 const listar = async (req, res, next) => {
   try {
     const { desde, hasta, medioPago, estado, q, pagina = 1, limite = 25 } = req.query;
@@ -143,4 +200,4 @@ const enviarPorMail = async (req, res, next) => {
   }
 };
 
-module.exports = { listar, obtener, descargarPdf, enviarPorMail };
+module.exports = { listar, obtener, descargarPdf, enviarPorMail, estadoFiscal, reintentarCae };
