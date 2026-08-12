@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Download, Mail } from 'lucide-react';
-import { listarComprobantes, descargarComprobante, enviarComprobante } from '../../services/comprobanteEstadiaService';
+import { Download, Mail, RefreshCw } from 'lucide-react';
+import {
+  listarComprobantes,
+  descargarComprobante,
+  enviarComprobante,
+  estadoFiscal as consultarEstadoFiscal,
+  reintentarCae
+} from '../../services/comprobanteEstadiaService';
 import { ETIQUETA_MEDIO_LARGA, fechaHora, nombreReceptor, pesos } from '../formato';
 import DialogoEnviar from './DialogoEnviar';
 import '../../styles/caja.css';
@@ -37,6 +43,9 @@ export default function ComprobantesEstadia() {
   const [enviando, setEnviando] = useState(false);
   const [errorEnvio, setErrorEnvio] = useState(null);
 
+  const [fiscal, setFiscal] = useState(null);
+  const [reintentando, setReintentando] = useState(null);
+
   const cargar = useCallback(async () => {
     setCargando(true);
     try {
@@ -55,6 +64,14 @@ export default function ComprobantesEstadia() {
     const id = setTimeout(cargar, 250);
     return () => clearTimeout(id);
   }, [cargar]);
+
+  const cargarFiscal = useCallback(async () => {
+    // Si la consulta falla, la pantalla sigue sirviendo: el estado fiscal es contexto, no el
+    // contenido. Se calla en vez de tapar la lista con un error.
+    setFiscal(await consultarEstadoFiscal().catch(() => null));
+  }, []);
+
+  useEffect(() => { cargarFiscal(); }, [cargarFiscal]);
 
   const bajar = async (comprobante) => {
     try {
@@ -78,7 +95,26 @@ export default function ComprobantesEstadia() {
     }
   };
 
+  const pedirCae = async (comprobante) => {
+    setReintentando(comprobante._id);
+    setError(null);
+    try {
+      const respuesta = await reintentarCae(comprobante._id);
+      setAviso(respuesta.mensaje);
+      await Promise.all([cargar(), cargarFiscal()]);
+    } catch (e) {
+      // El rechazo de ARCA se muestra tal cual: el código y el texto son lo que hay que
+      // corregir, y traducirlos a "hubo un error" sería quitarle al operador el único dato útil.
+      setError(e.message);
+    } finally {
+      setReintentando(null);
+    }
+  };
+
   const { comprobantes, total, totalPaginas } = datos;
+  // La columna fiscal aparece solo con la integración activa, así que el ancho de los estados
+  // vacíos se calcula, no se escribe a mano.
+  const columnas = fiscal?.integracion?.habilitada ? 8 : 7;
 
   return (
     <div className="pantalla pantalla-turno">
@@ -93,11 +129,55 @@ export default function ComprobantesEstadia() {
         <div>
           <h1 className="pantalla-titulo">Comprobantes de estadía</h1>
           <p className="pantalla-bajada">
-            Cada cobro emite un ticket numerado por talonario. Son documentos <strong>no fiscales</strong>,
-            sin CAE: la emisión fiscal electrónica todavía no está habilitada.
+            {fiscal?.integracion?.habilitada
+              ? <>Cada cobro emite un ticket al instante y el comprobante fiscal se tramita después,
+                  para que ARCA nunca demore un cobro.</>
+              : <>Cada cobro emite un ticket numerado por talonario. Son documentos <strong>no fiscales</strong>,
+                  sin CAE: la emisión fiscal electrónica todavía no está habilitada.</>}
           </p>
         </div>
       </header>
+
+      {/* La cola de la emisión diferida, a la vista. Solo aparece si hay integración: sin ella
+          no hay nada que informar y una franja vacía sería ruido. */}
+      {fiscal?.integracion?.habilitada && (
+        <div className={`fiscal-barra${fiscal.integracion.modo === 'mock' ? ' es-prueba' : ''}`}>
+          {fiscal.integracion.modo === 'mock' && (
+            <p className="fiscal-aviso">
+              <strong>Modo de prueba.</strong> Los CAE los genera el simulador del sistema, no ARCA:
+              no tienen validez fiscal.
+            </p>
+          )}
+
+          <dl className="fiscal-conteos">
+            <div>
+              <dt>Autorizados</dt>
+              <dd className="numerico">{fiscal.comprobantes.emitidos}</dd>
+            </div>
+            <div>
+              <dt>Esperando CAE</dt>
+              <dd className="numerico">{fiscal.comprobantes.pendientes}</dd>
+            </div>
+            <div className={fiscal.comprobantes.conError ? 'hay-diferencia' : undefined}>
+              <dt>Con error</dt>
+              <dd className="numerico">{fiscal.comprobantes.conError}</dd>
+            </div>
+            <div className={fiscal.comprobantes.agotados ? 'hay-diferencia' : undefined}>
+              <dt>Necesitan revisión</dt>
+              <dd className="numerico">{fiscal.comprobantes.agotados}</dd>
+            </div>
+          </dl>
+
+          <p className="fiscal-pie">
+            {fiscal.integracion.ambiente} · {fiscal.worker.activo
+              ? `reintenta cada ${Math.round(fiscal.worker.intervaloMs / 60000)} min`
+              : 'el reintento automático está apagado'}
+            {fiscal.comprobantes.agotados > 0 && (
+              <> · los que agotaron los {fiscal.maxIntentos} intentos solo salen con un reintento manual</>
+            )}
+          </p>
+        </div>
+      )}
 
       <div className="filtros">
         <label className="campo">
@@ -149,19 +229,20 @@ export default function ComprobantesEstadia() {
                 <th scope="col">Receptor</th>
                 <th scope="col">Medio</th>
                 <th scope="col" className="col-monto">Total</th>
+                {fiscal?.integracion?.habilitada && <th scope="col">Fiscal</th>}
                 <th scope="col" className="col-accion"><span className="sr-only">Acciones</span></th>
               </tr>
             </thead>
             <tbody>
               {cargando && Array.from({ length: 6 }).map((_, i) => (
                 <tr key={`esqueleto-${i}`} className="fila-esqueleto">
-                  <td colSpan={7}><span className="esqueleto" /></td>
+                  <td colSpan={columnas}><span className="esqueleto" /></td>
                 </tr>
               ))}
 
               {!cargando && comprobantes.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="tabla-estado">
+                  <td colSpan={columnas} className="tabla-estado">
                     <p>
                       {q || desde || hasta || medioPago
                         ? 'Ningún comprobante coincide con esos filtros.'
@@ -185,9 +266,50 @@ export default function ComprobantesEstadia() {
                   </td>
                   <td>{ETIQUETA_MEDIO_LARGA[c.medioPago] ?? c.medioPago}</td>
                   <td className="col-monto numerico">{pesos(c.total)}</td>
+
+                  {fiscal?.integracion?.habilitada && (
+                    <td className="col-fiscal">
+                      {c.cae
+                        ? (
+                          <span className={`fiscal-cae${c.simulado ? ' es-prueba' : ''}`}>
+                            <span className="numerico">{c.puntoVenta}-{String(c.numeroFiscal).padStart(8, '0')}</span>
+                            <span className="texto-sutil">{c.simulado ? 'CAE simulado' : `CAE ${c.cae}`}</span>
+                          </span>
+                        )
+                        : c.estado === 'error_arca'
+                          // El motivo del rechazo es lo único que permite corregirlo: se muestra,
+                          // no se resume en "error".
+                          ? <span className="chip chip-alerta" title={c.erroresArca?.map((e) => e.mensaje).join(' · ')}>
+                              Rechazado
+                            </span>
+                          : c.estado === 'pendiente_cae'
+                            ? <span className="texto-sutil">Esperando CAE</span>
+                            // Los comprobantes anteriores a la integración se emitieron como
+                            // ticket y nunca van a ir a ARCA. Decir "esperando CAE" prometería
+                            // algo que no va a pasar.
+                            : <span className="texto-sutil">Solo ticket</span>}
+                    </td>
+                  )}
+
                   <td className="col-accion">
                     <div className="acciones-fila">
-                      {c.estado !== 'emitido' && <span className="chip chip-alerta">{ETIQUETA_ESTADO[c.estado]}</span>}
+                      {c.estado === 'anulado' && <span className="chip chip-alerta">{ETIQUETA_ESTADO[c.estado]}</span>}
+
+                      {/* Solo se puede pedir CAE de lo que está en la cola. Ofrecerlo sobre un
+                          ticket viejo emitiría un comprobante fiscal con fecha de hoy por una
+                          estadía de hace días — y un CAE no se borra. */}
+                      {fiscal?.integracion?.habilitada
+                        && !c.cae
+                        && (c.estado === 'pendiente_cae' || c.estado === 'error_arca') && (
+                        <button
+                          type="button"
+                          className="boton-secundario"
+                          onClick={() => pedirCae(c)}
+                          disabled={reintentando === c._id}
+                        >
+                          <RefreshCw size={13} aria-hidden /> {reintentando === c._id ? 'Pidiendo…' : 'Pedir CAE'}
+                        </button>
+                      )}
                       <button type="button" className="boton-secundario" onClick={() => bajar(c)}>
                         <Download size={13} aria-hidden /> Descargar
                       </button>

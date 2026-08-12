@@ -84,6 +84,17 @@ async function emitirComprobante(comprobanteId) {
     throw new Error('No se puede pedir CAE de un comprobante anulado');
   }
 
+  // Solo entran a ARCA los que están en la cola. Un comprobante en estado `emitido` sin CAE es
+  // un ticket anterior a la integración: pedirle un CAE ahora emitiría un comprobante fiscal
+  // con fecha de hoy por una estadía de hace días, y un CAE no se borra — se anula con nota de
+  // crédito. La interfaz ya no lo ofrece; esto lo impide aunque alguien llame al endpoint.
+  if (comprobante.estado !== 'pendiente_cae' && comprobante.estado !== 'error_arca') {
+    throw new Error(
+      'Este comprobante se emitió como ticket antes de que la facturación electrónica estuviera ' +
+      'activa: no corresponde pedirle un CAE ahora.'
+    );
+  }
+
   const estado = estadoIntegracion();
   if (!estado.habilitada) {
     throw new Error(`La facturación electrónica no está configurada: falta ${estado.faltantes.join(', ')}`);

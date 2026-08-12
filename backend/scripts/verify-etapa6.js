@@ -182,6 +182,30 @@ async function verificarEmision() {
     check(guardado.tipoComprobanteFiscal === 6, 'se guarda el tipo de comprobante de ARCA');
     check(guardado.caeFchVto instanceof Date, 'el vencimiento del CAE se guarda como fecha');
 
+    // Un ticket anterior a la integración no puede pedir CAE: emitiría un comprobante fiscal
+    // con fecha de hoy por una estadía vieja.
+    const viejo = await ComprobanteEstadia.create({
+      numero: Math.floor(Math.random() * 1e9),
+      puntoVenta: PV_PRUEBA,
+      tipoComprobante: 'ticket',
+      estadiaId: estadia._id,
+      receptor: { tipo: 'consumidor_final', nombre: 'Consumidor', apellido: 'Final', condicionIva: 'Consumidor Final' },
+      medioPago: 'efectivo',
+      subtotal: 500,
+      total: 500,
+      estado: 'emitido'
+    });
+
+    let errorViejo = null;
+    try { await emitirComprobante(viejo._id); } catch (e) { errorViejo = e; }
+    check(
+      errorViejo?.message.includes('antes de que la facturación electrónica'),
+      'un ticket anterior a la integración no puede pedir CAE'
+    );
+    const viejoTrasIntento = await ComprobanteEstadia.findById(viejo._id);
+    check(!viejoTrasIntento.cae && viejoTrasIntento.estado === 'emitido', 'y queda intacto');
+    await ComprobanteEstadia.deleteOne({ _id: viejo._id });
+
     // Idempotencia: un doble clic no puede producir dos CAE, porque un CAE no se borra.
     const repetido = await emitirComprobante(comprobante._id);
     check(repetido.yaEmitido === true, 'pedir CAE dos veces no llama a ARCA de nuevo');
