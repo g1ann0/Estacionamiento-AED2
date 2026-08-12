@@ -16,7 +16,12 @@ const { leerConfig } = require('./config');
 // exactamente lo que hace falta para probar la correlatividad en desarrollo.
 const ultimos = new Map();
 
+// Lo que el mock "autorizó", para poder responder consultas como hace ARCA. Es lo que permite
+// probar la reconciliación: el caso en que ARCA otorgó el CAE y la persistencia local falló.
+const autorizados = new Map();
+
 const clave = (puntoVenta, tipoComprobante) => `${puntoVenta}-${tipoComprobante}`;
+const claveComprobante = (puntoVenta, tipoComprobante, numero) => `${puntoVenta}-${tipoComprobante}-${numero}`;
 
 const verificarAmbiente = () => {
   const config = leerConfig();
@@ -66,7 +71,7 @@ async function solicitarCAE(datos) {
   const vencimiento = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000);
   const aaaammdd = vencimiento.toISOString().slice(0, 10).replace(/-/g, '');
 
-  return {
+  const respuesta = {
     // Un CAE real tiene 14 dígitos y jamás empieza en 0000.
     cae: `0000${String(Date.now()).slice(-10)}`,
     caeFchVto: aaaammdd,
@@ -74,8 +79,42 @@ async function solicitarCAE(datos) {
     observaciones: [],
     simulado: true
   };
+
+  // El comprobante queda registrado ANTES de devolverlo, igual que en ARCA: si el que llama se
+  // cae después de recibir el CAE, para ARCA el comprobante existe igual. Esa asimetría es
+  // justamente lo que la reconciliación viene a reparar.
+  autorizados.set(claveComprobante(puntoVenta, tipoComprobante, numero), {
+    ...respuesta,
+    fecha: datos.fecha,
+    importeTotal: datos.importes.impTotal,
+    documento: datos.documento
+  });
+
+  // Modo de falla para poder probar la reconciliación: ARCA autoriza, y el cliente nunca se
+  // entera. Se activa desde el propio test, no desde configuración.
+  if (fallarDespuesDeAutorizar) {
+    const error = new Error('Simulación: la conexión se cortó después de que ARCA autorizó');
+    error.code = 'ECONNRESET';
+    throw error;
+  }
+
+  return respuesta;
 }
 
-const reiniciar = () => ultimos.clear();
+async function consultarComprobante(puntoVenta, tipoComprobante, numero) {
+  verificarAmbiente();
+  return autorizados.get(claveComprobante(puntoVenta, tipoComprobante, numero)) ?? null;
+}
 
-module.exports = { ultimoNumeroAutorizado, solicitarCAE, reiniciar };
+// Interruptor del modo de falla. Vive acá y no en la configuración porque no es una opción de
+// despliegue: es una herramienta de prueba.
+let fallarDespuesDeAutorizar = false;
+const simularCorteTrasAutorizar = (activo) => { fallarDespuesDeAutorizar = activo; };
+
+const reiniciar = () => {
+  ultimos.clear();
+  autorizados.clear();
+  fallarDespuesDeAutorizar = false;
+};
+
+module.exports = { ultimoNumeroAutorizado, solicitarCAE, consultarComprobante, reiniciar, simularCorteTrasAutorizar };

@@ -110,6 +110,41 @@ async function ultimoNumeroAutorizado(puntoVenta, tipoComprobante) {
   return Number(resultado?.CbteNro ?? 0);
 }
 
+// ¿Qué dice ARCA del comprobante número N? Se usa para la reconciliación: cuando ARCA otorgó
+// un CAE y la persistencia local falló, este es el único lugar donde ese comprobante existe.
+async function consultarComprobante(puntoVenta, tipoComprobante, numero) {
+  const auth = await construirAuth();
+  const cliente = await obtenerCliente();
+
+  const [respuesta] = await conReintentosDeRed(
+    () => cliente.FECompConsultarAsync({
+      Auth: auth,
+      FeCompConsReq: { PtoVta: puntoVenta, CbteTipo: tipoComprobante, CbteNro: numero }
+    }),
+    'FECompConsultar'
+  );
+
+  const resultado = respuesta?.FECompConsultarResult;
+  const errores = formatearErrores(resultado?.Errors);
+  // El código 602 es "no existe el comprobante": no es una falla, es la respuesta.
+  if (errores.some((e) => e.codigo === '602')) return null;
+  if (errores.length) {
+    throw new Error(`ARCA rechazó la consulta del comprobante ${numero}: ${errores.map((e) => `(${e.codigo}) ${e.mensaje}`).join(', ')}`);
+  }
+
+  const c = resultado?.ResultGet;
+  if (!c?.CodAutorizacion) return null;
+
+  return {
+    numero: Number(c.CbteDesde ?? numero),
+    cae: String(c.CodAutorizacion),
+    caeFchVto: String(c.FchVto ?? ''),
+    fecha: String(c.CbteFch ?? ''),
+    importeTotal: Number(c.ImpTotal ?? 0),
+    documento: { tipo: Number(c.DocTipo ?? 0), numero: Number(c.DocNro ?? 0) }
+  };
+}
+
 // Pide el CAE para un comprobante. `datos` ya viene armado por el servicio de facturación:
 // esta función no decide importes ni tipos, solo habla con ARCA.
 //
@@ -215,4 +250,4 @@ async function solicitarCAE(datos) {
   throw error;
 }
 
-module.exports = { ultimoNumeroAutorizado, solicitarCAE, olvidarCliente, demoraPara, esErrorDeRed };
+module.exports = { ultimoNumeroAutorizado, solicitarCAE, consultarComprobante, olvidarCliente, demoraPara, esErrorDeRed };

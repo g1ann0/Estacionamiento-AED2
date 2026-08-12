@@ -68,6 +68,18 @@ const reintentarCae = async (req, res, next) => {
   }
 };
 
+// Reconciliación manual: compara nuestra numeración fiscal con la de ARCA y recupera lo que
+// falte. Es admin porque el resultado se lee, se interpreta y a veces obliga a buscar papeles.
+const reconciliarFiscal = async (req, res, next) => {
+  try {
+    const { reconciliar } = require('../services/facturacionElectronicaService');
+    const resultado = await reconciliar(req.body ?? {});
+    res.status(200).json(resultado);
+  } catch (error) {
+    next(error);
+  }
+};
+
 const listar = async (req, res, next) => {
   try {
     const { desde, hasta, medioPago, estado, q, pagina = 1, limite = 25 } = req.query;
@@ -200,4 +212,4 @@ const enviarPorMail = async (req, res, next) => {
   }
 };
 
-module.exports = { listar, obtener, descargarPdf, enviarPorMail, estadoFiscal, reintentarCae };
+module.exports = { listar, obtener, descargarPdf, enviarPorMail, estadoFiscal, reintentarCae, reconciliarFiscal };

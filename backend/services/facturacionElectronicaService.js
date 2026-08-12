@@ -159,12 +159,17 @@ async function emitirComprobante(comprobanteId) {
 // La cola serializada es más rápida que la carrera.
 const MAX_INTENTOS = 10;
 
-async function procesarPendientes({ limite = 20 } = {}) {
-  const pendientes = await ComprobanteEstadia.find({
+async function procesarPendientes({ limite = 20, puntoVenta } = {}) {
+  const filtro = {
     cae: null,
     estado: { $in: ['pendiente_cae', 'error_arca'] },
     intentosArca: { $lt: MAX_INTENTOS }
-  })
+  };
+  // Acotar por punto de venta importa con más de una sucursal: cada punto de venta tiene su
+  // propia correlatividad en ARCA, y mezclarlos en una misma corrida es pedir el 10016.
+  if (puntoVenta) filtro.puntoVenta = puntoVenta;
+
+  const pendientes = await ComprobanteEstadia.find(filtro)
     .sort({ fechaEmision: 1 })
     .limit(limite)
     .select('_id');
@@ -187,4 +192,105 @@ async function procesarPendientes({ limite = 20 } = {}) {
   return resultado;
 }
 
-module.exports = { emitirComprobante, procesarPendientes, construirPedido, fechaDesdeArca, MAX_INTENTOS };
+// RECONCILIACIÓN — el caso feo.
+//
+// ARCA otorgó el CAE y la persistencia local falló: un corte de red justo después de la
+// respuesta, un proceso que murió, un timeout. Para ARCA el comprobante existe y está
+// autorizado; para nosotros no existe. Nadie se entera hasta que alguien cruza los números.
+//
+// CGAS lo resuelve con `RecuperarFacturasFaltantes` y es la parte de su diseño que más
+// conviene copiar, porque el problema no se puede evitar: el CAE y el commit local no pueden
+// ser atómicos, están en dos sistemas.
+//
+// Lo que esto NO hace es inventar datos. Cuando encuentra un comprobante autorizado que no
+// tenemos, intenta vincularlo con un comprobante local que esté esperando CAE y cuyo importe
+// coincida. Si no hay candidato, lo reporta como huérfano para que alguien lo mire. Fabricar
+// una estadía para que los números cierren sería mentirle a la contabilidad.
+async function reconciliar({ puntoVenta, tipoComprobante } = {}) {
+  const configuracion = await ConfiguracionEmpresa.obtenerConfiguracionActiva();
+  const pv = Number(puntoVenta ?? configuracion?.puntoVenta ?? 1);
+  const tipo = tipoComprobante ?? tipoComprobantePara(configuracion?.condicionIva);
+
+  const cliente = clienteArca();
+  const ultimoEnArca = await cliente.ultimoNumeroAutorizado(pv, tipo);
+
+  const masAlto = await ComprobanteEstadia
+    .findOne({ puntoVenta: String(pv).padStart(5, '0'), tipoComprobanteFiscal: tipo, numeroFiscal: { $ne: null } })
+    .sort({ numeroFiscal: -1 })
+    .select('numeroFiscal');
+
+  const ultimoLocal = masAlto?.numeroFiscal ?? 0;
+  const resultado = {
+    puntoVenta: pv,
+    tipoComprobante: tipo,
+    ultimoEnArca,
+    ultimoLocal,
+    faltantes: Math.max(0, ultimoEnArca - ultimoLocal),
+    vinculados: [],
+    huerfanos: []
+  };
+
+  if (resultado.faltantes === 0) return resultado;
+
+  for (let numero = ultimoLocal + 1; numero <= ultimoEnArca; numero += 1) {
+    // ¿Ya lo tenemos con otro número? Si aparece, no falta: se saltea.
+    const yaLoTenemos = await ComprobanteEstadia.exists({
+      puntoVenta: String(pv).padStart(5, '0'),
+      tipoComprobanteFiscal: tipo,
+      numeroFiscal: numero
+    });
+    if (yaLoTenemos) continue;
+
+    const enArca = await cliente.consultarComprobante(pv, tipo, numero);
+    if (!enArca) continue;
+
+    // El candidato es un comprobante que quedó esperando y cuyo importe coincide exactamente.
+    // El importe es el vínculo más confiable que tenemos: el número fiscal todavía no existía
+    // de este lado cuando se cortó.
+    const candidato = await ComprobanteEstadia.findOne({
+      cae: null,
+      estado: { $in: ['pendiente_cae', 'error_arca'] },
+      total: enArca.importeTotal
+    }).sort({ fechaEmision: 1 });
+
+    if (!candidato) {
+      resultado.huerfanos.push({
+        numero,
+        cae: enArca.cae,
+        importeTotal: enArca.importeTotal,
+        fecha: enArca.fecha
+      });
+      continue;
+    }
+
+    candidato.cae = enArca.cae;
+    candidato.caeFchVto = fechaDesdeArca(enArca.caeFchVto);
+    candidato.numeroFiscal = numero;
+    candidato.tipoComprobanteFiscal = tipo;
+    candidato.fechaAutorizacion = new Date();
+    candidato.estado = 'emitido';
+    candidato.erroresArca = [];
+    await candidato.save();
+
+    resultado.vinculados.push({ comprobanteId: String(candidato._id), numero, cae: enArca.cae });
+
+    await auditoriaService.registrar({
+      entidad: 'ComprobanteEstadia',
+      entidadId: candidato._id,
+      accion: 'cae_reconciliado',
+      motivo: 'ARCA lo tenía autorizado y localmente faltaba',
+      datosNuevos: { numeroFiscal: numero, cae: enArca.cae }
+    });
+  }
+
+  return resultado;
+}
+
+module.exports = {
+  emitirComprobante,
+  procesarPendientes,
+  construirPedido,
+  fechaDesdeArca,
+  reconciliar,
+  MAX_INTENTOS
+};

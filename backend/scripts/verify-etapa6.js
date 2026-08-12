@@ -215,7 +215,7 @@ async function verificarEmision() {
     // Worker.
     const otro = await ComprobanteEstadia.create({
       numero: Math.floor(Math.random() * 1e9),
-      puntoVenta: '00001',
+      puntoVenta: PV_PRUEBA,
       tipoComprobante: 'ticket',
       estadiaId: estadia._id,
       receptor: { tipo: 'consumidor_final', nombre: 'Consumidor', apellido: 'Final', condicionIva: 'Consumidor Final' },
@@ -225,7 +225,9 @@ async function verificarEmision() {
       estado: 'pendiente_cae'
     });
 
-    const corrida = await procesarPendientes({ limite: 50 });
+    // Acotado al punto de venta de prueba: los pendientes reales del sistema no son asunto
+    // de esta verificación.
+    const corrida = await procesarPendientes({ limite: 50, puntoVenta: PV_PRUEBA });
     check(corrida.emitidos >= 1, 'el worker emite los pendientes', `${corrida.emitidos} emitidos`);
     const otroGuardado = await ComprobanteEstadia.findById(otro._id);
     check(otroGuardado.estado === 'emitido' && Boolean(otroGuardado.cae), 'el pendiente quedó emitido');
@@ -252,7 +254,7 @@ async function verificarPdf() {
 
   const base = {
     numero: 42,
-    puntoVenta: '00001',
+    puntoVenta: PV_PRUEBA,
     tipoComprobante: 'ticket',
     receptor: { tipo: 'clienteOcasional', nombre: 'Juan', apellido: 'Final', condicionIva: 'Consumidor Final' },
     medioPago: 'efectivo',
@@ -293,7 +295,7 @@ async function verificarPdf() {
 
   // El número interno del ticket es el que el cliente tiene en la mano: se conserva aunque
   // ARCA haya asignado otro para lo fiscal.
-  check(numeroFormateado(base) === '00001-00000042', 'el número interno mantiene su formato');
+  check(numeroFormateado(base) === `${PV_PRUEBA}-00000042`, 'el número interno mantiene su formato');
 
   // Y que el PDF efectivamente se genere en los cuatro estados.
   await mongoose.connect(process.env.MONGODB_URI);
@@ -312,11 +314,101 @@ async function verificarPdf() {
   }
 }
 
+// El caso feo: ARCA autoriza y la persistencia local falla. Para ARCA el comprobante existe;
+// para nosotros no. Es el único escenario que no se puede evitar —el CAE y el commit local
+// están en dos sistemas y no pueden ser atómicos— y por eso hay que poder repararlo.
+async function verificarReconciliacion() {
+  console.log('\n— Reconciliación: ARCA autorizó y nosotros no nos enteramos —');
+
+  await mongoose.connect(process.env.MONGODB_URI);
+  const ComprobanteEstadia = require('../models/ComprobanteEstadia');
+  const Estacionamiento = require('../models/Estacionamiento');
+  const { emitirComprobante, reconciliar } = require('../services/facturacionElectronicaService');
+
+  mock.reiniciar();
+  await ComprobanteEstadia.deleteMany({ puntoVenta: PV_PRUEBA });
+
+  const estadia = await Estacionamiento.create({
+    vehiculoDominio: `RECON${Date.now()}`.slice(0, 11),
+    horaInicio: new Date(Date.now() - 3600 * 1000),
+    horaFin: new Date(),
+    duracionHoras: 1,
+    montoTotal: 7777,
+    estado: 'finalizado',
+    origen: 'caja'
+  });
+
+  const comprobante = await ComprobanteEstadia.create({
+    numero: Math.floor(Math.random() * 1e9),
+    puntoVenta: PV_PRUEBA,
+    tipoComprobante: 'ticket',
+    estadiaId: estadia._id,
+    receptor: { tipo: 'consumidor_final', nombre: 'Consumidor', apellido: 'Final', condicionIva: 'Consumidor Final' },
+    medioPago: 'efectivo',
+    subtotal: 7777,
+    total: 7777,
+    estado: 'pendiente_cae'
+  });
+
+  try {
+    // ARCA autoriza, y el cliente nunca recibe la respuesta.
+    mock.simularCorteTrasAutorizar(true);
+    let corte = null;
+    try { await emitirComprobante(comprobante._id); } catch (e) { corte = e; }
+    mock.simularCorteTrasAutorizar(false);
+
+    check(Boolean(corte), 'la emisión falla por el corte de conexión');
+
+    const tras = await ComprobanteEstadia.findById(comprobante._id);
+    check(!tras.cae, 'localmente el comprobante quedó SIN CAE');
+    check(tras.estado === 'error_arca', 'y marcado con error');
+
+    // Este es el punto: para ARCA ese comprobante existe y está autorizado.
+    const enArca = await mock.consultarComprobante(Number(PV_PRUEBA), 6, 1);
+    check(Boolean(enArca?.cae), 'pero ARCA lo tiene autorizado: el CAE se otorgó igual');
+
+    const resultado = await reconciliar({ puntoVenta: Number(PV_PRUEBA), tipoComprobante: 6 });
+    check(resultado.ultimoEnArca === 1, 'la reconciliación ve que ARCA autorizó 1', `ARCA: ${resultado.ultimoEnArca}`);
+    check(resultado.ultimoLocal === 0, 'y que nosotros no tenemos ninguno', `local: ${resultado.ultimoLocal}`);
+    check(resultado.faltantes === 1, 'detecta que falta 1');
+    check(resultado.vinculados.length === 1, 'y lo vincula con el comprobante que esperaba');
+    check(resultado.huerfanos.length === 0, 'sin huérfanos: había un candidato con el mismo importe');
+
+    const reparado = await ComprobanteEstadia.findById(comprobante._id);
+    check(reparado.cae === enArca.cae, 'el comprobante local quedó con el CAE que ARCA había otorgado');
+    check(reparado.numeroFiscal === 1, 'y con el número fiscal correcto');
+    check(reparado.estado === 'emitido', 'y en estado emitido');
+
+    // Correr de nuevo no debe duplicar nada.
+    const segunda = await reconciliar({ puntoVenta: Number(PV_PRUEBA), tipoComprobante: 6 });
+    check(segunda.faltantes === 0, 'una segunda corrida no encuentra nada que reparar');
+
+    // Un comprobante autorizado en ARCA sin candidato local se reporta, no se inventa.
+    await ComprobanteEstadia.deleteMany({ puntoVenta: PV_PRUEBA });
+    const huerfano = await reconciliar({ puntoVenta: Number(PV_PRUEBA), tipoComprobante: 6 });
+    check(huerfano.huerfanos.length === 1, 'sin candidato local, el comprobante se reporta como huérfano');
+    check(
+      huerfano.vinculados.length === 0,
+      'y NO se fabrica una estadía para que los números cierren'
+    );
+
+    await ComprobanteEstadia.deleteMany({ puntoVenta: PV_PRUEBA });
+    await Estacionamiento.deleteOne({ _id: estadia._id });
+  } catch (error) {
+    await ComprobanteEstadia.deleteMany({ puntoVenta: PV_PRUEBA });
+    await Estacionamiento.deleteOne({ _id: estadia._id });
+    throw error;
+  } finally {
+    await mongoose.disconnect();
+  }
+}
+
 async function main() {
   await verificarCatalogos();
   await verificarMock();
   await verificarEmision();
   await verificarPdf();
+  await verificarReconciliacion();
 
   console.log(`\n${fallos === 0 ? '✅ TODO OK' : `❌ ${fallos} fallas`} — ${ok} verificaciones`);
   process.exit(fallos === 0 ? 0 : 1);

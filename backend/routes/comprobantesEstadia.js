@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middlewares/authMiddleware');
 const requireRole = require('../middlewares/requireRole');
-const { listar, obtener, descargarPdf, enviarPorMail, estadoFiscal, reintentarCae } = require('../controllers/comprobanteEstadiaController');
+const { listar, obtener, descargarPdf, enviarPorMail, estadoFiscal, reintentarCae, reconciliarFiscal } = require('../controllers/comprobanteEstadiaController');
 
 // Comprobantes de la ESTADÍA cobrada. No confundir con /api/comprobantes, que son los
 // comprobantes de recarga de saldo (funcionalidad discontinuada, en modo consulta).
@@ -15,6 +15,7 @@ router.get('/:id/pdf', descargarPdf);
 
 // El estado de la integración fiscal va antes de '/:id' para que 'fiscal' no se lea como un id.
 router.get('/fiscal/estado', requireRole('operador', 'admin'), estadoFiscal);
+router.post('/fiscal/reconciliar', requireRole('admin'), reconciliarFiscal);
 router.post('/:id/reintentar-cae', requireRole('admin'), reintentarCae);
 
 router.get('/', requireRole('operador', 'admin'), listar);
