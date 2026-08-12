@@ -23,7 +23,9 @@ const TRADUCCIONES = [
     coincide: /El CEE ya posee un TA valido|ya posee un TA/i,
     que: 'Ya hay un ticket vigente para este certificado y servicio.',
     porque: 'ARCA entrega uno cada 12 horas y rechaza pedir otro antes de tiempo.',
-    hacer: 'No es un error real: significa que el certificado funciona. Esperá o reusá el ticket cacheado.'
+    hacer: 'El certificado funciona: esto lo prueba. El ticket se guarda en certs/.ticket-<ambiente>.json ' +
+      'y se reusa solo; si ese archivo no existe, hay que esperar a que venza el anterior. ' +
+      'Por eso este script no fuerza la renovación salvo que se lo pidas con --forzar.'
   },
   {
     coincide: /Computador no autorizado|no autorizado a acceder al servicio/i,
@@ -65,11 +67,18 @@ async function main() {
     process.exit(1);
   }
 
-  console.log('Pidiendo ticket de acceso al WSAA…\n');
-  olvidarTicket();
+  // Por defecto REUSA el ticket vigente. Forzar la renovación quema el único ticket que ARCA
+  // da cada 12 horas: si algo falla después, no se puede pedir otro y el sistema queda sin
+  // poder facturar hasta que venza. Se fuerza solo si se lo piden a mano.
+  const forzar = process.argv.includes('--forzar');
+  console.log(forzar
+    ? 'Pidiendo un ticket NUEVO al WSAA (--forzar)…\n'
+    : 'Pidiendo ticket de acceso al WSAA (reusa el vigente si lo hay)…\n');
+
+  if (forzar) olvidarTicket();
 
   try {
-    const ticket = await obtenerTicket({ forzarRenovacion: true });
+    const ticket = await obtenerTicket({ forzarRenovacion: forzar });
     console.log('✅ ARCA autorizó el acceso.\n');
     console.log(`  token   : ${ticket.token.slice(0, 24)}… (${ticket.token.length} caracteres)`);
     console.log(`  sign    : ${ticket.sign.slice(0, 24)}… (${ticket.sign.length} caracteres)`);

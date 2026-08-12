@@ -19,6 +19,7 @@
 // la forma más rápida de que ARCA rechace por exceso de solicitudes.
 
 const fs = require('fs');
+const path = require('path');
 const forge = require('node-forge');
 const soap = require('soap');
 const { leerConfig, validarConfig } = require('./config');
@@ -28,7 +29,37 @@ const MARGEN_MINUTOS = 10;
 // de una tanda de emisiones.
 const MARGEN_RENOVACION_MS = 10 * 60 * 1000;
 
+// EL TICKET SE PERSISTE, no solo se cachea en memoria.
+//
+// ARCA entrega un ticket cada 12 horas por certificado y servicio, y rechaza pedir otro antes
+// con "El CEE ya posee un TA valido". Con el cache solo en memoria, cada reinicio del servidor
+// dejaba al sistema sin poder autenticarse hasta que venciera el anterior — es decir, hasta
+// 12 horas sin poder facturar por haber hecho un deploy.
+//
+// Es lo que CGAS resuelve con su IAfipTicketCacheService. Se guarda junto a los certificados,
+// en una carpeta que ya está fuera del repositorio: el token es una credencial de sesión.
 let ticketEnCache = null;
+
+const rutaTicket = (ambiente) => path.join(path.dirname(leerConfig().certificadoPath), `.ticket-${ambiente}.json`);
+
+const leerTicketPersistido = (ambiente) => {
+  try {
+    const guardado = JSON.parse(fs.readFileSync(rutaTicket(ambiente), 'utf8'));
+    return { ...guardado, expiracion: guardado.expiracion ? new Date(guardado.expiracion) : null };
+  } catch {
+    // No haberlo es lo normal la primera vez; un archivo corrupto tampoco justifica romper.
+    return null;
+  }
+};
+
+const guardarTicket = (ticket) => {
+  try {
+    fs.writeFileSync(rutaTicket(ticket.ambiente), JSON.stringify(ticket, null, 2), { mode: 0o600 });
+  } catch (error) {
+    // Si no se puede persistir, el ticket igual sirve en memoria: se avisa y se sigue.
+    console.warn('[ARCA] no se pudo guardar el ticket de acceso:', error.message);
+  }
+};
 
 // ARCA espera la hora local argentina en formato ISO sin zona. `sv-SE` da exactamente
 // `YYYY-MM-DD HH:mm:ss`, que es lo más cerca del formato pedido sin armarlo a mano.
@@ -182,10 +213,19 @@ const parsearRespuesta = (xml) => {
 // Devuelve {token, sign} listos para el WSFE, reusando el ticket vigente si lo hay.
 async function obtenerTicket({ forzarRenovacion = false } = {}) {
   const config = leerConfig();
+  const vigente = (ticket) =>
+    ticket?.expiracion && ticket.expiracion.getTime() - MARGEN_RENOVACION_MS > Date.now();
 
-  if (!forzarRenovacion && ticketEnCache?.expiracion) {
-    const vigente = ticketEnCache.expiracion.getTime() - MARGEN_RENOVACION_MS > Date.now();
-    if (vigente) return ticketEnCache;
+  if (!forzarRenovacion) {
+    if (vigente(ticketEnCache)) return ticketEnCache;
+
+    // Segunda oportunidad: el ticket de una ejecución anterior. Es lo que evita quedarse sin
+    // poder facturar después de un reinicio.
+    const persistido = leerTicketPersistido(config.ambiente);
+    if (vigente(persistido)) {
+      ticketEnCache = persistido;
+      return ticketEnCache;
+    }
   }
 
   const faltantes = validarConfig(config);
@@ -202,6 +242,7 @@ async function obtenerTicket({ forzarRenovacion = false } = {}) {
 
   const ticket = parsearRespuesta(respuesta.loginCmsReturn);
   ticketEnCache = { ...ticket, cuit: config.cuit, ambiente: config.ambiente };
+  guardarTicket(ticketEnCache);
   return ticketEnCache;
 }
 
