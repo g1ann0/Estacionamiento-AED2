@@ -27,9 +27,13 @@ const TRADUCCIONES = [
   },
   {
     coincide: /Computador no autorizado|no autorizado a acceder al servicio/i,
-    que: 'El certificado es válido pero no tiene permiso sobre el servicio wsfe.',
-    porque: 'Falta asociar el alias del certificado al servicio de Facturación Electrónica.',
-    hacer: 'En ARCA: Administrador de Relaciones → nueva relación → Facturación Electrónica → representante = tu alias.'
+    que: 'El certificado es válido y ARCA lo reconoce, pero el DN no tiene permiso sobre wsfe.',
+    porque: 'Subir el CSR y autorizar el servicio son dos acciones distintas; falta la segunda.',
+    // Los dos ambientes se autorizan en lugares distintos, y mandar a alguien al portal
+    // equivocado le cuesta media hora de buscar un menú que ahí no existe.
+    hacer: 'En HOMOLOGACIÓN: en el portal WSASS, "Crear autorización a servicio" → DN = tu alias, ' +
+      'servicio = wsfe. En PRODUCCIÓN: Administrador de Relaciones → nueva relación → ' +
+      'Facturación Electrónica → representante = el alias del certificado.'
   },
   {
     coincide: /generationTime|expirationTime|fecha/i,

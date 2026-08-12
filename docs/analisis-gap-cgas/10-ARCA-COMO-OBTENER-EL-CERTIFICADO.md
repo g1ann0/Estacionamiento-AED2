@@ -71,8 +71,9 @@ Homologación tiene su propio portal, separado del de producción:
 
 1. Entrar a **WSASS — Autogestión de Certificados de Homologación**:
    `https://wsass-homo.afip.gob.ar/wsass/portal/main.aspx`
-2. **Crear un alias** (un nombre para identificar este certificado; por ejemplo
-   `estacionamiento-homo`).
+2. **Crear un alias**: un nombre para identificar el certificado. **Solo letras y números** —
+   WSASS rechaza guiones y espacios con el mensaje "El Nombre simbólico del DN sólo puede
+   contener números y/o letras". Por ejemplo `estacionamientohomo`.
 3. **Adjuntar el CSR**: abrí `backend/certs/arca.csr` con el Bloc de notas, copiá **todo** el
    contenido —incluidas las líneas `-----BEGIN CERTIFICATE REQUEST-----` y
    `-----END CERTIFICATE REQUEST-----`— y pegalo donde lo pida.
