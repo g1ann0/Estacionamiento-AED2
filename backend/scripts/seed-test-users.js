@@ -2,7 +2,7 @@
 // No toca al único usuario real existente en la DB de dev (admin@estacionamiento.com).
 require('dotenv').config();
 const mongoose = require('mongoose');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const Usuario = require('../models/Usuario');
 const Vehiculo = require('../models/Vehiculo');
 const Estacionamiento = require('../models/Estacionamiento');

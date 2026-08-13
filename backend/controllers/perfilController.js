@@ -1,6 +1,6 @@
 // controllers/perfilController.js
 const Usuario = require('../models/Usuario');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 
 // Obtener datos del perfil del usuario
 const obtenerPerfil = async (req, res) => {

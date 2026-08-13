@@ -4,7 +4,7 @@ const Comprobante = require('../models/Comprobante');
 const Transaccion = require('../models/Transaccion');
 const ConfiguracionPrecio = require('../models/ConfiguracionPrecio');
 const auditoriaService = require('../services/auditoriaService');
-const { v4: uuidv4 } = require('uuid');  // para generar nroComprobante único
+const { randomUUID } = require('crypto');
 
 
 // Recargar saldo a un usuario
@@ -34,7 +34,7 @@ const recargarUsuario = async (req, res) => {
 
     const vehiculosDelUsuario = await Vehiculo.find({ usuario: usuario._id }).select('dominio').lean();
 
-    const nroComprobante = uuidv4().slice(0, 8);
+    const nroComprobante = randomUUID().slice(0, 8);
     const comprobante = new Comprobante({
       usuario: {
         dni: usuario.dni,

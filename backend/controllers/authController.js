@@ -1,7 +1,7 @@
 // controllers/authController.js
 const Usuario = require('../models/Usuario');
-const { v4: uuidv4 } = require('uuid');
-const bcrypt = require('bcrypt');
+const { randomUUID } = require('crypto');
+const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
 // El transporte vive en services/mailService.js desde que el comprobante de estadía también
@@ -30,7 +30,7 @@ const registrarConEmail = async (req, res) => {
     const rol = totalUsuarios === 0 ? 'admin' : 'cliente';
 
     // Generar token de verificación
-    const tokenVerificacion = uuidv4();
+    const tokenVerificacion = randomUUID();
     console.log('Generando nuevo token:', tokenVerificacion);
 
     const nuevoUsuario = new Usuario({
@@ -238,7 +238,7 @@ const solicitarRecuperacionPassword = async (req, res) => {
     }
 
     // Generar token de recuperación
-    const tokenRecuperacion = uuidv4();
+    const tokenRecuperacion = randomUUID();
     
     // Guardamos el token en el usuario
     usuario.tokenRecuperacion = tokenRecuperacion;
