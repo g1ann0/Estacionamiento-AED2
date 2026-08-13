@@ -1,14 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Download, Mail, RefreshCw } from 'lucide-react';
+import { Ban, Download, Mail, RefreshCw } from 'lucide-react';
 import {
   listarComprobantes,
   descargarComprobante,
   enviarComprobante,
   estadoFiscal as consultarEstadoFiscal,
-  reintentarCae
+  reintentarCae,
+  anularComprobante
 } from '../../services/comprobanteEstadiaService';
+import { useAuth } from '../../context/AuthContext';
 import { ETIQUETA_MEDIO_LARGA, fechaHora, nombreReceptor, pesos } from '../formato';
 import DialogoEnviar from './DialogoEnviar';
+import DialogoAnular from './DialogoAnular';
 import '../../styles/caja.css';
 
 const TODOS = '';
@@ -45,6 +48,16 @@ export default function ComprobantesEstadia() {
 
   const [fiscal, setFiscal] = useState(null);
   const [reintentando, setReintentando] = useState(null);
+
+  const [anulandoDe, setAnulandoDe] = useState(null);
+  const [anulando, setAnulando] = useState(false);
+  const [errorAnular, setErrorAnular] = useState(null);
+
+  // Anular emite un comprobante fiscal (la nota de crédito) y queda en el libro de IVA: es una
+  // decisión de administración, no del mostrador. El backend lo exige igual; esto es para no
+  // ofrecerle al operador un botón que le va a responder 403.
+  const { usuario } = useAuth();
+  const puedeAnular = usuario?.rol === 'admin';
 
   const cargar = useCallback(async () => {
     setCargando(true);
@@ -108,6 +121,21 @@ export default function ComprobantesEstadia() {
       setError(e.message);
     } finally {
       setReintentando(null);
+    }
+  };
+
+  const anular = async (motivo) => {
+    setAnulando(true);
+    setErrorAnular(null);
+    try {
+      const respuesta = await anularComprobante(anulandoDe._id, motivo);
+      setAnulandoDe(null);
+      setAviso(respuesta.mensaje);
+      await Promise.all([cargar(), cargarFiscal()]);
+    } catch (e) {
+      setErrorAnular(e.message);
+    } finally {
+      setAnulando(false);
     }
   };
 
@@ -254,7 +282,12 @@ export default function ComprobantesEstadia() {
 
               {!cargando && comprobantes.map((c) => (
                 <tr key={c._id} className={c.estado === 'anulado' ? 'fila-anulada' : undefined}>
-                  <td className="numerico">{numeroDe(c)}</td>
+                  <td className="numerico">
+                    {numeroDe(c)}
+                    {/* Una nota de crédito en la lista tiene que decir que resta, no sumar en
+                        silencio con el mismo aspecto que un cobro. */}
+                    {c.tipoComprobante === 'nota_credito' && <span className="chip chip-alerta">Nota de crédito</span>}
+                  </td>
                   <td className="numerico">{fechaHora(c.fechaEmision)}</td>
                   <td className="chapa">
                     {c.estadiaId?.vehiculoDominio ?? <span className="texto-sutil">—</span>}
@@ -293,7 +326,19 @@ export default function ComprobantesEstadia() {
 
                   <td className="col-accion">
                     <div className="acciones-fila">
-                      {c.estado === 'anulado' && <span className="chip chip-alerta">{ETIQUETA_ESTADO[c.estado]}</span>}
+                      {/* Un comprobante anulado tiene que decir con qué nota de crédito se
+                          compensó: sin ese número, "anulado" no se puede rastrear. */}
+                      {c.estado === 'anulado' && (
+                        <span
+                          className="chip chip-alerta"
+                          title={c.anuladoPorId
+                            ? `Compensado con la nota de crédito ${numeroDe(c.anuladoPorId)}${c.motivoAnulacion ? ` — ${c.motivoAnulacion}` : ''}`
+                            : c.motivoAnulacion ?? undefined}
+                        >
+                          {ETIQUETA_ESTADO[c.estado]}
+                          {c.anuladoPorId && <> · NC {String(c.anuladoPorId.numero).padStart(8, '0')}</>}
+                        </span>
+                      )}
 
                       {/* Solo se puede pedir CAE de lo que está en la cola. Ofrecerlo sobre un
                           ticket viejo emitiría un comprobante fiscal con fecha de hoy por una
@@ -316,6 +361,18 @@ export default function ComprobantesEstadia() {
                       <button type="button" className="boton-secundario" onClick={() => { setErrorEnvio(null); setEnviandoDe(c); }}>
                         <Mail size={13} aria-hidden /> Enviar
                       </button>
+
+                      {/* Una nota de crédito no se anula: es la que anula. Y lo ya anulado
+                          tampoco se vuelve a anular. */}
+                      {puedeAnular && c.estado !== 'anulado' && c.tipoComprobante !== 'nota_credito' && (
+                        <button
+                          type="button"
+                          className="boton-secundario"
+                          onClick={() => { setErrorAnular(null); setAnulandoDe(c); }}
+                        >
+                          <Ban size={13} aria-hidden /> Anular
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -344,6 +401,15 @@ export default function ComprobantesEstadia() {
         error={errorEnvio}
         onEnviar={mandar}
         onCerrar={() => setEnviandoDe(null)}
+      />
+
+      <DialogoAnular
+        abierto={Boolean(anulandoDe)}
+        comprobante={anulandoDe}
+        anulando={anulando}
+        error={errorAnular}
+        onAnular={anular}
+        onCerrar={() => setAnulandoDe(null)}
       />
     </div>
   );

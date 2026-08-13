@@ -11,7 +11,7 @@ const { MEDIOS_PAGO } = require('../utils/mediosPago');
 const ComprobanteEstadiaSchema = new mongoose.Schema({
   numero: { type: Number, required: true },
   puntoVenta: { type: String, required: true },
-  tipoComprobante: { type: String, enum: ['ticket', 'factura_b', 'factura_c'], default: 'ticket' },
+  tipoComprobante: { type: String, enum: ['ticket', 'factura_b', 'factura_c', 'nota_credito'], default: 'ticket' },
   sucursalId: { type: mongoose.Schema.Types.ObjectId, ref: 'Sucursal', required: false, default: null },
   estadiaId: { type: mongoose.Schema.Types.ObjectId, ref: 'Estacionamiento', required: true },
   transaccionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Transaccion', required: false, default: null },
@@ -55,6 +55,17 @@ const ComprobanteEstadiaSchema = new mongoose.Schema({
 
   motivoAnulacion: { type: String, default: null },
   fechaAnulacion: { type: Date, default: null },
+
+  // ANULACIÓN FISCAL — un comprobante con CAE no se borra ni se marca de baja: se compensa
+  // con una NOTA DE CRÉDITO, que es otro comprobante electrónico con su propio CAE y su
+  // propia numeración. ARCA no tiene forma de "deshacer" una autorización.
+  //
+  // Por eso la nota de crédito es un ComprobanteEstadia más, y estos dos campos son las dos
+  // puntas del vínculo:
+  //   anulaA        en la nota de crédito, apunta al comprobante que compensa
+  //   anuladoPorId  en el comprobante original, apunta a la nota de crédito
+  anulaA: { type: mongoose.Schema.Types.ObjectId, ref: 'ComprobanteEstadia', default: null },
+  anuladoPorId: { type: mongoose.Schema.Types.ObjectId, ref: 'ComprobanteEstadia', default: null },
   fechaEmision: { type: Date, default: Date.now }
 }, { timestamps: true });
 

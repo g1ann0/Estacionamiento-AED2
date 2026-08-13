@@ -101,4 +101,7 @@ async function generarComprobante({ estacionamiento, transaccion, usuario, clien
   return comprobante;
 }
 
-module.exports = { generarComprobante };
+// `reservarNumero` se exporta porque la nota de crédito también numera con el talonario local
+// (con su propio tipo), y duplicar la reserva atómica en otro archivo es la forma más directa
+// de que un día dejen de estar de acuerdo.
+module.exports = { generarComprobante, reservarNumero };

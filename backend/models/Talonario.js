@@ -12,7 +12,9 @@ const mongoose = require('mongoose');
 const TalonarioSchema = new mongoose.Schema({
   sucursalId: { type: mongoose.Schema.Types.ObjectId, ref: 'Sucursal', required: true },
   puntoVenta: { type: String, required: true },
-  tipoComprobante: { type: String, enum: ['ticket', 'factura_b', 'factura_c'], required: true },
+  // 'nota_credito' tiene su propio talonario: una nota de crédito no consume números del
+  // talonario de tickets, igual que en ARCA lleva su propia numeración por tipo.
+  tipoComprobante: { type: String, enum: ['ticket', 'factura_b', 'factura_c', 'nota_credito'], required: true },
   proximoNumero: { type: Number, required: true, default: 1 }
 }, { timestamps: true });
 

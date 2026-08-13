@@ -179,6 +179,19 @@ async function solicitarCAE(datos) {
       CondicionIVAReceptorId: datos.condicionIvaReceptor
     };
 
+    // Una nota de crédito tiene que declarar QUÉ comprobante compensa. Sin el asociado, ARCA
+    // la rechaza: una NC suelta no anula nada, es plata que sale sin contrapartida.
+    if (datos.comprobanteAsociado) {
+      detalle.CbtesAsoc = {
+        CbteAsoc: {
+          Tipo: datos.comprobanteAsociado.tipo,
+          PtoVta: datos.comprobanteAsociado.puntoVenta,
+          Nro: datos.comprobanteAsociado.numero,
+          CbteFch: datos.comprobanteAsociado.fecha
+        }
+      };
+    }
+
     // Un comprobante de servicios obliga a informar el período y el vencimiento de pago.
     if (datos.periodoServicio) {
       detalle.FchServDesde = datos.periodoServicio.desde;

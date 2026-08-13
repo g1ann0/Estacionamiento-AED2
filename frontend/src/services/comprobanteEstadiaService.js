@@ -55,6 +55,19 @@ export const reintentarCae = async (id) => {
   return data;
 };
 
+// Anular. Si el comprobante ya tiene CAE, el backend emite la nota de crédito que lo compensa
+// y la devuelve; si nunca llegó a ARCA, `notaCredito` viene en null.
+export const anularComprobante = async (id, motivo) => {
+  const res = await fetch(`${API_URL}/${id}/anular`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ motivo })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.mensaje || 'No se pudo anular el comprobante');
+  return data;
+};
+
 export const enviarComprobante = async (id, email) => {
   const res = await fetch(`${API_URL}/${id}/enviar`, {
     method: 'POST',

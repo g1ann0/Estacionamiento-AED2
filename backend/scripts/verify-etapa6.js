@@ -293,6 +293,20 @@ async function verificarPdf() {
   const monotributo = leyendaFiscal({ ...base, cae: '1', tipoComprobanteFiscal: 11 });
   check(monotributo.titulo === 'FACTURA C', 'un monotributista emite factura C');
 
+  // Una nota de crédito no puede titularse "comprobante de estadía": dice lo contrario de lo
+  // que hace, y el que la recibe la leería como un cobro más.
+  const notaEnTramite = leyendaFiscal({ ...base, tipoComprobante: 'nota_credito', estado: 'pendiente_cae' });
+  check(notaEnTramite.titulo === 'NOTA DE CRÉDITO', 'una nota de crédito en trámite se titula NOTA DE CRÉDITO');
+  check(notaEnTramite.subtitulo.includes('nota de crédito'), 'y el encabezado dice que espera el CAE');
+
+  const notaAutorizada = leyendaFiscal({
+    ...base, tipoComprobante: 'nota_credito', cae: '75123456789012', tipoComprobanteFiscal: 8
+  });
+  check(notaAutorizada.titulo === 'NOTA DE CRÉDITO B', 'autorizada, lleva la letra que le corresponde');
+
+  const notaC = leyendaFiscal({ ...base, tipoComprobante: 'nota_credito', cae: '1', tipoComprobanteFiscal: 13 });
+  check(notaC.titulo === 'NOTA DE CRÉDITO C', 'y la de un monotributista es una nota de crédito C');
+
   // El número interno del ticket es el que el cliente tiene en la mano: se conserva aunque
   // ARCA haya asignado otro para lo fiscal.
   check(numeroFormateado(base) === `${PV_PRUEBA}-00000042`, 'el número interno mantiene su formato');
@@ -304,7 +318,24 @@ async function verificarPdf() {
       ['sin integración', base],
       ['pendiente', { ...base, estado: 'pendiente_cae' }],
       ['simulado', { ...base, cae: '0000123', simulado: true, tipoComprobanteFiscal: 6, numeroFiscal: 7 }],
-      ['autorizado', { ...base, cae: '75123456789012', caeFchVto: new Date(), tipoComprobanteFiscal: 6, numeroFiscal: 7 }]
+      ['autorizado', { ...base, cae: '75123456789012', caeFchVto: new Date(), tipoComprobanteFiscal: 6, numeroFiscal: 7 }],
+      ['anulado con nota de crédito', {
+        ...base,
+        estado: 'anulado',
+        cae: '75123456789012',
+        tipoComprobanteFiscal: 6,
+        numeroFiscal: 7,
+        motivoAnulacion: 'Cobro duplicado',
+        anuladoPorId: { numero: 3, numeroFiscal: 1, puntoVenta: PV_PRUEBA, cae: '75999999999999' }
+      }],
+      ['nota de crédito', {
+        ...base,
+        tipoComprobante: 'nota_credito',
+        cae: '75999999999999',
+        tipoComprobanteFiscal: 8,
+        numeroFiscal: 1,
+        anulaA: { numero: 42, numeroFiscal: 7, puntoVenta: PV_PRUEBA, cae: '75123456789012' }
+      }]
     ]) {
       const pdf = await generarBuffer(comprobante);
       check(pdf.slice(0, 4).toString() === '%PDF', `el PDF se genera con el comprobante ${nombre}`, `${pdf.length} bytes`);
@@ -403,12 +434,173 @@ async function verificarReconciliacion() {
   }
 }
 
+// ANULACIÓN CON NOTA DE CRÉDITO.
+//
+// Lo que se prueba acá es la regla de fondo: un CAE no se deshace. Si el comprobante llegó a
+// ARCA, anularlo significa emitir OTRO comprobante que lo compense; si no llegó, alcanza con
+// darlo de baja. Y la carrera del medio —que ARCA autorice justo mientras alguien anula—
+// tiene que terminar igual de consistente.
+async function verificarNotaCredito() {
+  console.log('\n— Anulación con nota de crédito —');
+
+  await mongoose.connect(process.env.MONGODB_URI);
+  const ComprobanteEstadia = require('../models/ComprobanteEstadia');
+  const Estacionamiento = require('../models/Estacionamiento');
+  const Talonario = require('../models/Talonario');
+  const Sucursal = require('../models/Sucursal');
+  const { emitirComprobante, anularComprobante, procesarPendientes } = require('../services/facturacionElectronicaService');
+
+  mock.reiniciar();
+  await ComprobanteEstadia.deleteMany({ puntoVenta: PV_PRUEBA });
+
+  const sucursal = await Sucursal.findOne({ esPrincipal: true });
+  await Talonario.deleteMany({ puntoVenta: PV_PRUEBA });
+  await Talonario.create({ sucursalId: sucursal._id, puntoVenta: PV_PRUEBA, tipoComprobante: 'nota_credito', proximoNumero: 1 });
+
+  const estadia = await Estacionamiento.create({
+    vehiculoDominio: `NC${Date.now()}`.slice(0, 12),
+    horaInicio: new Date(Date.now() - 3600 * 1000),
+    horaFin: new Date(),
+    duracionHoras: 1,
+    montoTotal: 12100,
+    estado: 'finalizado',
+    origen: 'caja'
+  });
+
+  const nuevoComprobante = (extra = {}) => ComprobanteEstadia.create({
+    numero: Math.floor(Math.random() * 1e9),
+    puntoVenta: PV_PRUEBA,
+    tipoComprobante: 'ticket',
+    sucursalId: sucursal._id,
+    estadiaId: estadia._id,
+    receptor: { tipo: 'consumidor_final', nombre: 'Consumidor', apellido: 'Final', condicionIva: 'Consumidor Final' },
+    medioPago: 'efectivo',
+    subtotal: 12100,
+    total: 12100,
+    estado: 'pendiente_cae',
+    ...extra
+  });
+
+  const limpiar = async () => {
+    await ComprobanteEstadia.deleteMany({ puntoVenta: PV_PRUEBA });
+    await Talonario.deleteMany({ puntoVenta: PV_PRUEBA });
+    await Estacionamiento.deleteOne({ _id: estadia._id });
+  };
+
+  try {
+    // ---- Caso fiscal: el comprobante tiene CAE, así que se compensa ----
+    const original = await nuevoComprobante();
+    await emitirComprobante(original._id);
+    const conCae = await ComprobanteEstadia.findById(original._id);
+    check(Boolean(conCae.cae), 'punto de partida: el comprobante tiene CAE');
+
+    const { notaCredito } = await anularComprobante(original._id, { motivo: 'Cobro duplicado en la salida' });
+    const anulado = await ComprobanteEstadia.findById(original._id);
+
+    check(anulado.estado === 'anulado', 'el original queda anulado');
+    check(Boolean(anulado.cae), 'y CONSERVA su CAE: lo que ARCA autorizó no se borra');
+    check(String(anulado.anuladoPorId) === String(notaCredito._id), 'el original apunta a la nota de crédito');
+    check(String(notaCredito.anulaA) === String(original._id), 'la nota de crédito apunta al original');
+    check(anulado.motivoAnulacion === 'Cobro duplicado en la salida', 'el motivo queda asentado');
+    check(anulado.fechaAnulacion instanceof Date, 'y la fecha de anulación también');
+
+    check(notaCredito.tipoComprobante === 'nota_credito', 'la nota de crédito es un comprobante propio');
+    check(notaCredito.numero === 1, 'numerada con su propio talonario, no con el de tickets', `N° ${notaCredito.numero}`);
+    check(notaCredito.total === original.total, 'por el mismo importe, en positivo', `$${notaCredito.total}`);
+    check(Boolean(notaCredito.cae), 'con su propio CAE: es un comprobante fiscal completo');
+    check(notaCredito.tipoComprobanteFiscal === 8, 'de la misma letra que la factura B que compensa (tipo 8)');
+    check(String(notaCredito.cae) !== String(anulado.cae), 'y su CAE es distinto del de la factura');
+
+    // ARCA tiene que tenerla registrada con el comprobante asociado, no suelta.
+    const enArca = await mock.consultarComprobante(Number(PV_PRUEBA), 8, notaCredito.numeroFiscal);
+    check(Boolean(enArca), 'la nota de crédito quedó registrada en ARCA', `#${notaCredito.numeroFiscal}`);
+
+    // ---- Lo que no se permite ----
+    let error = null;
+    try { await anularComprobante(original._id, { motivo: 'otra vez' }); } catch (e) { error = e; }
+    check(/ya está anulado/i.test(error?.message ?? ''), 'un comprobante ya anulado no se anula dos veces');
+
+    error = null;
+    try { await anularComprobante(notaCredito._id, { motivo: 'anular la nota' }); } catch (e) { error = e; }
+    check(/nota de crédito no se anula/i.test(error?.message ?? ''), 'una nota de crédito no se anula a sí misma');
+
+    error = null;
+    try { await anularComprobante(original._id, { motivo: '' }); } catch (e) { error = e; }
+    check(/motivo/i.test(error?.message ?? ''), 'sin motivo no se anula: es lo único que explica la nota de crédito después');
+
+    // ---- El mock rechaza una nota de crédito sin asociado, igual que ARCA ----
+    error = null;
+    try {
+      await mock.solicitarCAE({
+        puntoVenta: Number(PV_PRUEBA),
+        tipoComprobante: 8,
+        concepto: 2,
+        periodoServicio: { desde: '20260811', hasta: '20260811', vencimientoPago: '20260811' },
+        documento: { tipo: 99, numero: 0 },
+        fecha: '20260811',
+        importes: catalogos.desglosarImportes(1000, 8),
+        moneda: 'PES'
+      });
+    } catch (e) { error = e; }
+    check(error?.rechazadoPorArca === true, 'una nota de crédito sin comprobante asociado es rechazada');
+
+    // ---- Caso no fiscal: nunca llegó a ARCA, no hay nada que compensar ----
+    const sinCae = await nuevoComprobante();
+    const resultadoSinCae = await anularComprobante(sinCae._id, { motivo: 'Se anuló antes de facturar' });
+    check(resultadoSinCae.notaCredito === null, 'un comprobante sin CAE se anula sin nota de crédito');
+
+    const anuladoSinCae = await ComprobanteEstadia.findById(sinCae._id);
+    check(anuladoSinCae.estado === 'anulado' && !anuladoSinCae.cae, 'queda anulado y sin CAE');
+
+    const pasada = await procesarPendientes({ puntoVenta: PV_PRUEBA });
+    check(pasada.procesados === 0, 'y el worker ya no lo toma: sale solo de la cola');
+
+    // ---- La carrera: ARCA autoriza mientras alguien anula ----
+    //
+    // Es el único caso en que el sistema no puede elegir. Cuando la respuesta de ARCA llega
+    // después de la anulación, el CAE ya existe del otro lado: negarlo no lo borra. La
+    // emisión guarda el CAE y emite la nota de crédito que la anulación no pudo emitir.
+    const enCarrera = await nuevoComprobante();
+    const original_solicitarCAE = mock.solicitarCAE;
+    mock.solicitarCAE = async (datos) => {
+      // Mientras "ARCA responde", alguien anula desde el panel.
+      await ComprobanteEstadia.updateOne(
+        { _id: enCarrera._id },
+        { estado: 'anulado', motivoAnulacion: 'Anulado durante la emisión', fechaAnulacion: new Date() }
+      );
+      return original_solicitarCAE(datos);
+    };
+
+    try {
+      await emitirComprobante(enCarrera._id);
+    } finally {
+      mock.solicitarCAE = original_solicitarCAE;
+    }
+
+    const trasCarrera = await ComprobanteEstadia.findById(enCarrera._id);
+    check(Boolean(trasCarrera.cae), 'si ARCA autorizó durante la anulación, el CAE se guarda igual');
+    check(trasCarrera.estado === 'anulado', 'el comprobante queda anulado, como se había pedido');
+    check(Boolean(trasCarrera.anuladoPorId), 'y se emite la nota de crédito que la anulación no pudo emitir');
+
+    const ncDeCarrera = await ComprobanteEstadia.findById(trasCarrera.anuladoPorId);
+    check(ncDeCarrera?.tipoComprobanteFiscal === 8, 'esa nota de crédito también es de la letra correcta');
+
+    await limpiar();
+  } catch (error) {
+    await limpiar();
+    throw error;
+  } finally {
+    await mongoose.disconnect();
+  }
+}
+
 async function main() {
   await verificarCatalogos();
   await verificarMock();
   await verificarEmision();
   await verificarPdf();
   await verificarReconciliacion();
+  await verificarNotaCredito();
 
   console.log(`\n${fallos === 0 ? '✅ TODO OK' : `❌ ${fallos} fallas`} — ${ok} verificaciones`);
   process.exit(fallos === 0 ? 0 : 1);

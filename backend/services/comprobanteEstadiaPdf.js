@@ -31,6 +31,11 @@ function leyendaFiscal(comprobante) {
   const esPrueba = Boolean(comprobante.simulado);
   const esperandoCae = !comprobante.cae && comprobante.estado === 'pendiente_cae';
 
+  // Una nota de crédito nunca puede titularse "comprobante de estadía": dice lo contrario de
+  // lo que hace. Mientras espera el CAE se anuncia como lo que es, en trámite.
+  const esNota = comprobante.tipoComprobante === 'nota_credito';
+  const titulo = esNota ? 'NOTA DE CRÉDITO' : 'COMPROBANTE DE ESTADÍA';
+
   if (autorizado) {
     return {
       estado: 'autorizado',
@@ -45,7 +50,7 @@ function leyendaFiscal(comprobante) {
   if (esPrueba) {
     return {
       estado: 'prueba',
-      titulo: 'COMPROBANTE DE ESTADÍA',
+      titulo,
       subtitulo: 'DOCUMENTO DE PRUEBA — CAE simulado, sin validez alguna',
       pie: 'DOCUMENTO DE PRUEBA. El CAE de este comprobante fue generado por el modo de ' +
         'simulación del sistema y no proviene de ARCA: no tiene validez de ningún tipo.',
@@ -56,17 +61,22 @@ function leyendaFiscal(comprobante) {
   if (esperandoCae) {
     return {
       estado: 'pendiente',
-      titulo: 'COMPROBANTE DE ESTADÍA',
-      subtitulo: 'DOCUMENTO NO FISCAL — el comprobante fiscal está en trámite',
-      pie: 'Este documento es el comprobante interno de la estadía. El comprobante fiscal está ' +
-        'en trámite ante ARCA y se envía por correo cuando queda autorizado.',
+      titulo,
+      subtitulo: esNota
+        ? 'EN TRÁMITE — la nota de crédito espera el CAE de ARCA'
+        : 'DOCUMENTO NO FISCAL — el comprobante fiscal está en trámite',
+      pie: esNota
+        ? 'La anulación ya está registrada. La nota de crédito está en trámite ante ARCA y se ' +
+          'envía por correo cuando queda autorizada.'
+        : 'Este documento es el comprobante interno de la estadía. El comprobante fiscal está ' +
+          'en trámite ante ARCA y se envía por correo cuando queda autorizado.',
       resaltado: false
     };
   }
 
   return {
     estado: 'no_fiscal',
-    titulo: 'COMPROBANTE DE ESTADÍA',
+    titulo,
     subtitulo: 'DOCUMENTO NO FISCAL — no válido como factura',
     pie: 'Este documento no tiene validez fiscal: es el comprobante interno de la estadía. ' +
       'La emisión de comprobantes fiscales electrónicos todavía no está habilitada en este sistema.',
@@ -149,8 +159,27 @@ async function escribirPdf(comprobante, destino, { comprimir = true } = {}) {
   } else {
     doc.text(`Tipo: ${comprobante.tipoComprobante} (sin CAE)`);
   }
+  // Una nota de crédito sin el comprobante que compensa no dice nada: ARCA lo exige en la
+  // emisión y el que la lee lo necesita igual.
+  const asociado = comprobante.anulaA;
+  if (comprobante.tipoComprobante === 'nota_credito' && asociado?.puntoVenta) {
+    const numeroAsociado = asociado.numeroFiscal
+      ? `${asociado.puntoVenta}-${String(asociado.numeroFiscal).padStart(8, '0')}`
+      : `${asociado.puntoVenta}-${String(asociado.numero).padStart(8, '0')} (interno)`;
+    doc.text(`Anula el comprobante ${numeroAsociado}${asociado.cae ? `, CAE ${asociado.cae}` : ''}`);
+  }
+
   if (comprobante.estado === 'anulado') {
-    doc.fillColor('#b45309').text(`ANULADO — ${comprobante.motivoAnulacion || 'sin motivo registrado'}`).fillColor('#000000');
+    doc.fillColor('#b45309').text(`ANULADO — ${comprobante.motivoAnulacion || 'sin motivo registrado'}`);
+    // El que recibe el comprobante anulado tiene que poder encontrar la nota de crédito.
+    const nota = comprobante.anuladoPorId;
+    if (nota?.puntoVenta) {
+      const numeroNota = nota.numeroFiscal
+        ? `${nota.puntoVenta}-${String(nota.numeroFiscal).padStart(8, '0')}`
+        : `${nota.puntoVenta}-${String(nota.numero).padStart(8, '0')} (interno)`;
+      doc.text(`Compensado con la nota de crédito ${numeroNota}${nota.cae ? `, CAE ${nota.cae}` : ' — en trámite ante ARCA'}`);
+    }
+    doc.fillColor('#000000');
   }
   doc.moveDown(0.6);
   linea();
@@ -190,7 +219,10 @@ async function escribirPdf(comprobante, destino, { comprimir = true } = {}) {
   doc.fontSize(9);
   doc.text(`Medio de pago: ${ETIQUETA_MEDIO[comprobante.medioPago] ?? comprobante.medioPago}`);
   doc.moveDown(0.4);
-  doc.fontSize(14).text(`TOTAL: ${pesos(comprobante.total)}`, { align: 'right' });
+  // El importe de una nota de crédito va en positivo, como lo pide ARCA, y la palabra dice
+  // para qué lado va. "TOTAL: $12.100" en una nota de crédito se lee como un cobro.
+  const etiquetaTotal = comprobante.tipoComprobante === 'nota_credito' ? 'TOTAL A ACREDITAR' : 'TOTAL';
+  doc.fontSize(14).text(`${etiquetaTotal}: ${pesos(comprobante.total)}`, { align: 'right' });
   doc.moveDown(1);
 
   // El pie repite el estado real del documento. Es lo último que lee alguien que lo revisa, y

@@ -14,7 +14,9 @@
 
 const ComprobanteEstadia = require('../models/ComprobanteEstadia');
 const ConfiguracionEmpresa = require('../models/ConfiguracionEmpresa');
+const Sucursal = require('../models/Sucursal');
 const auditoriaService = require('./auditoriaService');
+const { reservarNumero } = require('./comprobanteEstadiaService');
 const { clienteArca, estadoIntegracion, catalogos } = require('./arca');
 
 const {
@@ -22,6 +24,7 @@ const {
   CONDICION_IVA_RECEPTOR,
   MONEDA_PESOS,
   tipoComprobantePara,
+  notaCreditoPara,
   documentoDe,
   fechaArca,
   desglosarImportes
@@ -37,8 +40,19 @@ const fechaDesdeArca = (aaaammdd) => {
 
 // Arma el pedido para ARCA a partir de lo que ya está guardado. No decide nada de negocio que
 // no esté en la base: el importe es el que se cobró, la fecha del servicio es la de la estadía.
-function construirPedido({ comprobante, estadia, configuracion }) {
-  const tipoComprobanteFiscal = tipoComprobantePara(configuracion?.condicionIva);
+//
+// Si el comprobante es una nota de crédito (`asociado` presente), cambian dos cosas y ninguna
+// más: el tipo pasa a ser el de nota de crédito de la misma letra, y se declara el comprobante
+// que compensa. Los importes van en positivo — el signo lo da el tipo, no el número.
+function construirPedido({ comprobante, estadia, configuracion, asociado = null }) {
+  const tipoFactura = tipoComprobantePara(configuracion?.condicionIva);
+  // El tipo del asociado manda sobre la configuración actual: si la playa cambió de condición
+  // de IVA desde que emitió aquella factura, la nota de crédito tiene que seguir siendo de la
+  // letra de la factura que compensa, no de la letra que emitiríamos hoy.
+  const tipoComprobanteFiscal = asociado
+    ? notaCreditoPara(asociado.tipoComprobanteFiscal ?? tipoFactura)
+    : tipoFactura;
+
   const importes = desglosarImportes(comprobante.total, tipoComprobanteFiscal);
 
   // Una estadía es un servicio, y eso obliga a informar el período. Sin las fechas, ARCA
@@ -49,6 +63,14 @@ function construirPedido({ comprobante, estadia, configuracion }) {
   return {
     puntoVenta: Number(comprobante.puntoVenta),
     tipoComprobante: tipoComprobanteFiscal,
+    ...(asociado && {
+      comprobanteAsociado: {
+        tipo: asociado.tipoComprobanteFiscal,
+        puntoVenta: Number(asociado.puntoVenta),
+        numero: asociado.numeroFiscal,
+        fecha: fechaArca(asociado.fechaEmision)
+      }
+    }),
     concepto: CONCEPTO.SERVICIOS,
     documento: documentoDe(comprobante.receptor),
     fecha: fechaArca(comprobante.fechaEmision),
@@ -80,7 +102,21 @@ async function emitirComprobante(comprobanteId) {
     return { yaEmitido: true, comprobante };
   }
 
-  if (comprobante.estado === 'anulado') {
+  // Una nota de crédito nace anulando: su estado no es el que decide si se emite, y por eso
+  // se resuelve antes que el resto de las guardas.
+  const asociado = comprobante.anulaA
+    ? await ComprobanteEstadia.findById(comprobante.anulaA)
+      .select('cae numeroFiscal tipoComprobanteFiscal puntoVenta fechaEmision')
+    : null;
+
+  if (comprobante.anulaA && !asociado?.cae) {
+    throw new Error(
+      'La nota de crédito no puede emitirse: el comprobante que compensa todavía no tiene CAE. ' +
+      'ARCA rechaza una nota de crédito cuyo comprobante asociado no existe de su lado.'
+    );
+  }
+
+  if (comprobante.estado === 'anulado' && !comprobante.anulaA) {
     throw new Error('No se puede pedir CAE de un comprobante anulado');
   }
 
@@ -101,10 +137,17 @@ async function emitirComprobante(comprobanteId) {
   }
 
   const configuracion = await ConfiguracionEmpresa.obtenerConfiguracionActiva();
-  const pedido = construirPedido({ comprobante, estadia: comprobante.estadiaId, configuracion });
+  const pedido = construirPedido({ comprobante, estadia: comprobante.estadiaId, configuracion, asociado });
 
   try {
     const respuesta = await clienteArca().solicitarCAE(pedido);
+
+    // ARCA ya autorizó: pase lo que pase de este lado, el comprobante existe. Si alguien lo
+    // anuló mientras ARCA respondía, el CAE se guarda igual —negarlo no lo haría desaparecer—
+    // y se emite la nota de crédito que aquella anulación no pudo emitir por no tener CAE.
+    const anuladoMientrasTanto = !comprobante.anulaA &&
+      (await ComprobanteEstadia.findById(comprobante._id).select('estado motivoAnulacion').lean());
+    const seAnuloEnElInterin = anuladoMientrasTanto && anuladoMientrasTanto.estado === 'anulado';
 
     comprobante.cae = respuesta.cae;
     comprobante.caeFchVto = fechaDesdeArca(respuesta.caeFchVto);
@@ -114,7 +157,7 @@ async function emitirComprobante(comprobanteId) {
     comprobante.simulado = Boolean(respuesta.simulado);
     comprobante.observacionesArca = respuesta.observaciones ?? [];
     comprobante.erroresArca = [];
-    comprobante.estado = 'emitido';
+    comprobante.estado = seAnuloEnElInterin ? 'anulado' : 'emitido';
     comprobante.intentosArca += 1;
     await comprobante.save();
 
@@ -126,9 +169,14 @@ async function emitirComprobante(comprobanteId) {
         cae: respuesta.cae,
         numeroFiscal: respuesta.numero,
         tipoComprobanteFiscal: pedido.tipoComprobante,
-        simulado: Boolean(respuesta.simulado)
+        simulado: Boolean(respuesta.simulado),
+        ...(comprobante.anulaA && { notaCreditoDe: String(comprobante.anulaA) })
       }
     });
+
+    if (seAnuloEnElInterin) {
+      await crearNotaCredito(comprobante, anuladoMientrasTanto.motivoAnulacion || 'Anulado mientras ARCA autorizaba');
+    }
 
     return { comprobante, cae: respuesta.cae, simulado: Boolean(respuesta.simulado) };
   } catch (error) {
@@ -150,6 +198,131 @@ async function emitirComprobante(comprobanteId) {
 
     throw error;
   }
+}
+
+// ANULACIÓN — un CAE no se deshace.
+//
+// Esta es la regla que gobierna todo lo que sigue: ARCA no tiene ninguna operación para
+// cancelar una autorización. Un comprobante autorizado existe para siempre, y lo único que
+// puede hacerse es emitir OTRO comprobante —una nota de crédito— que lo compense. La nota de
+// crédito es un comprobante electrónico completo: tiene su propio CAE, su propia numeración y
+// su propio lugar en el libro de IVA.
+//
+// De ahí que la nota de crédito acá sea un ComprobanteEstadia más, con `anulaA` apuntando al
+// original, y que nazca en `pendiente_cae` para que la resuelva el mismo worker que las
+// facturas. Que ARCA esté caído no puede impedir anular, igual que no puede impedir cobrar.
+
+// Crea la nota de crédito de un comprobante que YA tiene CAE, y deja el original anulado.
+// Interna a propósito: la puerta de entrada es `anularComprobante`, que es la que decide si
+// corresponde una nota de crédito o una anulación a secas.
+async function crearNotaCredito(original, motivo) {
+  // Los comprobantes viejos pueden no tener sucursal (el campo se agregó después). El talonario
+  // sí la necesita, así que se resuelve a la principal antes de reservar el número.
+  let sucursalId = original.sucursalId;
+  if (!sucursalId) {
+    const principal = await Sucursal.findOne({ esPrincipal: true }).select('_id');
+    sucursalId = principal?._id ?? null;
+  }
+
+  const numero = await reservarNumero({
+    sucursalId,
+    puntoVenta: original.puntoVenta,
+    tipoComprobante: 'nota_credito'
+  });
+
+  const notaCredito = await ComprobanteEstadia.create({
+    numero,
+    puntoVenta: original.puntoVenta,
+    tipoComprobante: 'nota_credito',
+    sucursalId,
+    estadiaId: original.estadiaId?._id ?? original.estadiaId,
+    transaccionId: original.transaccionId,
+    receptor: original.receptor,
+    medioPago: original.medioPago,
+    // Los importes van en positivo. Una nota de crédito por $5.000 dice "$5.000", y lo que la
+    // convierte en una resta es el tipo de comprobante — tanto en ARCA como en el libro de IVA.
+    subtotal: original.subtotal,
+    iva: original.iva,
+    total: original.total,
+    estado: 'pendiente_cae',
+    anulaA: original._id,
+    motivoAnulacion: motivo
+  });
+
+  original.estado = 'anulado';
+  original.anuladoPorId = notaCredito._id;
+  original.motivoAnulacion = motivo;
+  original.fechaAnulacion = new Date();
+  await original.save();
+
+  await auditoriaService.registrar({
+    entidad: 'ComprobanteEstadia',
+    entidadId: original._id,
+    accion: 'comprobante_anulado',
+    motivo,
+    datosNuevos: { notaCreditoId: String(notaCredito._id), numeroNotaCredito: numero }
+  });
+
+  // Se intenta emitir en el momento porque es la mejor experiencia cuando ARCA responde, pero
+  // el fallo no revierte nada: la anulación ya está tomada y la nota de crédito queda en la
+  // misma cola que las facturas. Cobrar nunca espera a ARCA; anular tampoco.
+  try {
+    await emitirComprobante(notaCredito._id);
+  } catch {
+    // El worker reintenta. El error ya quedó guardado en el propio comprobante.
+  }
+
+  return ComprobanteEstadia.findById(notaCredito._id);
+}
+
+// Anula un comprobante. Devuelve { comprobante, notaCredito } — `notaCredito` es null cuando
+// no hizo falta emitirla porque el comprobante nunca llegó a ser fiscal.
+async function anularComprobante(comprobanteId, { motivo } = {}) {
+  const texto = String(motivo ?? '').trim();
+  // El motivo no es burocracia: es lo único que explica, meses después, por qué hay una nota
+  // de crédito en el libro de IVA.
+  if (texto.length < 5) {
+    throw new Error('Para anular un comprobante hay que indicar el motivo');
+  }
+
+  const comprobante = await ComprobanteEstadia.findById(comprobanteId);
+  if (!comprobante) throw new Error('Comprobante no encontrado');
+
+  if (comprobante.tipoComprobante === 'nota_credito') {
+    throw new Error('Una nota de crédito no se anula: compensa a otro comprobante, no al revés');
+  }
+
+  if (comprobante.estado === 'anulado') {
+    throw new Error('El comprobante ya está anulado');
+  }
+
+  // Con CAE, el camino es la nota de crédito. Es el único caso realmente fiscal.
+  if (comprobante.cae) {
+    const notaCredito = await crearNotaCredito(comprobante, texto);
+    return { comprobante, notaCredito };
+  }
+
+  // Sin CAE no hay nada que compensar del lado de ARCA: el comprobante nunca llegó a existir
+  // ahí. Alcanza con dejarlo anulado, y el filtro del worker lo saca de la cola solo.
+  //
+  // Queda una ventana angosta: que el worker esté hablando con ARCA justo ahora por este mismo
+  // comprobante. Si eso pasa, la emisión detecta la anulación al volver y emite la nota de
+  // crédito ella misma (ver `seAnuloEnElInterin` más arriba). No se puede evitar la carrera
+  // —el CAE y el commit local están en dos sistemas—, pero sí terminar siempre consistente.
+  comprobante.estado = 'anulado';
+  comprobante.motivoAnulacion = texto;
+  comprobante.fechaAnulacion = new Date();
+  await comprobante.save();
+
+  await auditoriaService.registrar({
+    entidad: 'ComprobanteEstadia',
+    entidadId: comprobante._id,
+    accion: 'comprobante_anulado',
+    motivo: texto,
+    datosNuevos: { requirioNotaCredito: false }
+  });
+
+  return { comprobante, notaCredito: null };
 }
 
 // Worker: toma los comprobantes que esperan CAE y los emite, de a uno.
@@ -247,10 +420,15 @@ async function reconciliar({ puntoVenta, tipoComprobante } = {}) {
     // El candidato es un comprobante que quedó esperando y cuyo importe coincide exactamente.
     // El importe es el vínculo más confiable que tenemos: el número fiscal todavía no existía
     // de este lado cuando se cortó.
+    //
+    // La nota de crédito de una factura tiene el MISMO importe que la factura, así que sin
+    // separar los dos mundos la reconciliación las intercambiaría alegremente: una factura
+    // huérfana quedaría vinculada a la nota de crédito que la anula.
     const candidato = await ComprobanteEstadia.findOne({
       cae: null,
       estado: { $in: ['pendiente_cae', 'error_arca'] },
-      total: enArca.importeTotal
+      total: enArca.importeTotal,
+      tipoComprobante: catalogos.esNotaCredito(tipo) ? 'nota_credito' : { $ne: 'nota_credito' }
     }).sort({ fechaEmision: 1 });
 
     if (!candidato) {
@@ -288,6 +466,7 @@ async function reconciliar({ puntoVenta, tipoComprobante } = {}) {
 
 module.exports = {
   emitirComprobante,
+  anularComprobante,
   procesarPendientes,
   construirPedido,
   fechaDesdeArca,

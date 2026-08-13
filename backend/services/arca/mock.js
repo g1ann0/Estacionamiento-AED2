@@ -68,6 +68,32 @@ async function solicitarCAE(datos) {
     throw error;
   }
 
+  // Una nota de crédito sin comprobante asociado es plata que sale sin contrapartida: ARCA la
+  // rechaza y el mock también, para que el error aparezca en desarrollo.
+  const { esNotaCredito } = require('./catalogos');
+  if (esNotaCredito(tipoComprobante) && !datos.comprobanteAsociado) {
+    const error = new Error('ARCA no autorizó el comprobante: (10070) Nota de crédito sin comprobante asociado');
+    error.rechazadoPorArca = true;
+    throw error;
+  }
+
+  // Y el asociado tiene que existir de verdad. ARCA valida contra sus propios registros; el
+  // mock valida contra los suyos, que es lo más parecido que puede hacer.
+  if (datos.comprobanteAsociado) {
+    const asociado = autorizados.get(claveComprobante(
+      datos.comprobanteAsociado.puntoVenta,
+      datos.comprobanteAsociado.tipo,
+      datos.comprobanteAsociado.numero
+    ));
+    if (!asociado) {
+      const error = new Error(
+        `ARCA no autorizó el comprobante: (10071) El comprobante asociado ${datos.comprobanteAsociado.numero} no existe`
+      );
+      error.rechazadoPorArca = true;
+      throw error;
+    }
+  }
+
   const vencimiento = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000);
   const aaaammdd = vencimiento.toISOString().slice(0, 10).replace(/-/g, '');
 

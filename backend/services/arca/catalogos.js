@@ -50,6 +50,19 @@ const tipoComprobantePara = (condicionIvaEmisor) => {
   return TIPO_COMPROBANTE.FACTURA_B;
 };
 
+// La nota de crédito tiene que ser de la misma "letra" que el comprobante que compensa: una
+// factura B se anula con una nota de crédito B, no con una C. ARCA rechaza la combinación
+// equivocada, y con razón: son regímenes distintos.
+const NOTA_CREDITO_DE = {
+  [TIPO_COMPROBANTE.FACTURA_A]: TIPO_COMPROBANTE.NOTA_CREDITO_A,
+  [TIPO_COMPROBANTE.FACTURA_B]: TIPO_COMPROBANTE.NOTA_CREDITO_B,
+  [TIPO_COMPROBANTE.FACTURA_C]: TIPO_COMPROBANTE.NOTA_CREDITO_C
+};
+
+const notaCreditoPara = (tipoComprobante) => NOTA_CREDITO_DE[tipoComprobante] ?? null;
+
+const esNotaCredito = (tipo) => Object.values(NOTA_CREDITO_DE).includes(tipo);
+
 // El receptor puede ser un cliente registrado (tenemos DNI) o un ocasional (no tenemos nada).
 // En el segundo caso corresponde 99/0, que es como ARCA representa "consumidor final sin
 // identificar" — no un DNI de relleno.
@@ -82,10 +95,14 @@ const fechaArca = (fecha = new Date()) => {
 // dé exactamente el total, y unas centésimas de diferencia rompen esa igualdad.
 const redondear = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
 
+// La "letra" es lo que decide si se discrimina IVA, y una nota de crédito hereda la letra del
+// comprobante que compensa: la NC de una factura C tampoco discrimina.
+const SIN_DISCRIMINAR_IVA = [TIPO_COMPROBANTE.FACTURA_C, TIPO_COMPROBANTE.NOTA_CREDITO_C];
+
 const desglosarImportes = (total, tipoComprobante) => {
   const importeTotal = redondear(total);
 
-  if (tipoComprobante === TIPO_COMPROBANTE.FACTURA_C) {
+  if (SIN_DISCRIMINAR_IVA.includes(tipoComprobante)) {
     // El monotributista no discrimina IVA: neto = total, sin renglones de alícuota.
     return { impTotal: importeTotal, impNeto: importeTotal, impIVA: 0, iva: [] };
   }
@@ -112,6 +129,8 @@ module.exports = {
   ALICUOTA_IVA_21,
   PORCENTAJE_IVA_21,
   tipoComprobantePara,
+  notaCreditoPara,
+  esNotaCredito,
   documentoDe,
   fechaArca,
   desglosarImportes,

@@ -68,6 +68,35 @@ const reintentarCae = async (req, res, next) => {
   }
 };
 
+// Anulación. Un comprobante con CAE no se borra: se compensa con una nota de crédito, que es
+// otro comprobante fiscal. Por eso la respuesta distingue los dos casos — el operador tiene
+// que saber si acaba de emitir un comprobante nuevo o si solo dio de baja un ticket.
+const anular = async (req, res, next) => {
+  try {
+    const { anularComprobante } = require('../services/facturacionElectronicaService');
+    const { comprobante, notaCredito } = await anularComprobante(req.params.id, { motivo: req.body?.motivo });
+
+    res.status(200).json({
+      mensaje: notaCredito
+        ? `Comprobante anulado con nota de crédito N° ${String(notaCredito.numero).padStart(8, '0')}` +
+          (notaCredito.cae ? '' : ' (esperando el CAE de ARCA)')
+        : 'Comprobante anulado. No requirió nota de crédito: no llegó a emitirse ante ARCA.',
+      comprobante,
+      notaCredito
+    });
+  } catch (error) {
+    if (error.rechazadoPorArca) {
+      return res.status(409).json({ mensaje: error.message, erroresArca: error.erroresArca ?? [] });
+    }
+    // Los rechazos de esta operación son reglas de negocio ("ya está anulado", "falta el
+    // motivo"), no fallas: van con 400 y el texto tal cual, que es lo que se muestra.
+    if (/motivo|anulad|nota de crédito|no encontrado/i.test(error.message)) {
+      return res.status(400).json({ mensaje: error.message });
+    }
+    next(error);
+  }
+};
+
 // Reconciliación manual: compara nuestra numeración fiscal con la de ARCA y recupera lo que
 // falte. Es admin porque el resultado se lee, se interpreta y a veces obliga a buscar papeles.
 const reconciliarFiscal = async (req, res, next) => {
@@ -117,6 +146,9 @@ const listar = async (req, res, next) => {
         .skip(salto)
         .limit(parseInt(limite))
         .populate('estadiaId', 'vehiculoDominio horaInicio horaFin duracionHoras origen motivoExcepcion')
+        // La lista tiene que poder decir "anulado con la NC 00000003" sin una segunda vuelta.
+        .populate('anulaA', 'numero numeroFiscal puntoVenta cae')
+        .populate('anuladoPorId', 'numero numeroFiscal puntoVenta cae')
         .lean(),
       ComprobanteEstadia.countDocuments(filtro)
     ]);
@@ -135,7 +167,9 @@ const listar = async (req, res, next) => {
 const obtener = async (req, res, next) => {
   try {
     const comprobante = await ComprobanteEstadia.findById(req.params.id)
-      .populate('estadiaId', 'vehiculoDominio horaInicio horaFin duracionHoras montoTotal origen motivoExcepcion');
+      .populate('estadiaId', 'vehiculoDominio horaInicio horaFin duracionHoras montoTotal origen motivoExcepcion')
+      .populate('anulaA', 'numero numeroFiscal puntoVenta cae tipoComprobanteFiscal')
+      .populate('anuladoPorId', 'numero numeroFiscal puntoVenta cae tipoComprobanteFiscal');
     if (!comprobante) return res.status(404).json({ mensaje: 'Comprobante no encontrado' });
     res.status(200).json({ comprobante });
   } catch (error) {
@@ -146,7 +180,9 @@ const obtener = async (req, res, next) => {
 const descargarPdf = async (req, res, next) => {
   try {
     const comprobante = await ComprobanteEstadia.findById(req.params.id)
-      .populate('estadiaId', 'vehiculoDominio horaInicio horaFin duracionHoras origen motivoExcepcion');
+      .populate('estadiaId', 'vehiculoDominio horaInicio horaFin duracionHoras origen motivoExcepcion')
+      .populate('anulaA', 'numero numeroFiscal puntoVenta cae tipoComprobanteFiscal')
+      .populate('anuladoPorId', 'numero numeroFiscal puntoVenta cae tipoComprobanteFiscal');
     if (!comprobante) return res.status(404).json({ mensaje: 'Comprobante no encontrado' });
 
     // El mostrador baja cualquiera; un cliente, solo el suyo. Sin esta comprobación, cambiar
@@ -169,7 +205,9 @@ const descargarPdf = async (req, res, next) => {
 const enviarPorMail = async (req, res, next) => {
   try {
     const comprobante = await ComprobanteEstadia.findById(req.params.id)
-      .populate('estadiaId', 'vehiculoDominio horaInicio horaFin duracionHoras origen motivoExcepcion');
+      .populate('estadiaId', 'vehiculoDominio horaInicio horaFin duracionHoras origen motivoExcepcion')
+      .populate('anulaA', 'numero numeroFiscal puntoVenta cae tipoComprobanteFiscal')
+      .populate('anuladoPorId', 'numero numeroFiscal puntoVenta cae tipoComprobanteFiscal');
     if (!comprobante) return res.status(404).json({ mensaje: 'Comprobante no encontrado' });
 
     // La dirección explícita gana; si no viene, se usa la del cliente registrado. El cliente
@@ -212,4 +250,4 @@ const enviarPorMail = async (req, res, next) => {
   }
 };
 
-module.exports = { listar, obtener, descargarPdf, enviarPorMail, estadoFiscal, reintentarCae, reconciliarFiscal };
+module.exports = { listar, obtener, descargarPdf, enviarPorMail, estadoFiscal, reintentarCae, reconciliarFiscal, anular };

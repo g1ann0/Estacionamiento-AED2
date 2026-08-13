@@ -369,6 +369,47 @@ kbd {
 
 .dialogo :focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 
+/* La consecuencia de la acción, dentro del diálogo que la pide. No es un error —todavía no
+   pasó nada— así que usa el amarillo de advertencia y no el rojo. */
+.dialogo-advertencia {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--warning-border);
+  border-radius: var(--radio-chico);
+  background: var(--warning-bg);
+  color: var(--warning-fg);
+  font-size: var(--texto-sm);
+  line-height: 1.45;
+}
+
+.dialogo-advertencia svg { flex: none; margin-top: 2px; }
+.dialogo-nota { color: var(--text-muted); font-size: var(--texto-sm); line-height: 1.45; }
+
+/* Acción destructiva. Lleva el rojo del sistema y no el acento: el acento es para avanzar, y
+   esto no avanza nada. Se distingue del primario en color, no en tamaño — agrandarlo lo
+   volvería el camino obvio de la pantalla, que es exactamente lo contrario de lo que es. */
+.boton-peligro {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: var(--alto-control);
+  padding: 0 14px;
+  border: 1px solid var(--danger-border);
+  border-radius: var(--radio);
+  background: var(--danger-bg);
+  color: var(--danger-fg);
+  font: inherit;
+  font-size: var(--texto-md);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.boton-peligro:hover:not(:disabled) { border-color: var(--danger-fg); }
+.boton-peligro:disabled { background: var(--disabled-bg); border-color: var(--border); color: var(--disabled-fg); cursor: not-allowed; }
+
 /* ------------------------------------------------------------ Utilidades -- */
 
 .sr-only {

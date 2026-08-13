@@ -216,7 +216,7 @@ const crearTalonariosPorDefecto = async () => {
     const configuracion = await ConfiguracionEmpresa.findOne({ activa: true });
     const puntoVenta = configuracion?.puntoVenta || '00001';
 
-    const tiposComprobante = ['ticket', 'factura_b', 'factura_c'];
+    const tiposComprobante = ['ticket', 'factura_b', 'factura_c', 'nota_credito'];
     for (const tipoComprobante of tiposComprobante) {
       const existente = await Talonario.findOne({ sucursalId: sucursal._id, puntoVenta, tipoComprobante });
       if (!existente) {
