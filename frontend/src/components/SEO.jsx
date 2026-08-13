@@ -57,9 +57,13 @@ const SEO = ({
       <meta name="robots" content="index, follow" />
       <meta name="language" content="es" />
 
+      {/* Dentro de un <script>, un `</script>` en los datos cierra la etiqueta y lo que sigue
+          pasa a ser markup ejecutable. Hoy estos datos son estáticos, pero escapar el `<` es
+          una línea y evita que mañana, cuando alguno venga de la configuración de la empresa,
+          el agujero aparezca sin que nadie lo relacione con este archivo. */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(datosEstructurados) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(datosEstructurados).replace(/</g, '\\u003c') }}
       />
     </>
   );

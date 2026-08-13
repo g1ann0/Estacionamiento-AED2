@@ -16,6 +16,10 @@ if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
 }
 
 const app = express();
+// Parser de query "simple": no anida `?campo[$ne]=x` en un objeto, así que un operador de
+// Mongo no puede entrar por la URL. Es el default de Express 5, pero se fija acá de forma
+// explícita porque de eso depende una defensa, no un detalle de formato.
+app.set('query parser', 'simple');
 const PORT = process.env.PORT || 3000;
 const HOST = '0.0.0.0'; // Escuchar en todas las interfaces de red
 const LOCAL_IP = obtenerIPLocal();
@@ -25,17 +29,21 @@ app.use(cors({
   origin: function (origin, callback) {
     // Permitir requests sin origin (como mobile apps o Postman)
     if (!origin) return callback(null, true);
-    
-    // Lista de orígenes permitidos
+
+    // Lista de orígenes permitidos. Los de red local cubren el uso en la playa; el dominio de
+    // producción entra por CORS_ORIGINS (separados por coma), porque antes no había forma de
+    // sumarlo sin editar este archivo — y una lista que no incluye al frontend real termina
+    // "arreglándose" abriendo el CORS a cualquiera.
     const allowedOrigins = [
       'http://localhost:3001',
       `http://${LOCAL_IP}:3001`,
       'http://localhost:3000',
       `http://${LOCAL_IP}:3000`,
       'http://127.0.0.1:3001',
-      'http://127.0.0.1:3000'
+      'http://127.0.0.1:3000',
+      ...(process.env.CORS_ORIGINS || '').split(',').map((o) => o.trim()).filter(Boolean)
     ];
-    
+
     if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
@@ -52,8 +60,23 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Límite de tamaño del cuerpo: el default de Express es 100kb, pero explicitarlo deja escrito
+// que ningún endpoint de esta API recibe documentos grandes (no hay subida de archivos).
+app.use(express.json({ limit: '100kb' }));
+app.use(express.urlencoded({ extended: true, limit: '100kb' }));
+
+// Antes de cualquier ruta: ningún operador de MongoDB entra por el request (ver el middleware
+// para el caso concreto de toma de cuenta que cierra).
+app.use(require('./middlewares/sanitizarConsulta'));
+
+// Cabeceras de seguridad mínimas, sin dependencias: la API devuelve JSON y PDFs, no hay razón
+// para que un navegador adivine tipos, muestre esto en un iframe ajeno o filtre el referrer.
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  next();
+});
 
 // Rutas principales
 const authRoutes = require('./routes/auth');

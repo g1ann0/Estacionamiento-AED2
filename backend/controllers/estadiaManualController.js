@@ -9,6 +9,7 @@ const Sucursal = require('../models/Sucursal');
 const Usuario = require('../models/Usuario');
 const ComprobanteEstadia = require('../models/ComprobanteEstadia');
 const estadiaService = require('../services/estadiaService');
+const { aTexto, paginar, totalPaginas, rangoDeFechas, regexContiene } = require('../utils/consultas');
 
 const ingresoManual = async (req, res, next) => {
   try {
@@ -21,7 +22,7 @@ const ingresoManual = async (req, res, next) => {
 
     const resultado = await estadiaService.iniciarEstadia({
       dni,
-      dominio: dominio.toUpperCase(),
+      dominio: aTexto(dominio).trim().toUpperCase(),
       porton,
       tipoVehiculo,
       origen: 'caja',
@@ -43,7 +44,7 @@ const egresoManual = async (req, res, next) => {
     }
 
     const resultado = await estadiaService.finalizarEstadia({
-      dominio: dominio.toUpperCase(),
+      dominio: aTexto(dominio).trim().toUpperCase(),
       medioPago,
       operadorId: req.usuarioActual._id
     });
@@ -59,21 +60,20 @@ const egresoManual = async (req, res, next) => {
 // filtros y paginación porque la colección crece sin techo.
 const listarHistorial = async (req, res, next) => {
   try {
-    const { desde, hasta, dominio, estado, origen, pagina = 1, limite = 25 } = req.query;
+    const { dominio, estado, origen } = req.query;
+    const { pagina, limite, salto } = paginar(req.query, { porDefecto: 25 });
 
     const filtro = {};
     if (estado) filtro.estado = estado;
     if (origen) filtro.origen = origen;
-    if (dominio) filtro.vehiculoDominio = new RegExp(dominio.toUpperCase(), 'i');
-    if (desde || hasta) {
-      filtro.horaInicio = {};
-      if (desde) filtro.horaInicio.$gte = new Date(desde);
-      if (hasta) filtro.horaInicio.$lte = new Date(`${hasta}T23:59:59.999`);
-    }
+    // La patente se busca como texto, no como expresión regular: sin escapar, un término como
+    // `(a+)+$` deja al servidor calculando durante minutos por un solo request.
+    if (dominio) filtro.vehiculoDominio = regexContiene(aTexto(dominio).toUpperCase());
+    const rango = rangoDeFechas(req.query, 'ingreso');
+    if (rango) filtro.horaInicio = rango;
 
-    const salto = (parseInt(pagina) - 1) * parseInt(limite);
     const [estadias, total] = await Promise.all([
-      Estacionamiento.find(filtro).sort({ horaInicio: -1 }).skip(salto).limit(parseInt(limite)).lean(),
+      Estacionamiento.find(filtro).sort({ horaInicio: -1 }).skip(salto).limit(limite).lean(),
       Estacionamiento.countDocuments(filtro)
     ]);
 
@@ -86,8 +86,9 @@ const listarHistorial = async (req, res, next) => {
     res.status(200).json({
       estadias: estadias.map((estadia) => ({ ...estadia, cliente: porDni[estadia.usuarioDNI] ?? null })),
       total,
-      pagina: parseInt(pagina),
-      totalPaginas: Math.max(1, Math.ceil(total / parseInt(limite)))
+      pagina,
+      limite,
+      totalPaginas: totalPaginas(total, limite)
     });
   } catch (error) {
     next(error);
@@ -103,11 +104,10 @@ const listarHistorial = async (req, res, next) => {
 const listarMias = async (req, res, next) => {
   try {
     const { dni } = req.usuario;
-    const { pagina = 1, limite = 20 } = req.query;
-    const salto = (parseInt(pagina) - 1) * parseInt(limite);
+    const { pagina, limite, salto } = paginar(req.query);
 
     const [estadias, total] = await Promise.all([
-      Estacionamiento.find({ usuarioDNI: dni }).sort({ horaInicio: -1 }).skip(salto).limit(parseInt(limite)).lean(),
+      Estacionamiento.find({ usuarioDNI: dni }).sort({ horaInicio: -1 }).skip(salto).limit(limite).lean(),
       Estacionamiento.countDocuments({ usuarioDNI: dni })
     ]);
 
@@ -121,8 +121,9 @@ const listarMias = async (req, res, next) => {
     res.status(200).json({
       estadias: estadias.map((estadia) => ({ ...estadia, comprobante: porEstadia[String(estadia._id)] ?? null })),
       total,
-      pagina: parseInt(pagina),
-      totalPaginas: Math.max(1, Math.ceil(total / parseInt(limite)))
+      pagina,
+      limite,
+      totalPaginas: totalPaginas(total, limite)
     });
   } catch (error) {
     next(error);

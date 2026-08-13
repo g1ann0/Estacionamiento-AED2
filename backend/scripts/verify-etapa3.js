@@ -76,20 +76,45 @@ async function llamar(method, path, token, body) {
   check(typeof numeroComprobante1 === 'number', `comprobante tiene número asignado (${numeroComprobante1})`);
   if (r.body?.estacionamiento?._id) estadiaIdsDeEsteRun.push(r.body.estacionamiento._id);
 
-  // --- 2. Canal app, medioPago='efectivo' → NO debita saldo ---
+  // --- 2. Cobro en efectivo de una estadía del canal app → NO debita saldo ---
+  //
+  // Lo cobra el MOSTRADOR, no el cliente. El cliente ya no puede declarar el medio de pago:
+  // mandando `medioPago: 'efectivo'` desde la app cerraba su estadía sin debitar saldo y sin
+  // ningún cajero que recibiera ese efectivo — o sea, salía gratis (ver la auditoría de
+  // seguridad y scripts/verify-seguridad.js). En autoservicio el único medio es el saldo.
   await reset(DOM_APP);
   await Vehiculo.create({ dominio: DOM_APP, tipo: 'auto', marca: 'Test', modelo: 'Test', año: '2020', usuario: (await Usuario.findOne({ dni: TEST_CLIENTE.dni }))._id });
   await Usuario.updateOne({ dni: TEST_CLIENTE.dni }, { $set: { montoDisponible: 100000 } });
 
+  const tokenMostrador = await login(TEST_ADMIN.email, PASSWORD);
+  await llamar('POST', '/api/estacionamiento/iniciar', token, { dni: TEST_CLIENTE.dni, dominio: DOM_APP, porton: 'Sur' });
+
+  const cobroPorElCliente = await llamar('POST', '/api/estacionamiento/finalizar', token, { dni: TEST_CLIENTE.dni, dominio: DOM_APP, medioPago: 'efectivo' });
+  const saldoTrasIntento = (await Usuario.findOne({ dni: TEST_CLIENTE.dni }).lean()).montoDisponible;
+  check(
+    cobroPorElCliente.status === 200 && saldoTrasIntento < 100000,
+    'el cliente no puede elegir "efectivo" en autoservicio: se le cobra del saldo igual'
+  );
+  // Este cobro también consumió un número de comprobante: la correlatividad se mide contra él.
+  const numeroComprobanteIntermedio = cobroPorElCliente.body?.comprobante?.numero;
+  if (cobroPorElCliente.body?.estacionamiento?._id) estadiaIdsDeEsteRun.push(cobroPorElCliente.body.estacionamiento._id);
+
+  // Y ahora sí, el cobro en efectivo por mostrador sobre otra estadía del canal app.
+  await reset(DOM_APP);
+  await Vehiculo.create({ dominio: DOM_APP, tipo: 'auto', marca: 'Test', modelo: 'Test', año: '2020', usuario: (await Usuario.findOne({ dni: TEST_CLIENTE.dni }))._id });
+  await Usuario.updateOne({ dni: TEST_CLIENTE.dni }, { $set: { montoDisponible: 100000 } });
   await llamar('POST', '/api/estacionamiento/iniciar', token, { dni: TEST_CLIENTE.dni, dominio: DOM_APP, porton: 'Sur' });
   const montoAntesEf = (await Usuario.findOne({ dni: TEST_CLIENTE.dni }).lean()).montoDisponible;
-  r = await llamar('POST', '/api/estacionamiento/finalizar', token, { dni: TEST_CLIENTE.dni, dominio: DOM_APP, medioPago: 'efectivo' });
+  r = await llamar('POST', '/api/estacionamiento/finalizar', tokenMostrador, { dominio: DOM_APP, medioPago: 'efectivo' });
   check(r.status === 200, 'egreso con medioPago=efectivo -> 200');
   const montoDespuesEf = (await Usuario.findOne({ dni: TEST_CLIENTE.dni }).lean()).montoDisponible;
   check(montoDespuesEf === montoAntesEf, 'saldo NO se debitó al pagar en efectivo');
   check(r.body?.comprobante?.medioPago === 'efectivo', 'comprobante.medioPago === "efectivo"');
   const numeroComprobante2 = r.body?.comprobante?.numero;
-  check(numeroComprobante2 === numeroComprobante1 + 1, `numeración correlativa sin duplicados (${numeroComprobante1} -> ${numeroComprobante2})`);
+  check(
+    numeroComprobante2 === numeroComprobanteIntermedio + 1 && numeroComprobanteIntermedio === numeroComprobante1 + 1,
+    `numeración correlativa sin duplicados (${numeroComprobante1} -> ${numeroComprobanteIntermedio} -> ${numeroComprobante2})`
+  );
   if (r.body?.estacionamiento?._id) estadiaIdsDeEsteRun.push(r.body.estacionamiento._id);
 
   // --- 3. Cliente ocasional: ahora SÍ puede egresar (bloqueado desde Etapa 2, desbloqueado acá) ---

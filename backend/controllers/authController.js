@@ -7,11 +7,35 @@ const jwt = require('jsonwebtoken');
 // El transporte vive en services/mailService.js desde que el comprobante de estadía también
 // se manda por mail: una sola configuración SMTP para todo el sistema.
 const { transporter } = require('../services/mailService');
+const { aTexto } = require('../utils/consultas');
+
+// Los valores que entran a una consulta de autenticación se fuerzan a texto. El middleware
+// global ya rechaza los operadores de Mongo; esto es el cinturón además del tirante, en el
+// único lugar del sistema donde una consulta que se amplía de más significa entrar como otro.
+const texto = (valor) => aTexto(valor).trim();
+
+// Dónde vive el frontend. Estaba escrito a mano como `http://localhost:3001` dentro de cada
+// mail: en cuanto el sistema deja la notebook del desarrollador, los links de verificación y
+// de recuperación apuntan a la máquina de quien recibe el correo, y no funcionan.
+const urlApp = () => (process.env.APP_URL || 'http://localhost:3001').replace(/\/+$/, '');
+// El remitente también estaba fijo en el código, apuntando a una cuenta personal.
+const remitente = () => process.env.SMTP_FROM || `Estacionamiento <${process.env.SMTP_USER || 'no-reply@estacionamiento.local'}>`;
+
+// Mínimo de contraseña, igual en los tres caminos que la fijan (alta, recuperación y cambio
+// desde el perfil). Antes `setearPassword` no validaba nada: se podía crear una cuenta con la
+// contraseña "a".
+const LARGO_MINIMO_PASSWORD = 6;
 
 // REGISTRO - Paso 1: crear usuario y enviar correo de verificacion
 const registrarConEmail = async (req, res) => {
   try {
-    const { dni, nombre, apellido, email } = req.body;
+    const { nombre, apellido } = req.body;
+    const dni = texto(req.body?.dni);
+    const email = texto(req.body?.email);
+
+    if (!dni || !email) {
+      return res.status(400).json({ mensaje: 'DNI y email son obligatorios' });
+    }
 
     // Verificamos que el email no esté en uso por un usuario activo
     const existente = await Usuario.findOne({ email, activo: true });
@@ -31,7 +55,6 @@ const registrarConEmail = async (req, res) => {
 
     // Generar token de verificación
     const tokenVerificacion = randomUUID();
-    console.log('Generando nuevo token:', tokenVerificacion);
 
     const nuevoUsuario = new Usuario({
       dni,
@@ -43,14 +66,12 @@ const registrarConEmail = async (req, res) => {
       rol
     });
 
-    const usuarioGuardado = await nuevoUsuario.save();
-    console.log('Usuario guardado con token:', usuarioGuardado.tokenVerificacion);
-    // Link para el frontend (puerto 3001) - Esta URL debe coincidir con donde está corriendo tu aplicación React
-    const link = `http://localhost:3001/setear-password?token=${tokenVerificacion}`;
+    await nuevoUsuario.save();
+    const link = `${urlApp()}/setear-password?token=${tokenVerificacion}`;
 
     try {
       await transporter.sendMail({
-        from: 'Estacionamiento <giancastellino44@gmail.com>',
+        from: remitente(),
         to: email,
         subject: 'Confirmá tu correo electrónico',
         html: `
@@ -88,16 +109,18 @@ const registrarConEmail = async (req, res) => {
     res.status(201).json({ mensaje: 'Usuario registrado. Verificá tu correo electrónico.' });
 
   } catch (error) {
+    // El objeto de error no vuelve al cliente: traía rutas, nombres de campos y a veces el
+    // documento entero. Queda en el log del servidor, que es donde sirve.
     console.error('Error al registrar usuario:', error);
-    res.status(500).json({ mensaje: 'Error al registrar usuario con email', error });
+    res.status(500).json({ mensaje: 'Error al registrar usuario con email' });
   }
 };
 
 
 const confirmarEmail = async (req, res) => {
   try {
-    const { token } = req.params;
-    
+    const token = texto(req.params?.token);
+
     if (!token) {
       return res.status(400).json({
         mensaje: 'No se proporcionó token de verificación'
@@ -131,11 +154,19 @@ const confirmarEmail = async (req, res) => {
 
 const setearPassword = async (req, res) => {
   try {
-    const { token, password, dni } = req.body;
+    const { password } = req.body ?? {};
+    const token = texto(req.body?.token);
+    const dni = texto(req.body?.dni);
 
     if (!token || !password || !dni) {
       return res.status(400).json({
         mensaje: 'Faltan datos requeridos'
+      });
+    }
+
+    if (typeof password !== 'string' || password.length < LARGO_MINIMO_PASSWORD) {
+      return res.status(400).json({
+        mensaje: `La contraseña debe tener al menos ${LARGO_MINIMO_PASSWORD} caracteres`
       });
     }
 
@@ -181,13 +212,20 @@ const setearPassword = async (req, res) => {
 // Paso 4: Login con email y contraseña
 const login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { password } = req.body ?? {};
+    const email = texto(req.body?.email);
     const usuario = await Usuario.findOne({ email, activo: true });
-    if (!usuario) return res.status(404).json({ mensaje: 'Usuario no encontrado o inactivo' });
+
+    // Mismo mensaje y mismo código para "no existe" y "contraseña incorrecta". Antes el
+    // primero devolvía 404 y el segundo 401, así que el login contestaba gratis la pregunta
+    // "¿esta persona tiene cuenta acá?" — que es el primer paso de cualquier ataque dirigido.
+    const credencialesInvalidas = () => res.status(401).json({ mensaje: 'Email o contraseña incorrectos' });
+
+    if (!usuario || !usuario.password) return credencialesInvalidas();
     if (!usuario.verificado) return res.status(401).json({ mensaje: 'Correo no verificado' });
 
-    const esValida = await bcrypt.compare(password, usuario.password);
-    if (!esValida) return res.status(401).json({ mensaje: 'Contraseña incorrecta' });
+    const esValida = await bcrypt.compare(String(password ?? ''), usuario.password);
+    if (!esValida) return credencialesInvalidas();
 
     const token = jwt.sign({
       id: usuario._id,
@@ -210,14 +248,14 @@ const login = async (req, res) => {
     });
   } catch (error) {
     console.error('Error en login:', error);
-    res.status(500).json({ mensaje: 'Error en login', error });
+    res.status(500).json({ mensaje: 'Error en login' });
   }
 };
 
 // RECUPERAR CONTRASEÑA - Paso 1: solicitar reset de contraseña
 const solicitarRecuperacionPassword = async (req, res) => {
   try {
-    const { email } = req.body;
+    const email = texto(req.body?.email);
 
     if (!email) {
       return res.status(400).json({ mensaje: 'Email es requerido' });
@@ -246,11 +284,11 @@ const solicitarRecuperacionPassword = async (req, res) => {
     await usuario.save();
 
     // Link para recuperar contraseña
-    const link = `http://localhost:3001/recuperar-password?token=${tokenRecuperacion}`;
+    const link = `${urlApp()}/recuperar-password?token=${tokenRecuperacion}`;
 
     try {
       await transporter.sendMail({
-        from: 'Estacionamiento <giancastellino44@gmail.com>',
+        from: remitente(),
         to: email,
         subject: 'Recuperar contraseña - Sistema de Estacionamiento',
         html: `
@@ -296,8 +334,8 @@ const solicitarRecuperacionPassword = async (req, res) => {
 // RECUPERAR CONTRASEÑA - Paso 2: validar token de recuperación
 const validarTokenRecuperacion = async (req, res) => {
   try {
-    const { token } = req.params;
-    
+    const token = texto(req.params?.token);
+
     if (!token) {
       return res.status(400).json({
         mensaje: 'No se proporcionó token de recuperación'
@@ -320,7 +358,9 @@ const validarTokenRecuperacion = async (req, res) => {
     const tiempoLimite = new Date();
     tiempoLimite.setHours(tiempoLimite.getHours() - 1);
     
-    if (usuario.fechaTokenRecuperacion < tiempoLimite) {
+    // Sin fecha, el token se considera vencido. Con la comparación sola, un `undefined` daba
+    // `false` —o sea "no venció"— y ese token vivía para siempre.
+    if (!usuario.fechaTokenRecuperacion || usuario.fechaTokenRecuperacion < tiempoLimite) {
       return res.status(400).json({
         mensaje: 'Token expirado. Solicita un nuevo enlace de recuperación.'
       });
@@ -340,9 +380,15 @@ const validarTokenRecuperacion = async (req, res) => {
 };
 
 // RECUPERAR CONTRASEÑA - Paso 3: establecer nueva contraseña
+// Este era el agujero más grave del sistema. `token` entraba a la consulta tal cual venía del
+// cuerpo, así que `{"token": {"$ne": null}}` no buscaba un token: encontraba al primer usuario
+// con cualquier token de recuperación vivo y le cambiaba la contraseña. Toma de cuenta sin
+// conocer un solo dato de la víctima. Ahora el valor se fuerza a texto acá, y el middleware
+// global rechaza el operador antes incluso de llegar.
 const restablecerPassword = async (req, res) => {
   try {
-    const { token, nuevaPassword } = req.body;
+    const { nuevaPassword } = req.body ?? {};
+    const token = texto(req.body?.token);
 
     if (!token || !nuevaPassword) {
       return res.status(400).json({
@@ -350,9 +396,9 @@ const restablecerPassword = async (req, res) => {
       });
     }
 
-    if (nuevaPassword.length < 6) {
+    if (typeof nuevaPassword !== 'string' || nuevaPassword.length < LARGO_MINIMO_PASSWORD) {
       return res.status(400).json({
-        mensaje: 'La contraseña debe tener al menos 6 caracteres'
+        mensaje: `La contraseña debe tener al menos ${LARGO_MINIMO_PASSWORD} caracteres`
       });
     }
 
@@ -372,7 +418,9 @@ const restablecerPassword = async (req, res) => {
     const tiempoLimite = new Date();
     tiempoLimite.setHours(tiempoLimite.getHours() - 1);
     
-    if (usuario.fechaTokenRecuperacion < tiempoLimite) {
+    // Sin fecha, el token se considera vencido. Con la comparación sola, un `undefined` daba
+    // `false` —o sea "no venció"— y ese token vivía para siempre.
+    if (!usuario.fechaTokenRecuperacion || usuario.fechaTokenRecuperacion < tiempoLimite) {
       return res.status(400).json({
         mensaje: 'Token expirado. Solicita un nuevo enlace de recuperación.'
       });

@@ -3,7 +3,9 @@ const Usuario = require('../models/Usuario');
 const Vehiculo = require('../models/Vehiculo');
 const Transaccion = require('../models/Transaccion');
 const AuditLog = require('../models/AuditLog');
+const Estacionamiento = require('../models/Estacionamiento');
 const auditoriaService = require('../services/auditoriaService');
+const { aTexto, escaparRegex, regexContiene, paginar, totalPaginas } = require('../utils/consultas');
 
 // La auditoría de saldos y vehículos vive en AuditLog (antes en LogSaldo y LogVehiculo).
 // Las pantallas que consumen estos historiales esperan todavía la forma vieja, así que se
@@ -53,16 +55,7 @@ const obtenerComprobantesPendientes = async (req, res) => {
 // Obtener todos los comprobantes con filtros
 const obtenerTodosLosComprobantes = async (req, res) => {
   try {
-    const { 
-      estado, 
-      fechaDesde, 
-      fechaHasta, 
-      busqueda, 
-      pagina = 1, 
-      limite = 20,
-      ordenPor = 'fecha',
-      orden = 'desc'
-    } = req.query;
+    const { estado, fechaDesde, fechaHasta, busqueda, ordenPor = 'fecha', orden = 'desc' } = req.query;
 
     // Construir filtros
     let filtros = {};
@@ -85,9 +78,10 @@ const obtenerTodosLosComprobantes = async (req, res) => {
       }
     }
 
-    // Filtro por búsqueda (número de comprobante o DNI)
-    if (busqueda && busqueda.trim() !== '') {
-      const termino = busqueda.trim();
+    // Filtro por búsqueda (número de comprobante o DNI). El término se escapa: sin eso, lo que
+    // el admin escribe en el buscador se ejecuta como expresión regular contra la colección.
+    if (aTexto(busqueda).trim() !== '') {
+      const termino = escaparRegex(aTexto(busqueda).trim());
       filtros.$or = [
         { nroComprobante: { $regex: termino, $options: 'i' } },
         { 'usuario.dni': { $regex: termino, $options: 'i' } },
@@ -107,14 +101,14 @@ const obtenerTodosLosComprobantes = async (req, res) => {
     const ordenamiento = ordenamientos[ordenPor] || { fecha: -1 };
 
     // Calcular skip para paginación
-    const skip = (parseInt(pagina) - 1) * parseInt(limite);
+    const { pagina, limite, salto: skip } = paginar(req.query, { porDefecto: 50 });
 
     // Obtener comprobantes con paginación
     const [comprobantes, total] = await Promise.all([
       Comprobante.find(filtros)
         .sort(ordenamiento)
         .skip(skip)
-        .limit(parseInt(limite)),
+        .limit(limite),
       Comprobante.countDocuments(filtros)
     ]);
 
@@ -148,12 +142,7 @@ const obtenerTodosLosComprobantes = async (req, res) => {
     res.json({
       success: true,
       comprobantes,
-      paginacion: {
-        total,
-        pagina: parseInt(pagina),
-        limite: parseInt(limite),
-        totalPaginas: Math.ceil(total / parseInt(limite))
-      },
+      paginacion: { total, pagina, limite, totalPaginas: totalPaginas(total, limite) },
       estadisticas: stats,
       filtros: {
         estado,
@@ -391,14 +380,22 @@ const modificarUsuario = async (req, res) => {
     if (nombre) usuario.nombre = nombre;
     if (apellido) usuario.apellido = apellido;
     if (email) usuario.email = email;
-    if (rol && ['cliente', 'admin'].includes(rol)) usuario.rol = rol;
+    // El enum del modelo tiene tres roles desde la Etapa 1: dejar 'operador' fuera de esta
+    // lista hacía que el cambio de rol a cajero se ignorara en silencio desde esta pantalla.
+    if (rol && ['cliente', 'admin', 'operador'].includes(rol)) usuario.rol = rol;
     if (typeof asociado === 'boolean') usuario.asociado = asociado;
     
     // Si se modifica el saldo, crear log
     if (typeof montoDisponible === 'number' && montoDisponible !== saldoAnterior) {
+      // `typeof number` deja pasar NaN, Infinity y los negativos. Un saldo NaN rompe todas las
+      // cuentas río abajo sin decir por qué, y un saldo negativo es una deuda que el sistema
+      // no sabe cobrar: el cliente entra igual y el número se hace más chico.
+      if (!Number.isFinite(montoDisponible) || montoDisponible < 0) {
+        return res.status(400).json({ mensaje: 'El saldo debe ser un número mayor o igual a 0' });
+      }
       if (!motivo || motivo.trim() === '') {
-        return res.status(400).json({ 
-          mensaje: 'El motivo es obligatorio cuando se modifica el saldo' 
+        return res.status(400).json({
+          mensaje: 'El motivo es obligatorio cuando se modifica el saldo'
         });
       }
 
@@ -915,6 +912,13 @@ const eliminarVehiculoAdmin = async (req, res) => {
       return res.status(404).json({ mensaje: 'Vehículo no encontrado' });
     }
 
+    // Con el auto adentro, borrarlo del catálogo deja la estadía activa —que todavía hay que
+    // cobrar— apuntando a una patente que ya no existe.
+    const adentro = await Estacionamiento.exists({ vehiculoDominio: vehiculo.dominio, estado: 'activo' });
+    if (adentro) {
+      return res.status(409).json({ mensaje: 'El vehículo está dentro de la playa. Registrá la salida antes de eliminarlo.' });
+    }
+
     // Guardar datos para el log antes de eliminar
     const datosVehiculo = {
       dominio: vehiculo.dominio,
@@ -970,15 +974,15 @@ const eliminarVehiculoAdmin = async (req, res) => {
 // Obtener historial de cambios de saldo
 const obtenerHistorialSaldos = async (req, res) => {
   try {
-    const { usuarioDni, limite = 50, pagina = 1 } = req.query;
+    const { usuarioDni } = req.query;
     
     const filtro = { accion: { $regex: '^saldo_' } };
     if (usuarioDni) filtro['afectado.dni'] = usuarioDni;
 
-    const skip = (parseInt(pagina) - 1) * parseInt(limite);
+    const { pagina, limite, salto: skip } = paginar(req.query, { porDefecto: 50 });
 
     const [registros, total] = await Promise.all([
-      AuditLog.find(filtro).sort({ fecha: -1 }).skip(skip).limit(parseInt(limite)).lean(),
+      AuditLog.find(filtro).sort({ fecha: -1 }).skip(skip).limit(limite).lean(),
       AuditLog.countDocuments(filtro)
     ]);
 
@@ -1076,12 +1080,12 @@ const obtenerEstadisticasSaldos = async (req, res) => {
 // Obtener historial de cambios de vehículos
 const obtenerHistorialVehiculos = async (req, res) => {
   try {
-    const { dominio, tipoOperacion, usuarioDni, limite = 50, pagina = 1 } = req.query;
+    const { dominio, tipoOperacion, usuarioDni } = req.query;
     
     const filtro = { accion: { $regex: '^vehiculo_' } };
 
     if (dominio) {
-      filtro.entidadId = new RegExp(dominio.toUpperCase(), 'i');
+      filtro.entidadId = regexContiene(aTexto(dominio).toUpperCase());
     }
 
     if (tipoOperacion) {
@@ -1095,10 +1099,10 @@ const obtenerHistorialVehiculos = async (req, res) => {
       ];
     }
 
-    const skip = (parseInt(pagina) - 1) * parseInt(limite);
+    const { pagina, limite, salto: skip } = paginar(req.query, { porDefecto: 50 });
 
     const [registros, total] = await Promise.all([
-      AuditLog.find(filtro).sort({ fecha: -1 }).skip(skip).limit(parseInt(limite)).lean(),
+      AuditLog.find(filtro).sort({ fecha: -1 }).skip(skip).limit(limite).lean(),
       AuditLog.countDocuments(filtro)
     ]);
 
@@ -1192,9 +1196,7 @@ const obtenerIngresos = async (req, res) => {
       dominio, 
       dniPropietario,
       porton,
-      tipoVehiculo,
-      limite = 50, 
-      pagina = 1 
+      tipoVehiculo
     } = req.query;
     
     let filtro = { tipo: 'ingreso' };
@@ -1214,7 +1216,7 @@ const obtenerIngresos = async (req, res) => {
     
     // Filtro por dominio del vehículo
     if (dominio) {
-      filtro['vehiculo.dominio'] = new RegExp(dominio.toUpperCase(), 'i');
+      filtro['vehiculo.dominio'] = regexContiene(aTexto(dominio).toUpperCase());
     }
     
     // Filtro por DNI del propietario
@@ -1232,29 +1234,24 @@ const obtenerIngresos = async (req, res) => {
       filtro['vehiculo.tipo'] = tipoVehiculo;
     }
     
-    const skip = (parseInt(pagina) - 1) * parseInt(limite);
+    const { pagina, limite, salto: skip } = paginar(req.query, { porDefecto: 50 });
     
     const total = await Transaccion.countDocuments(filtro);
     const ingresos = await Transaccion.find(filtro)
       .populate('usuario', 'dni nombre apellido activo')
       .sort({ fechaHora: -1 })
       .skip(skip)
-      .limit(parseInt(limite));
+      .limit(limite);
     
-    // Filtrar solo transacciones de usuarios activos
-    const ingresosActivos = ingresos.filter(t => 
-      t.usuario && t.usuario.activo === true
-    );
-      
+    // Acá se descartaban las transacciones cuyo usuario no estuviera activo. Desde que existe
+    // el cliente ocasional (Etapa 2) esas transacciones tienen `usuario: null`, así que el
+    // panel de ingresos escondía todo lo que entra por caja — que es la mayoría del
+    // movimiento de una playa. Y el total se calculaba sobre la página ya filtrada, con lo
+    // cual la paginación siempre decía "una sola página".
     res.json({
       success: true,
-      ingresos: ingresosActivos,
-      pagination: {
-        total: ingresosActivos.length,
-        pagina: parseInt(pagina),
-        limite: parseInt(limite),
-        totalPaginas: Math.ceil(ingresosActivos.length / parseInt(limite))
-      }
+      ingresos,
+      pagination: { total, pagina, limite, totalPaginas: totalPaginas(total, limite) }
     });
   } catch (error) {
     console.error('Error al obtener ingresos:', error);
@@ -1274,9 +1271,7 @@ const obtenerEgresos = async (req, res) => {
       dominio, 
       dniPropietario,
       porton,
-      tipoVehiculo,
-      limite = 50, 
-      pagina = 1 
+      tipoVehiculo
     } = req.query;
     
     let filtro = { tipo: 'salida' };
@@ -1296,7 +1291,7 @@ const obtenerEgresos = async (req, res) => {
     
     // Filtro por dominio del vehículo
     if (dominio) {
-      filtro['vehiculo.dominio'] = new RegExp(dominio.toUpperCase(), 'i');
+      filtro['vehiculo.dominio'] = regexContiene(aTexto(dominio).toUpperCase());
     }
     
     // Filtro por DNI del propietario
@@ -1314,29 +1309,21 @@ const obtenerEgresos = async (req, res) => {
       filtro['vehiculo.tipo'] = tipoVehiculo;
     }
     
-    const skip = (parseInt(pagina) - 1) * parseInt(limite);
+    const { pagina, limite, salto: skip } = paginar(req.query, { porDefecto: 50 });
     
     const total = await Transaccion.countDocuments(filtro);
     const egresos = await Transaccion.find(filtro)
       .populate('usuario', 'dni nombre apellido activo')
       .sort({ fechaHora: -1 })
       .skip(skip)
-      .limit(parseInt(limite));
+      .limit(limite);
     
-    // Filtrar solo transacciones de usuarios activos
-    const egresosActivos = egresos.filter(t => 
-      t.usuario && t.usuario.activo === true
-    );
-      
+    // Mismo caso que en ingresos: filtrar por usuario activo dejaba fuera del panel todos los
+    // egresos de clientes ocasionales, y el total de la paginación salía de la página filtrada.
     res.json({
       success: true,
-      egresos: egresosActivos,
-      pagination: {
-        total: egresosActivos.length,
-        pagina: parseInt(pagina),
-        limite: parseInt(limite),
-        totalPaginas: Math.ceil(egresosActivos.length / parseInt(limite))
-      }
+      egresos,
+      pagination: { total, pagina, limite, totalPaginas: totalPaginas(total, limite) }
     });
   } catch (error) {
     console.error('Error al obtener egresos:', error);

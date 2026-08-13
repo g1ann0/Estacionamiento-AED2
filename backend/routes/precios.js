@@ -29,7 +29,11 @@ router.get('/', authMiddleware, verificarAdmin, obtenerPrecios);
 router.post('/', authMiddleware, verificarAdmin, crearPrecio);
 
 // Obtener precio específico por tipo de usuario (acceso público para cálculos)
-router.get('/:tipoUsuario', obtenerPrecioPorTipo);
+// Consultar una tarifa exige token: era el único endpoint de precios sin autenticación, y
+// dejaba leer la estructura comercial (qué tipos de cliente existen y cuánto paga cada uno)
+// a cualquiera que pasara por la URL. No hace falta ser admin —el panel del operador lo usa—,
+// pero sí estar dentro del sistema.
+router.get('/:tipoUsuario', authMiddleware, obtenerPrecioPorTipo);
 
 // Actualizar precio específico (solo admin)
 router.put('/:tipoUsuario', authMiddleware, verificarAdmin, actualizarPrecio);

@@ -29,5 +29,10 @@ MovimientoCajaSchema.pre('validate', async function () {
 });
 
 MovimientoCajaSchema.index({ turnoId: 1, tipo: 1 });
+// El resumen de cierre lee los movimientos vivos del turno; el reporte de recaudación agrupa
+// por fecha. Los dos filtran por `anulado`, que sin índice obliga a leer todos los movimientos
+// del período para descartar unos pocos.
+MovimientoCajaSchema.index({ turnoId: 1, anulado: 1 });
+MovimientoCajaSchema.index({ fecha: -1, anulado: 1 });
 
 module.exports = mongoose.model('MovimientoCaja', MovimientoCajaSchema);

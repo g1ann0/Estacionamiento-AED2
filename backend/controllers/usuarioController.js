@@ -1,65 +1,29 @@
 const Usuario = require('../models/Usuario');
 const Vehiculo = require('../models/Vehiculo');
-const Comprobante = require('../models/Comprobante');
-const Transaccion = require('../models/Transaccion');
+const Estacionamiento = require('../models/Estacionamiento');
 const ConfiguracionPrecio = require('../models/ConfiguracionPrecio');
 const auditoriaService = require('../services/auditoriaService');
-const { randomUUID } = require('crypto');
 
 
-// Recargar saldo a un usuario
+// Recarga de saldo — CERRADA. Era dinero gratis.
+//
+// El endpoint aceptaba `{dni, monto}` y solo verificaba que el DNI fuera el del token o que
+// quien llamaba fuera admin. Como el DNI del token es el propio, **cualquier cliente
+// autenticado podía acreditarse el saldo que quisiera** con un POST, sin pagar nada y sin
+// dejar más rastro que un comprobante que él mismo generaba. No había cobro real detrás: la
+// plata aparecía de la nada.
+//
+// No se "arregla" pidiendo rol admin, porque el circuito de recarga ya estaba discontinuado
+// (ver comprobanteController.crearComprobante y docs/rediseno-admin/01, grupo 4): el pago se
+// cobra al retirar el vehículo. El ajuste de saldo por parte del dueño sigue existiendo, pero
+// por el camino que corresponde —`PUT /api/admin/usuarios/:dni`—, que es admin-only, exige
+// motivo y queda en auditoría.
+//
+// 410 y no 404: la funcionalidad existió y fue retirada.
 const recargarUsuario = async (req, res) => {
-  try {
-    const { dni, monto } = req.body;
-
-    if (req.usuario.dni !== dni && req.usuario.rol !== 'admin') {
-      return res.status(403).json({ mensaje: 'No tenés permiso para recargar saldo de otro usuario' });
-    }
-
-    // Validar que el monto sea un número válido
-    const montoAcreditar = parseFloat(monto);
-    if (isNaN(montoAcreditar) || montoAcreditar <= 0) {
-      return res.status(400).json({ mensaje: 'El monto debe ser un número válido mayor a 0' });
-    }
-
-    const usuario = await Usuario.findOne({ dni, activo: true });
-    if (!usuario) {
-      return res.status(404).json({ mensaje: 'Usuario no encontrado o inactivo' });
-    }
-
-    // Asegurarse de que montoDisponible sea un número válido
-    const montoActual = parseFloat(usuario.montoDisponible) || 0;
-    usuario.montoDisponible = montoActual + montoAcreditar;
-    await usuario.save();
-
-    const vehiculosDelUsuario = await Vehiculo.find({ usuario: usuario._id }).select('dominio').lean();
-
-    const nroComprobante = randomUUID().slice(0, 8);
-    const comprobante = new Comprobante({
-      usuario: {
-        dni: usuario.dni,
-        nombre: usuario.nombre,
-        apellido: usuario.apellido
-      },
-      montoAcreditado: montoAcreditar,
-      montoDisponible: usuario.montoDisponible,
-      vehiculos: vehiculosDelUsuario.map(v => v.dominio),
-      nroComprobante
-    });
-    await comprobante.save();
-
-    // Las recargas se registran como comprobantes, no como transacciones de estacionamiento
-    // ya que son operaciones financieras, no movimientos de vehículos
-
-    res.status(201).json({
-      mensaje: 'Recarga realizada correctamente',
-      comprobante
-    });
-
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ mensaje: 'Error al recargar saldo', error });
-  }
+  res.status(410).json({
+    mensaje: 'La recarga de saldo fue discontinuada. El pago se realiza al retirar el vehículo, en efectivo, tarjeta o QR. Un administrador puede ajustar el saldo desde el panel, con motivo y auditoría.'
+  });
 };
 
 // Agregar vehículo a usuario existente
@@ -231,6 +195,13 @@ const modificarVehiculo = async (req, res) => {
 
     // Si el dominio va a cambiar, eliminar el registro anterior antes del upsert.
     if (nuevoDominio.toUpperCase() !== dominio.toUpperCase()) {
+      // Salvo que el auto esté adentro: la estadía activa referencia al vehículo por su
+      // dominio (es un string, no una referencia), así que renombrarlo en medio de la estadía
+      // la deja apuntando a una patente que ya no existe y el egreso no la encuentra más.
+      const adentro = await Estacionamiento.exists({ vehiculoDominio: dominio.toUpperCase(), estado: 'activo' });
+      if (adentro) {
+        return res.status(409).json({ mensaje: 'No se puede cambiar la patente mientras el vehículo está dentro de la playa.' });
+      }
       await Vehiculo.deleteOne({ dominio: dominio.toUpperCase() });
     }
 
@@ -266,19 +237,33 @@ const modificarVehiculo = async (req, res) => {
 // Eliminar vehículo
 const eliminarVehiculo = async (req, res) => {
   try {
-    const { dominio } = req.params;
+    const dominio = String(req.params.dominio ?? '').toUpperCase();
 
-    const vehiculo = await Vehiculo.findOne({ dominio: dominio.toUpperCase() });
+    const vehiculo = await Vehiculo.findOne({ dominio });
 
     if (!vehiculo) {
       return res.status(404).json({ mensaje: 'Vehículo no encontrado' });
     }
 
-    if (vehiculo.usuario) {
+    // Un vehículo sin dueño es de la playa (entró alguna vez como ocasional por caja), no de
+    // nadie: antes el permiso solo se comprobaba cuando tenía propietario, así que cualquier
+    // cliente autenticado podía borrar del catálogo los autos de los clientes ocasionales.
+    if (!vehiculo.usuario) {
+      if (req.usuarioActual?.rol !== 'admin') {
+        return res.status(403).json({ mensaje: 'Este vehículo no tiene propietario registrado: solo un administrador puede eliminarlo' });
+      }
+    } else {
       const usuarioDelVehiculo = await Usuario.findById(vehiculo.usuario);
-      if (usuarioDelVehiculo && req.usuario.dni !== usuarioDelVehiculo.dni && req.usuario.rol !== 'admin') {
+      if (usuarioDelVehiculo && req.usuario.dni !== usuarioDelVehiculo.dni && req.usuarioActual?.rol !== 'admin') {
         return res.status(403).json({ mensaje: 'No tenés permiso para eliminar este vehículo' });
       }
+    }
+
+    // Con el auto adentro, borrarlo deja la estadía activa apuntando a un dominio que ya no
+    // está en el catálogo — y esa estadía todavía tiene que cobrarse.
+    const adentro = await Estacionamiento.exists({ vehiculoDominio: dominio, estado: 'activo' });
+    if (adentro) {
+      return res.status(409).json({ mensaje: 'El vehículo está dentro de la playa. Primero registrá la salida.' });
     }
 
     // Eliminar el vehículo completamente

@@ -66,8 +66,6 @@ const generarPDFComprobante = async (req, res) => {
     const { nroComprobante } = req.params;
     const { dni, rol } = req.usuario;
 
-    console.log('Generando PDF para comprobante:', nroComprobante);
-    console.log('Usuario autenticado:', { dni, rol });
 
     // Si es admin, puede acceder a cualquier comprobante
     // Si es usuario normal, solo puede acceder a sus propios comprobantes
@@ -75,33 +73,20 @@ const generarPDFComprobante = async (req, res) => {
       ? { nroComprobante }
       : { nroComprobante, 'usuario.dni': dni };
 
-    console.log('Filtro aplicado:', filtroComprobante);
 
     const comprobante = await Comprobante.findOne(filtroComprobante);
 
     if (!comprobante) {
-      console.log('Comprobante no encontrado con filtro:', filtroComprobante);
       return res.status(404).json({ mensaje: 'Comprobante no encontrado' });
     }
 
-    console.log('Comprobante encontrado:', comprobante.nroComprobante);
 
-    // Obtener los vehículos del comprobante y del usuario actual para mayor completitud
+    // Los dominios que el comprobante guardó al emitirse, que es lo que un comprobante debe
+    // decir: la foto del momento, no la lista de hoy. El bloque que buscaba los vehículos
+    // "actuales" leía `Usuario.vehiculos[]`, un array embebido que ya no existe en el modelo,
+    // así que devolvía vacío siempre y hacía una consulta de más para nada.
     const dominiosVehiculos = comprobante.vehiculos || [];
-    let vehiculosActuales = [];
-    
-    // Si no hay vehículos en el comprobante, obtener los actuales del usuario
-    if (dominiosVehiculos.length === 0) {
-      try {
-        const usuarioActual = await Usuario.findOne({ dni: comprobante.usuario.dni });
-        vehiculosActuales = usuarioActual?.vehiculos?.map(v => v.dominio) || [];
-      } catch (error) {
-        console.log('Error al obtener vehículos actuales:', error);
-      }
-    }
-    
-    console.log('Vehículos en el comprobante:', dominiosVehiculos);
-    console.log('Vehículos actuales del usuario:', vehiculosActuales);
+
 
     const nombreArchivo = `comprobante_${nroComprobante.replace('-', '_')}.pdf`;
     
@@ -154,19 +139,13 @@ const generarPDFComprobante = async (req, res) => {
     doc.fontSize(9);
     
     // Usar vehículos del comprobante si existen, sino los actuales
-    const vehiculosParaMostrar = dominiosVehiculos.length > 0 ? dominiosVehiculos : vehiculosActuales;
-    
-    if (vehiculosParaMostrar.length > 0) {
-      if (dominiosVehiculos.length > 0) {
-        doc.text('Dominios asociados al momento de la transacción:');
-      } else {
-        doc.text('Dominios actualmente registrados en la cuenta:');
-      }
-      vehiculosParaMostrar.forEach((dominio) => {
+    if (dominiosVehiculos.length > 0) {
+      doc.text('Dominios asociados al momento de la transacción:');
+      dominiosVehiculos.forEach((dominio) => {
         doc.text(`• ${dominio}`, { indent: 20 });
       });
     } else {
-      doc.text('No hay vehículos registrados en esta cuenta.');
+      doc.text('No había vehículos registrados en la cuenta al emitirse este comprobante.');
     }
     doc.moveDown(0.5);
 

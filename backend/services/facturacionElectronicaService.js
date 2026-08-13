@@ -16,6 +16,7 @@ const ComprobanteEstadia = require('../models/ComprobanteEstadia');
 const ConfiguracionEmpresa = require('../models/ConfiguracionEmpresa');
 const Sucursal = require('../models/Sucursal');
 const auditoriaService = require('./auditoriaService');
+const ErrorResponse = require('../utils/errorResponse');
 const { reservarNumero } = require('./comprobanteEstadiaService');
 const { clienteArca, estadoIntegracion, catalogos } = require('./arca');
 
@@ -96,7 +97,9 @@ async function emitirComprobante(comprobanteId) {
   const comprobante = await ComprobanteEstadia.findById(comprobanteId)
     .populate('estadiaId', 'vehiculoDominio horaInicio horaFin duracionHoras');
 
-  if (!comprobante) throw new Error('Comprobante no encontrado');
+  // 404 y no 500: pedir el CAE de un comprobante que no existe es un error de quien llama, y
+  // un 500 manda a revisar el servidor por un id mal tipeado.
+  if (!comprobante) throw new ErrorResponse('Comprobante no encontrado', 404);
 
   if (comprobante.cae) {
     return { yaEmitido: true, comprobante };

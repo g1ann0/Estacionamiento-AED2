@@ -3,6 +3,7 @@ const Comprobante = require('../models/Comprobante');
 const Usuario = require('../models/Usuario');
 const ConfiguracionEmpresa = require('../models/ConfiguracionEmpresa');
 const auditoriaService = require('../services/auditoriaService');
+const { aTexto, escaparRegex, paginar, totalPaginas } = require('../utils/consultas');
 const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const path = require('path');
@@ -79,10 +80,8 @@ const obtenerFacturas = async (req, res) => {
     const { 
       fechaDesde, 
       fechaHasta, 
-      busqueda, 
-      estado,
-      pagina = 1, 
-      limite = 20 
+      busqueda,
+      estado
     } = req.query;
 
     // Construir filtros
@@ -104,8 +103,9 @@ const obtenerFacturas = async (req, res) => {
       }
     }
 
-    if (busqueda && busqueda.trim() !== '') {
-      const termino = busqueda.trim();
+    // Término escapado: el buscador de facturas no ejecuta expresiones regulares.
+    if (aTexto(busqueda).trim() !== '') {
+      const termino = escaparRegex(aTexto(busqueda).trim());
       filtros.$or = [
         { nroFactura: { $regex: termino, $options: 'i' } },
         { 'cliente.dni': { $regex: termino, $options: 'i' } },
@@ -115,13 +115,13 @@ const obtenerFacturas = async (req, res) => {
       ];
     }
 
-    const skip = (parseInt(pagina) - 1) * parseInt(limite);
+    const { pagina, limite, salto: skip } = paginar(req.query);
 
     const [facturas, total] = await Promise.all([
       Factura.find(filtros)
         .sort({ fechaEmision: -1 })
         .skip(skip)
-        .limit(parseInt(limite)),
+        .limit(limite),
       Factura.countDocuments(filtros)
     ]);
 
@@ -173,9 +173,9 @@ const obtenerFacturas = async (req, res) => {
       facturas,
       paginacion: {
         total,
-        pagina: parseInt(pagina),
-        limite: parseInt(limite),
-        totalPaginas: Math.ceil(total / parseInt(limite))
+        pagina,
+        limite,
+        totalPaginas: totalPaginas(total, limite)
       },
       estadisticas: stats
     });

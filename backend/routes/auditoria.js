@@ -3,6 +3,7 @@ const router = express.Router();
 const AuditLog = require('../models/AuditLog');
 const authMiddleware = require('../middlewares/authMiddleware');
 const requireRole = require('../middlewares/requireRole');
+const { aTexto, escaparRegex, paginar, totalPaginas, ordenSeguro } = require('../utils/consultas');
 
 // Logs de auditoría (solo admin).
 // Montado en server.js como app.use('/api/admin/auditoria', ...) — la URL externa no cambia.
@@ -33,21 +34,15 @@ const CAMPOS_BUSCABLES = [
   'afectado.dni', 'afectado.nombre', 'afectado.apellido'
 ];
 
+// Por qué campos se puede ordenar: los tres que tienen índice. El resto ordenaría en memoria
+// sobre la colección más grande del sistema.
+const CAMPOS_ORDENABLES = ['fecha', 'accion', 'entidad'];
+
 router.get('/', authMiddleware, requireRole('admin'), async (req, res) => {
   try {
-    const {
-      tipoLog = 'todos',
-      fechaDesde,
-      fechaHasta,
-      busqueda = '',
-      pagina = 1,
-      limite = 20,
-      ordenPor = 'fecha',
-      orden = 'desc'
-    } = req.query;
+    const { tipoLog = 'todos', fechaDesde, fechaHasta, busqueda = '', ordenPor = 'fecha', orden = 'desc' } = req.query;
 
-    const salto = (parseInt(pagina) - 1) * parseInt(limite);
-    const limiteNum = parseInt(limite);
+    const { pagina, limite, salto } = paginar(req.query);
     const direccion = orden === 'desc' ? -1 : 1;
 
     const filtro = {};
@@ -75,22 +70,28 @@ router.get('/', authMiddleware, requireRole('admin'), async (req, res) => {
     }
 
     if (busqueda) {
+      const termino = escaparRegex(aTexto(busqueda));
       filtro.$or = CAMPOS_BUSCABLES.map((campo) => ({
-        [campo]: { $regex: busqueda, $options: 'i' }
+        [campo]: { $regex: termino, $options: 'i' }
       }));
     }
 
-    const campoOrden = ordenPor === 'fecha' ? 'fecha' : ordenPor;
+    // El campo de orden sale de una lista blanca: ordenar por un campo arbitrario del request
+    // es un escaneo completo sin índice, o sea un botón para poner lento el sistema a pedido.
+    const campoOrden = ordenSeguro(ordenPor, CAMPOS_ORDENABLES, 'fecha');
 
     const [registros, total, porTipo] = await Promise.all([
       AuditLog.find(filtro)
         .sort({ [campoOrden]: direccion })
         .skip(salto)
-        .limit(limiteNum)
+        .limit(limite)
         .lean(),
       AuditLog.countDocuments(filtro),
-      // Las estadísticas salen de una sola agregación en vez de cinco countDocuments.
-      AuditLog.aggregate([{ $group: { _id: '$accion', cantidad: { $sum: 1 } } }])
+      // Las estadísticas se calculan sobre el MISMO filtro que la lista. Antes agrupaban la
+      // colección entera en cada request: en la colección que más crece del sistema —el log de
+      // auditoría— eso es un escaneo completo por cada vez que alguien abre la pantalla, y
+      // además los números no se correspondían con las filas que estaba viendo.
+      AuditLog.aggregate([{ $match: filtro }, { $group: { _id: '$accion', cantidad: { $sum: 1 } } }])
     ]);
 
     const estadisticas = porTipo.reduce((acumulado, { _id, cantidad }) => {
@@ -117,19 +118,16 @@ router.get('/', authMiddleware, requireRole('admin'), async (req, res) => {
       logs: registros.map((registro) => ({ ...registro, tipoLog: tipoDeAccion(registro.accion) })),
       paginacion: {
         total,
-        pagina: parseInt(pagina),
-        limite: limiteNum,
-        totalPaginas: Math.ceil(total / limiteNum) || 1
+        pagina,
+        limite,
+        totalPaginas: totalPaginas(total, limite)
       },
       estadisticas
     });
 
   } catch (error) {
     console.error('Error al obtener logs de auditoría:', error);
-    res.status(500).json({
-      mensaje: 'Error interno del servidor',
-      error: error.message
-    });
+    res.status(500).json({ mensaje: 'Error interno del servidor' });
   }
 });
 

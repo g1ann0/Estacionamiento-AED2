@@ -111,6 +111,11 @@ const TransaccionSchema = new mongoose.Schema({
 });
 
 TransaccionSchema.index({ 'vehiculo.dominio': 1, tipo: 1, estado: 1 });
+// Los listados de ingresos y egresos del panel filtran por tipo y ordenan por fecha; el
+// historial del cliente filtra por usuario. Sin estos índices los tres escanean la colección
+// que más crece después de la auditoría.
+TransaccionSchema.index({ tipo: 1, fechaHora: -1 });
+TransaccionSchema.index({ usuario: 1, fechaHora: -1 });
 
 // Validaciones. Mongoose 9 dejó de pasar el callback `next` a los hooks de documento: se
 // declaran async y se lanza el error, en vez de invocarlo.

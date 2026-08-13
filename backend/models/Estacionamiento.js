@@ -72,4 +72,14 @@ const EstacionamientoSchema = new mongoose.Schema({
 
 EstacionamientoSchema.index({ vehiculoDominio: 1, estado: 1 });
 
+// Los tres accesos que hace el sistema todo el día y que hasta ahora escaneaban la colección
+// entera —que crece con cada auto que entra, para siempre—:
+//   · la Terminal preguntando "qué hay adentro ahora", varias veces por minuto;
+//   · el historial de administración, ordenado por fecha de ingreso;
+//   · la app del conductor pidiendo sus propias estadías.
+EstacionamientoSchema.index({ estado: 1, horaInicio: -1 });
+EstacionamientoSchema.index({ usuarioDNI: 1, horaInicio: -1 });
+// El reporte de ocupación agrupa las salidas por día: sin este índice recorre todo el historial.
+EstacionamientoSchema.index({ horaFin: -1 });
+
 module.exports = mongoose.model('Estacionamiento', EstacionamientoSchema);

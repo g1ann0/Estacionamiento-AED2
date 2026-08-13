@@ -10,6 +10,7 @@ const Usuario = require('../models/Usuario');
 const auditoriaService = require('../services/auditoriaService');
 const { enviarMail } = require('../services/mailService');
 const { escribirPdf, generarBuffer, nombreArchivo, numeroFormateado } = require('../services/comprobanteEstadiaPdf');
+const { aTexto, paginar, totalPaginas, rangoDeFechas, regexContiene } = require('../utils/consultas');
 
 // Estado de la facturación electrónica: si está configurada, cuántos comprobantes esperan CAE
 // y cuántos quedaron con error. Es lo que el panel muestra arriba de la lista — una cola que
@@ -111,25 +112,22 @@ const reconciliarFiscal = async (req, res, next) => {
 
 const listar = async (req, res, next) => {
   try {
-    const { desde, hasta, medioPago, estado, q, pagina = 1, limite = 25 } = req.query;
+    const { medioPago, estado, q } = req.query;
+    const { pagina, limite, salto } = paginar(req.query, { porDefecto: 25 });
 
     const filtro = {};
     if (medioPago) filtro.medioPago = medioPago;
     if (estado) filtro.estado = estado;
-    if (desde || hasta) {
-      filtro.fechaEmision = {};
-      if (desde) filtro.fechaEmision.$gte = new Date(desde);
-      // `hasta` llega como fecha sin hora: se toma el día completo, no las 00:00.
-      if (hasta) filtro.fechaEmision.$lte = new Date(`${hasta}T23:59:59.999`);
-    }
+    const rango = rangoDeFechas(req.query, 'emisión');
+    if (rango) filtro.fechaEmision = rango;
 
     // La búsqueda acepta las dos formas en que alguien busca un comprobante: por su número o
     // por la patente del auto. Nadie recuerda el ObjectId de una estadía.
-    if (q?.trim()) {
-      const termino = q.trim();
+    if (aTexto(q).trim()) {
+      const termino = aTexto(q).trim();
       const soloDigitos = termino.replace(/\D/g, '');
       const estadias = await Estacionamiento.find(
-        { vehiculoDominio: new RegExp(termino.toUpperCase(), 'i') },
+        { vehiculoDominio: regexContiene(termino.toUpperCase()) },
         '_id'
       ).limit(200).lean();
 
@@ -139,12 +137,11 @@ const listar = async (req, res, next) => {
       filtro.$or = alternativas.length ? alternativas : [{ _id: null }];
     }
 
-    const salto = (parseInt(pagina) - 1) * parseInt(limite);
     const [comprobantes, total] = await Promise.all([
       ComprobanteEstadia.find(filtro)
         .sort({ fechaEmision: -1 })
         .skip(salto)
-        .limit(parseInt(limite))
+        .limit(limite)
         .populate('estadiaId', 'vehiculoDominio horaInicio horaFin duracionHoras origen motivoExcepcion')
         // La lista tiene que poder decir "anulado con la NC 00000003" sin una segunda vuelta.
         .populate('anulaA', 'numero numeroFiscal puntoVenta cae')
@@ -153,12 +150,7 @@ const listar = async (req, res, next) => {
       ComprobanteEstadia.countDocuments(filtro)
     ]);
 
-    res.status(200).json({
-      comprobantes,
-      total,
-      pagina: parseInt(pagina),
-      totalPaginas: Math.max(1, Math.ceil(total / parseInt(limite)))
-    });
+    res.status(200).json({ comprobantes, total, pagina, limite, totalPaginas: totalPaginas(total, limite) });
   } catch (error) {
     next(error);
   }
