@@ -2,7 +2,7 @@
 
 > Documento más importante del análisis. Orden determinado por **dependencias técnicas reales** detectadas en los documentos 01-07, no por una plantilla genérica. Cada etapa indica objetivo, estado actual, qué implementar, impacto en Database/Backend/Frontend, dependencias, riesgos, reutilización y criterios de aceptación.
 >
-> **Nota de progreso (post-implementación de Etapa 0)**: la Etapa 0 (correcciones estructurales) ya fue implementada y verificada end-to-end con requests reales — ver commits correspondientes y `backend/scripts/verify-*.js`. Las Etapas 1-7 siguen siendo diseño a implementar.
+> **Nota de progreso**: las Etapas 0 a 7 están implementadas y verificadas end-to-end con requests reales — ver commits y `backend/scripts/verify-*.js` (`verify-etapa1..7`, `verify-authz`, `verify-concurrencia`, `verify-resolver`, `verify-excepcion`). La Etapa 6 además se probó contra **ARCA homologación real** el 2026-08-12 (factura B PV 1 N° 4, CAE 86320756083025; nota de crédito B PV 1 N° 1, CAE 86320756083083). Lo único pendiente del plan es el pasaje de ARCA a **producción**, que no es código: alta del punto de venta para "Factura Electrónica - Web Services", certificado de producción y `ARCA_MOCK=false` en el entorno productivo.
 
 ## Cómo se determinó el orden
 
@@ -250,19 +250,32 @@
 
 ---
 
-## ETAPA 7 — Auditoría avanzada y cierre del ciclo
+## ETAPA 7 — Auditoría avanzada y cierre del ciclo — ✅ IMPLEMENTADA
 
-### Tarea 7.1 — Reportes de cierre de turno y diferencias históricas
+Verificación: `node scripts/verify-etapa7.js` (44/44) y `node scripts/verify-authz.js` (matriz de 3 roles × 20 endpoints + IDOR). Los dos necesitan el servidor levantado con `RATE_LIMIT_OFF=true` y los usuarios de `seed-test-users.js`.
+
+### Tarea 7.1 — Reportes de cierre de turno y diferencias históricas — ✅
 - **Objetivo**: pantallas de histórico de cierres y diferencias de caja (requisito del pedido).
-- **Dependencias**: Etapa 4 completa con datos reales acumulados.
-- **Reutilización**: agregaciones sobre `Turno`/`MovimientoCaja`.
-- **Referencia CGAS**: vistas `Views_CierreTurno_PLAYA.sql`/`Views_CierreTurno_SHOP.sql` — clasificación B (concepto de vistas de reporte, no las vistas en sí).
-- **Criterios de aceptación**: un admin puede ver el histórico de diferencias de caja por operador/caja/período.
+- **Implementado**:
+  - `GET /api/turnos` acepta `cajaId`, `operadorId`, `estado`, `desde`, `hasta`, con página y límite acotados (máximo 100 por página).
+  - `GET /api/reportes/cierres` (admin) devuelve el acumulado: totales, desglose por operador y por caja. **Faltante y sobrante se suman por separado y en positivo**: un operador con −$5.000 un día y +$5.000 otro tiene neto cero y dos arqueos para revisar, y el neto solo esconde exactamente eso. Los turnos **anulados quedan fuera del acumulado** (siguen listados en la pantalla, porque hay que poder encontrarlos, pero su diferencia no es plata faltante).
+  - `backend/utils/filtroTurnos.js` centraliza el filtro para que la lista y el acumulado no puedan divergir. Ahí se resuelve además que `desde`/`hasta` se interpreten en hora local: `new Date('2026-08-11')` es medianoche UTC, o sea el 10 a las 21:00 en Argentina, y el filtro perdía el día pedido.
+  - Pantalla `Cierres` con filtros de caja/operador/período, tablero de faltante y sobrante acumulados, y tabla "Por operador" que al hacer clic filtra por esa persona.
+  - Corregido de paso: `Caja → Cierres` estaba en el menú del operador y llevaba a dos endpoints admin-only, o sea a un 403.
+- **Criterios de aceptación**: cumplidos — un admin ve el histórico de diferencias por operador, caja y período.
 
-### Tarea 7.2 — Endurecimiento final (revisión de seguridad integral)
-- **Objetivo**: revalidar toda la superficie nueva (Etapas 1-6) contra los mismos criterios de la Etapa 0 (permisos, transacciones, secretos).
-- **Dependencias**: todas las etapas anteriores.
-- **Criterios de aceptación**: checklist de seguridad OWASP Top 10 aplicado a los endpoints nuevos, sin hallazgos críticos abiertos.
+### Tarea 7.2 — Endurecimiento final (revisión de seguridad integral) — ✅
+- **Objetivo**: revalidar toda la superficie nueva (Etapas 1-6) contra los mismos criterios de la Etapa 0.
+- **Hallazgos corregidos**:
+  - **El turno no tenía dueño.** Cualquier `operador` podía, cambiando el id en la URL, leer los movimientos, los contadores y el **resumen de cierre** del turno de otro —que trae justo los importes que la caja ciega le oculta a quien está por contar el cajón—, registrar movimientos en su caja y hasta cerrárselo. Ahora el operador solo opera su turno; el admin entra a todos, que es su función.
+  - **Sin límite de intentos en la superficie sin token.** El login era un oráculo de contraseñas consultable sin costo y `solicitar-recuperacion` un botón para inundar de mails la casilla de cualquier cliente. Se agregó `middlewares/rateLimit.js` (ventana fija en memoria, sin dependencias nuevas): 20 intentos / 15 min para login y tokens, 5 / hora para lo que dispara correo. `RATE_LIMIT_OFF=true` lo apaga en desarrollo y en los scripts de verificación.
+  - **Ids mal formados devolvían 500.** `cajaId`, `operadorId`, fechas y estados inválidos ahora responden 400; un turno o comprobante inexistente responde 404.
+  - **Paginación sin techo.** `limite=999999` convertía una pantalla paginada en un volcado de la colección.
+  - Secretos: verificado que `.gitignore` cubre `.env`, `backend/certs/`, `*.key`, `*.crt` y `*.p12`, y que no hay ninguno versionado.
+- **Criterios de aceptación**: cumplidos — `verify-authz.js` cubre ahora las 20 rutas de la superficie nueva contra los tres roles, más IDOR y acceso sin token.
+
+### Tarea 6.2 (cierre) — reconciliación automática — ✅
+La reconciliación con ARCA existía como acción manual del panel. Un descuadre fiscal que solo se detecta cuando alguien se acuerda de apretar el botón no se detecta: ahora el worker la corre cada 6 horas (`ARCA_RECONCILIACION_INTERVALO_MS`, `0` la apaga), compartiendo cerrojo con la emisión para no pisar la numeración correlativa de ARCA. Los huérfanos se registran en el log para revisión manual, nunca se inventan datos.
 
 ---
 
@@ -274,25 +287,23 @@ A diferencia de CGAS —que mantiene **dos representaciones de esquema convivien
 
 ## Matriz Final de Funcionalidades
 
-| Funcionalidad | Existe | Completa | Falta BE | Falta FE | Falta DB | Falta ARCA | Prioridad |
-|---|---|---|---|---|---|---|---|
-| Ingreso vehículo (cliente registrado) | Sí | Parcial (3 implementaciones) → unificado en Etapa 0 | — | No | No | — | Alta (Etapa 0 ✅) |
-| Egreso vehículo (cliente registrado) | Sí | Parcial → transacciones/concurrencia en Etapa 0 | — | No | No | — | Alta (Etapa 0 ✅) |
-| Estadía | Sí | Parcial | Ver Etapa 2 | No | Campos nuevos (Etapa 2) | — | Alta |
-| Tarifas | Sí | Básico | Franjas horarias/feriados (fuera de alcance mínimo) | No | No | — | Media |
-| Cliente registrado | Sí | Sí | No | No | No | — | — |
-| Cliente ocasional | **No** | — | Sí (Etapa 2) | Sí | Sí | — | **Crítica** |
-| Ingreso manual | **No** | — | Sí (Etapa 5) | Sí | — (reutiliza Etapa 2) | — | **Crítica** |
-| Egreso manual | **No** | — | Sí (Etapa 5) | Sí | — | — | **Crítica** |
-| Pagos (medios de pago) | Parcial (solo saldo prepago) | No | Sí (Etapa 3) | Sí | Sí | — | **Crítica** |
-| Caja | **No** | — | Sí (Etapa 4) | Sí | Sí | — | **Crítica** |
-| Apertura turno | **No** | — | Sí (Etapa 4) | Sí | Sí | — | **Crítica** |
-| Cierre turno | **No** | — | Sí (Etapa 4) | Sí | Sí | — | **Crítica** |
-| Movimientos caja | **No** | — | Sí (Etapa 4) | Sí | Sí | — | Alta |
-| Facturación (comprobante de estadía) | **No** (solo recarga de saldo) | No | Sí (Etapa 3) | Sí | Sí | Sí | Alta |
-| ARCA | **No** | — | Sí (Etapa 6) | Sí | Sí | Sí | Media (posterior al núcleo operativo) |
-| Comprobantes | Parcial (recarga de saldo) | No | Sí | Sí | Sí | Sí | Alta |
-| Auditoría | Parcial (4 logs ad-hoc) | No | Sí (Etapa 1.2) | Sí | Sí | — | Alta |
-| Permisos | Roto (2 roles, aplicación inconsistente) | Corregido en Etapa 0 | Sí (Etapa 0.1 + 1.1) | Sí | Sí (enum rol) | — | **Crítica** (Etapa 0 ✅ parcial) |
-| Anulaciones | Parcial (solo facturas de recarga) | No | Sí | Sí | Sí | — | Media |
-| Reembolsos | **No** | — | Sí (Etapa 6, vía `MovimientoCaja` tipo `devolucion`) | Sí | — (reutiliza) | — | Media |
+Estado al cierre de la Etapa 7. La columna "Falta" es lo que queda, no lo que faltaba cuando se escribió el plan.
+
+| Funcionalidad | Estado | Dónde vive | Falta |
+|---|---|---|---|
+| Ingreso / egreso de vehículo | ✅ | `estadiaService` (único punto de entrada, transaccional) | — |
+| Estadía con cliente ocasional | ✅ | Etapa 2 | — |
+| Tarifas | ✅ básico | Etapa previa | Franjas horarias y feriados: fuera del alcance acordado |
+| Ingreso / egreso manual desde caja | ✅ | Etapa 5 | — |
+| Medios de pago | ✅ | Etapa 3 | — |
+| Caja, apertura y cierre de turno | ✅ | Etapa 4 | — |
+| Movimientos de caja | ✅ | Etapa 4 | — |
+| Comprobante de estadía | ✅ | Etapa 3 | — |
+| ARCA (WSAA + WSFE) | ✅ probado en homologación real | Etapa 6 | Alta del punto de venta y certificado de **producción** (trámite, no código) |
+| Reconciliación con ARCA | ✅ manual y automática | Tarea 6.2 + worker | — |
+| Anulaciones (nota de crédito) | ✅ | Etapa 6 | — |
+| Auditoría (`AuditLog` genérico) | ✅ | Etapa 1.2 | — |
+| Permisos por rol (cliente / operador / admin) | ✅ | Etapas 0.1, 1.1 y 7.2 | — |
+| Histórico de cierres y diferencias | ✅ | Etapa 7.1 | — |
+| Reembolsos | ✅ vía `MovimientoCaja` (`egreso` manual con motivo) | Etapa 4.2 | Un tipo `devolucion` propio, si el negocio pide distinguirlo del resto de los egresos |
+| Migraciones de esquema versionadas | ⚠️ | `scripts/migracion*.js` ad-hoc | `migrate-mongo` u otra herramienta, recomendado en la nota de arriba |

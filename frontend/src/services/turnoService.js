@@ -52,9 +52,11 @@ export const obtenerContadores = async (turnoId) => {
   return await res.json();
 };
 
-export const listarTurnos = async ({ estado, pagina = 1, limite = 20 } = {}) => {
+export const listarTurnos = async ({ estado, cajaId, operadorId, desde, hasta, pagina = 1, limite = 20 } = {}) => {
   const params = new URLSearchParams({ pagina: String(pagina), limite: String(limite) });
-  if (estado) params.set('estado', estado);
+  for (const [clave, valor] of Object.entries({ estado, cajaId, operadorId, desde, hasta })) {
+    if (valor) params.set(clave, String(valor));
+  }
   const res = await fetch(`${API_URL}/turnos?${params}`, { headers: authHeaders() });
   if (!res.ok) throw new Error((await res.json()).mensaje || 'Error al listar los turnos');
   return await res.json();

@@ -36,6 +36,12 @@ async function abrirTurno({ cajaId, operadorId, montoInicial, session }) {
     return turno;
   } catch (error) {
     if (error.code === 11000) {
+      // Los dos índices únicos de Turno chocan con el mismo código. Decir siempre "ya hay un
+      // turno abierto" ante una colisión de numeración manda a buscar un turno que no existe:
+      // el mensaje tiene que nombrar el problema real.
+      if (error.keyPattern?.numero) {
+        throw new ErrorResponse(`Ya existe el turno N° ${numero} en esta caja (numeración desincronizada)`, 409);
+      }
       throw new ErrorResponse('Ya existe un turno abierto para esta caja', 409);
     }
     throw error;

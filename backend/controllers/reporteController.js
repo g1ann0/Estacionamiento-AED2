@@ -8,6 +8,7 @@
 const MovimientoCaja = require('../models/MovimientoCaja');
 const Estacionamiento = require('../models/Estacionamiento');
 const Turno = require('../models/Turno');
+const { construirFiltroDeTurnos } = require('../utils/filtroTurnos');
 
 // Rango por defecto: los últimos 30 días. Un reporte sin filtros que barre toda la historia
 // no responde ninguna pregunta real y cuesta lo mismo que la peor consulta posible.
@@ -136,4 +137,100 @@ const ocupacion = async (req, res, next) => {
   }
 };
 
-module.exports = { recaudacion, ocupacion };
+// Diferencias de caja históricas (Etapa 7.1). Es la pregunta del dueño después del cierre:
+// "quién, en qué caja y en qué período tuvo diferencias, y de cuánto".
+//
+// Solo entran los turnos CERRADOS. Un turno anulado sigue apareciendo en la lista de cierres
+// —hay que poder encontrarlo— pero su diferencia ya no cuenta como plata faltante: sumarla
+// acá le inventaría un faltante al operador por un arqueo que se dio de baja.
+//
+// Faltante y sobrante se suman por separado y en positivo. Un operador con -$5.000 un día y
+// +$5.000 otro tiene neto cero y dos diferencias que revisar: el neto solo, sin los dos
+// costados, es exactamente el número que oculta el problema.
+const agrupar = (por) => [
+  {
+    $group: {
+      _id: `$${por}`,
+      turnos: { $sum: 1 },
+      esperado: { $sum: '$montoEsperadoCierre' },
+      declarado: { $sum: '$montoDeclaradoCierre' },
+      diferenciaNeta: { $sum: '$diferencia' },
+      faltante: { $sum: { $cond: [{ $lt: ['$diferencia', 0] }, { $abs: '$diferencia' }, 0] } },
+      sobrante: { $sum: { $cond: [{ $gt: ['$diferencia', 0] }, '$diferencia', 0] } },
+      conDiferencia: { $sum: { $cond: [{ $ne: ['$diferencia', 0] }, 1, 0] } },
+      ultimoCierre: { $max: '$fechaCierre' }
+    }
+  },
+  // Ordenado por magnitud del descuadre, no por fecha: el que más se aparta va arriba, que es
+  // el que hay que mirar. `$sum` sobre las dos columnas ya positivas evita comparar signos.
+  { $sort: { faltante: -1, sobrante: -1 } }
+];
+
+const cierres = async (req, res, next) => {
+  try {
+    // Sin fechas se mira toda la historia: un turno por operador y por día es un volumen que
+    // aguanta la agregación completa, y acotar por defecto escondería justamente el cierre
+    // viejo que alguien vino a buscar.
+    const filtro = { ...construirFiltroDeTurnos(req.query), estado: 'cerrado' };
+
+    const [resultado] = await Turno.aggregate([
+      { $match: filtro },
+      {
+        $facet: {
+          totales: [
+            {
+              $group: {
+                _id: null,
+                turnos: { $sum: 1 },
+                esperado: { $sum: '$montoEsperadoCierre' },
+                declarado: { $sum: '$montoDeclaradoCierre' },
+                diferenciaNeta: { $sum: '$diferencia' },
+                faltante: { $sum: { $cond: [{ $lt: ['$diferencia', 0] }, { $abs: '$diferencia' }, 0] } },
+                sobrante: { $sum: { $cond: [{ $gt: ['$diferencia', 0] }, '$diferencia', 0] } },
+                conDiferencia: { $sum: { $cond: [{ $ne: ['$diferencia', 0] }, 1, 0] } }
+              }
+            }
+          ],
+          porOperador: [
+            ...agrupar('operadorId'),
+            { $lookup: { from: 'usuarios', localField: '_id', foreignField: '_id', as: 'operador' } },
+            {
+              $addFields: {
+                operador: {
+                  $let: {
+                    vars: { o: { $first: '$operador' } },
+                    in: { _id: '$$o._id', nombre: '$$o.nombre', apellido: '$$o.apellido', dni: '$$o.dni' }
+                  }
+                }
+              }
+            }
+          ],
+          porCaja: [
+            ...agrupar('cajaId'),
+            { $lookup: { from: 'cajas', localField: '_id', foreignField: '_id', as: 'caja' } },
+            {
+              $addFields: {
+                caja: {
+                  $let: { vars: { c: { $first: '$caja' } }, in: { _id: '$$c._id', nombre: '$$c.nombre' } }
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]);
+
+    const vacio = { turnos: 0, esperado: 0, declarado: 0, diferenciaNeta: 0, faltante: 0, sobrante: 0, conDiferencia: 0 };
+    const { _id, ...totales } = resultado?.totales?.[0] ?? vacio;
+
+    res.status(200).json({
+      totales,
+      porOperador: resultado?.porOperador ?? [],
+      porCaja: resultado?.porCaja ?? []
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { recaudacion, ocupacion, cierres };

@@ -118,6 +118,11 @@ export const reporteRecaudacion = async (rango = {}) =>
 export const reporteOcupacion = async (rango = {}) =>
   leer(await fetch(`${API}/reportes/ocupacion?${query(rango)}`, { headers: authHeaders() }), 'Error al calcular la ocupación');
 
+// Diferencias de caja acumuladas, con los mismos filtros que el histórico de cierres: la
+// pantalla muestra las filas y este endpoint el total de esas mismas filas.
+export const reporteCierres = async (filtros = {}) =>
+  leer(await fetch(`${API}/reportes/cierres?${query(filtros)}`, { headers: authHeaders() }), 'Error al calcular las diferencias de caja');
+
 // ---------------------------------------------------------------- Auditoría --
 
 export const listarAuditoria = async (filtros = {}) =>

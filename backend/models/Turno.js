@@ -28,4 +28,9 @@ TurnoSchema.index(
 );
 TurnoSchema.index({ cajaId: 1, numero: 1 }, { unique: true });
 
+// Histórico de cierres y reporte de diferencias (Etapa 7.1): las dos pantallas filtran por
+// operador o por caja y ordenan por fecha de apertura.
+TurnoSchema.index({ estado: 1, fechaApertura: -1 });
+TurnoSchema.index({ operadorId: 1, fechaApertura: -1 });
+
 module.exports = mongoose.model('Turno', TurnoSchema);

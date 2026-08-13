@@ -40,7 +40,10 @@ export const NAVEGACION = [
     items: [
       { etiqueta: 'Turno actual', ruta: '/admin/caja/turno' },
       { etiqueta: 'Movimientos', ruta: '/admin/caja/movimientos' },
-      { etiqueta: 'Cierres', ruta: '/admin/caja/cierres' }
+      // Los cierres son del dueño, no del cajero: la pantalla vive del histórico de arqueos
+      // (`GET /api/turnos`) y del acumulado de diferencias, dos endpoints admin-only. Sin este
+      // filtro el operador veía la opción en el menú y entraba a un error 403.
+      { etiqueta: 'Cierres', ruta: '/admin/caja/cierres', roles: ['admin'] }
     ]
   },
   {

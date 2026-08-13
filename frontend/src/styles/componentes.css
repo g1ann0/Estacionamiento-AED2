@@ -33,6 +33,17 @@
   max-width: 68ch;
 }
 
+/* Título de una sección dentro de la pantalla: un escalón por debajo del título, no dos.
+   Se usa cuando una pantalla tiene dos tablas que responden preguntas distintas y hace falta
+   nombrarlas para que el ojo no las lea como una sola lista partida. */
+.pantalla-subtitulo {
+  font-size: var(--texto-lg);
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
 .pantalla-cargando { color: var(--text-muted); padding: 24px 0; }
 
 /* --------------------------------------------------------------- Mensajes -- */

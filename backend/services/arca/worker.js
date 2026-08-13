@@ -12,14 +12,22 @@
 //     minuto para descubrir que le falta el certificado solo llena el log.
 
 const { estadoIntegracion } = require('./index');
-const { procesarPendientes } = require('../facturacionElectronicaService');
+const { procesarPendientes, reconciliar } = require('../facturacionElectronicaService');
 
 const INTERVALO_MS = Number(process.env.ARCA_WORKER_INTERVALO_MS || 5 * 60 * 1000);
 const LOTE = Number(process.env.ARCA_WORKER_LOTE || 20);
+// Reconciliación periódica (Tarea 6.2). El CAE y el commit local están en dos sistemas y no
+// pueden ser atómicos: si el proceso se corta en el medio, ARCA queda con un comprobante
+// autorizado que acá no figura. La corrida manual desde el panel existe, pero un descuadre
+// fiscal que solo se detecta cuando alguien se acuerda de apretar el botón no se detecta.
+// Cada 6 horas por defecto; 0 la apaga.
+const RECONCILIACION_MS = Number(process.env.ARCA_RECONCILIACION_INTERVALO_MS ?? 6 * 60 * 60 * 1000);
 
 let temporizador = null;
+let temporizadorReconciliacion = null;
 let corriendo = false;
 let ultimaCorrida = null;
+let ultimaReconciliacion = null;
 
 async function correrUnaVez() {
   if (corriendo) return { omitido: 'ya hay una corrida en curso' };
@@ -52,6 +60,39 @@ async function correrUnaVez() {
   }
 }
 
+// Comparte el mismo cerrojo que la emisión: las dos hablan con el mismo punto de venta y la
+// numeración de ARCA es correlativa, así que pisarse produce el 10016 que después hay que
+// reintentar. Si el worker está emitiendo, la reconciliación espera a la vuelta siguiente.
+async function reconciliarUnaVez() {
+  if (corriendo) return { omitido: 'hay una corrida de emisión en curso' };
+
+  corriendo = true;
+  try {
+    const resultado = await reconciliar();
+    ultimaReconciliacion = { ...resultado, cuando: new Date() };
+
+    // Silencio cuando todo cierra: el log solo habla cuando hay algo que mirar.
+    if (resultado.faltantes > 0) {
+      console.warn(
+        `[ARCA] reconciliación: ${resultado.faltantes} comprobante(s) de diferencia con ARCA ` +
+        `(último en ARCA ${resultado.ultimoEnArca}, local ${resultado.ultimoLocal}); ` +
+        `${resultado.vinculados.length} vinculado(s), ${resultado.huerfanos.length} huérfano(s)`
+      );
+      for (const huerfano of resultado.huerfanos) {
+        console.warn(`[ARCA] huérfano N° ${huerfano.numero} (CAE ${huerfano.cae}, $${huerfano.importeTotal}): requiere revisión manual`);
+      }
+    }
+
+    return ultimaReconciliacion;
+  } catch (error) {
+    console.error('[ARCA] la reconciliación falló:', error.message);
+    ultimaReconciliacion = { error: error.message, cuando: new Date() };
+    return ultimaReconciliacion;
+  } finally {
+    corriendo = false;
+  }
+}
+
 function iniciar() {
   const estado = estadoIntegracion();
 
@@ -74,12 +115,24 @@ function iniciar() {
   // Primera corrida en diferido: el arranque del servidor no se demora esperando a ARCA.
   setTimeout(correrUnaVez, 10000).unref?.();
 
+  if (RECONCILIACION_MS > 0) {
+    console.log(`[ARCA] reconciliación automática cada ${Math.round(RECONCILIACION_MS / 60000)} min`);
+    temporizadorReconciliacion = setInterval(reconciliarUnaVez, RECONCILIACION_MS);
+    temporizadorReconciliacion.unref?.();
+    // La primera va un minuto después del arranque, ya con la emisión pendiente despachada.
+    setTimeout(reconciliarUnaVez, 60000).unref?.();
+  } else {
+    console.log('[ARCA] reconciliación automática apagada (ARCA_RECONCILIACION_INTERVALO_MS=0)');
+  }
+
   return temporizador;
 }
 
 function detener() {
   if (temporizador) clearInterval(temporizador);
+  if (temporizadorReconciliacion) clearInterval(temporizadorReconciliacion);
   temporizador = null;
+  temporizadorReconciliacion = null;
 }
 
 const estadoWorker = () => ({
@@ -87,7 +140,12 @@ const estadoWorker = () => ({
   corriendo,
   intervaloMs: INTERVALO_MS,
   lote: LOTE,
-  ultimaCorrida
+  ultimaCorrida,
+  reconciliacion: {
+    activa: Boolean(temporizadorReconciliacion),
+    intervaloMs: RECONCILIACION_MS,
+    ultima: ultimaReconciliacion
+  }
 });
 
-module.exports = { iniciar, detener, correrUnaVez, estadoWorker };
+module.exports = { iniciar, detener, correrUnaVez, reconciliarUnaVez, estadoWorker };

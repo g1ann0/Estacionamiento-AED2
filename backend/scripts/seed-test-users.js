@@ -11,6 +11,10 @@ const Transaccion = require('../models/Transaccion');
 const TEST_ADMIN = { dni: '90000001', email: 'test-admin@verify.local', nombre: 'Test', apellido: 'Admin', rol: 'admin' };
 const TEST_CLIENTE = { dni: '90000002', email: 'test-cliente@verify.local', nombre: 'Test', apellido: 'Cliente', rol: 'cliente' };
 const TEST_CLIENTE2 = { dni: '90000003', email: 'test-cliente2@verify.local', nombre: 'Test', apellido: 'Cliente2', rol: 'cliente' };
+// Dos operadores, no uno: la mitad de lo que hay que probar en la Etapa 7 es que el turno de
+// uno no lo toca el otro, y eso no se puede verificar con un solo cajero.
+const TEST_OPERADOR = { dni: '90000004', email: 'test-operador@verify.local', nombre: 'Test', apellido: 'Operador', rol: 'operador' };
+const TEST_OPERADOR2 = { dni: '90000005', email: 'test-operador2@verify.local', nombre: 'Test', apellido: 'Operador2', rol: 'operador' };
 const TEST_DOMINIO = 'TEST001';
 const PASSWORD = 'Test1234!';
 
@@ -18,7 +22,7 @@ async function seed() {
   await mongoose.connect(process.env.MONGODB_URI);
   const passwordHash = await bcrypt.hash(PASSWORD, 10);
 
-  for (const datos of [TEST_ADMIN, TEST_CLIENTE, TEST_CLIENTE2]) {
+  for (const datos of [TEST_ADMIN, TEST_CLIENTE, TEST_CLIENTE2, TEST_OPERADOR, TEST_OPERADOR2]) {
     await Usuario.findOneAndUpdate(
       { dni: datos.dni },
       { ...datos, password: passwordHash, verificado: true, activo: true, montoDisponible: 100000 },
@@ -34,13 +38,13 @@ async function seed() {
   );
 
   console.log('Usuarios/vehículo de prueba listos.');
-  console.log(JSON.stringify({ TEST_ADMIN, TEST_CLIENTE, TEST_CLIENTE2, TEST_DOMINIO, PASSWORD }, null, 2));
+  console.log(JSON.stringify({ TEST_ADMIN, TEST_CLIENTE, TEST_CLIENTE2, TEST_OPERADOR, TEST_OPERADOR2, TEST_DOMINIO, PASSWORD }, null, 2));
   await mongoose.disconnect();
 }
 
 async function cleanup() {
   await mongoose.connect(process.env.MONGODB_URI);
-  const dnis = [TEST_ADMIN.dni, TEST_CLIENTE.dni, TEST_CLIENTE2.dni];
+  const dnis = [TEST_ADMIN.dni, TEST_CLIENTE.dni, TEST_CLIENTE2.dni, TEST_OPERADOR.dni, TEST_OPERADOR2.dni];
   await Estacionamiento.deleteMany({ vehiculoDominio: TEST_DOMINIO });
   await Transaccion.deleteMany({ 'vehiculo.dominio': TEST_DOMINIO });
   await Vehiculo.deleteMany({ dominio: TEST_DOMINIO });
@@ -58,4 +62,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { TEST_ADMIN, TEST_CLIENTE, TEST_CLIENTE2, TEST_DOMINIO, PASSWORD, seed, cleanup };
+module.exports = { TEST_ADMIN, TEST_CLIENTE, TEST_CLIENTE2, TEST_OPERADOR, TEST_OPERADOR2, TEST_DOMINIO, PASSWORD, seed, cleanup };
