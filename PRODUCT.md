@@ -60,7 +60,7 @@ Es un producto en producción con plata real de por medio, no una demo. La difer
 
 **Explícitamente indeciso / pendiente**
 
-- **Facturación fiscal.** El objetivo confirmado es ARCA real, sin modo mock permanente, pero hoy **todo comprobante se emite como `ticket` no fiscal, sin CAE**, en estado `emitido` (ver `backend/services/comprobanteEstadiaService.js`). La integración es Etapa 6. Ningún trabajo futuro puede presentar un comprobante actual como fiscal ni mostrar CAE inventado.
+- **Facturación fiscal.** La integración con ARCA (Etapa 6) está implementada y probada contra **homologación real** el 2026-08-12: factura B con CAE y nota de crédito asociada. Lo que falta es el pasaje a producción, que depende del CUIT de quien va a facturar y no se puede adelantar — ver `docs/analisis-gap-cgas/10`. Mientras el certificado de producción no exista, los comprobantes se emiten como **ticket no fiscal, sin CAE**, y la interfaz lo dice: ningún trabajo futuro puede presentarlos como fiscales ni mostrar un CAE inventado.
 
 ## Brand Commitments
 
@@ -70,11 +70,11 @@ No hay identidad de marca confirmada más allá de eso. `theme.css` es la fuente
 
 ## Evidence on Hand
 
-- Documentación técnica propia: `Informe_Tecnico.md`, `Informe_Tecnico_Limpio.md`, `EXPLICACIONES.md`, `TARIFAS_PERSONALIZADAS.md`, `RECUPERACION_PASSWORD.md`, `PERFIL_USUARIO.md`, `SEO_GUIDE.md`, `PROYECTO_COMPLETO_SEO.md`, `SEO_REPORT.json`.
-- Análisis y plan por etapas en `docs/analisis-gap-cgas/` (8 documentos).
+- Análisis y plan por etapas en `docs/analisis-gap-cgas/` (10 documentos), rediseño del panel en `docs/rediseno-admin/`.
+- Documentación operativa: `docs/tarifas.md`, `docs/despliegue-produccion.md`, `docs/auditoria-seguridad.md`.
+- La documentación académica de la cursada y los informes de SEO se retiraron del repositorio: describían un sistema anterior a las Etapas 0-7 y contradecían al código.
 - Assets sueltos en la raíz: `car icon.png` y una imagen `.jpg` sin uso confirmado.
 - **No hay** testimonios, clientes nombrados, benchmarks publicados, pricing comercial ni datos de uso real. Nada de eso se puede inventar.
-- **Advertencia sobre el README**: declara React 19.1.0, MongoDB como stack, badges "A11y AAA" / "Performance A+" y metas de Core Web Vitals. El `package.json` fija React 18. Los badges y las metas son aspiracionales, no medidos. Tratar el README como marketing viejo, no como evidencia.
 
 ## Product Principles
 

@@ -15,6 +15,9 @@ backend/certs/
 *.key
 *.crt
 
+# Reporte generado por scripts/optimizeSEO.js: es una salida, no una fuente.
+SEO_REPORT.json
+
 # Logs
 *.log
 npm-debug.log*

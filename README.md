@@ -1,308 +1,92 @@
-# Sistema de Gestión de Estacionamiento 🚗
+# Sistema de gestión de estacionamiento
 
-Sistema inteligente para la gestión y administración de estacionamientos con control de acceso automatizado y optimizaciones avanzadas de SEO.
+Software de playa de estacionamiento: control de entradas y salidas, cobro por mostrador o por saldo prepago, caja con turnos y arqueo, y facturación electrónica ante ARCA.
 
-## 🌟 Características Principales
-
-- **Gestión de Usuarios**: Registro, autenticación y gestión de perfiles
-- **Control de Vehículos**: Registro y gestión de vehículos por usuario
-- **Sistema de Pagos**: Gestión de saldos y transacciones
-- **Panel Administrativo**: Control total del sistema para administradores
-- **Reportes y Auditoría**: Seguimiento completo de actividades
-- **PWA Ready**: Aplicación web progresiva optimizada
-- **SEO Optimizado**: Cumple con las normativas de Google para búsquedas
-
-## 🚀 Optimizaciones SEO Implementadas
-
-### ✅ Core Web Vitals
-- **LCP (Largest Contentful Paint)**: < 2.5s
-- **FID (First Input Delay)**: < 100ms
-- **CLS (Cumulative Layout Shift)**: < 0.1
-- **FCP (First Contentful Paint)**: < 1.8s
-- **TTFB (Time to First Byte)**: < 600ms
-
-### ✅ SEO Técnico
-- Meta tags dinámicos con react-helmet-async
-- Open Graph y Twitter Cards
-- Structured Data (Schema.org)
-- Sitemap.xml automático
-- Robots.txt optimizado
-- URLs canónicas
-- Headers de seguridad
-
-### ✅ Performance
-- Lazy loading de componentes
-- Code splitting automático
-- Service Worker para PWA
-- Cache estratégico de recursos
-- Compresión gzip/brotli
-- Optimización de imágenes
-
-### ✅ Accesibilidad
-- Semantic HTML
-- ARIA labels apropiados
-- Contraste de colores optimizado
-- Navegación por teclado
-- Screen reader friendly
-
-## 📊 Monitoreo y Analytics
-
-### Web Vitals Tracking
-```javascript
-// Monitoreo automático en tiempo real
-- Core Web Vitals (LCP, FID, CLS, FCP, TTFB)
-- Performance metrics
-- Error tracking
-- User experience metrics
-```
-
-### Herramientas de Análisis
-- Google Analytics integration
-- Lighthouse CI
-- Bundle analyzer
-- Performance monitoring
-- SEO reporting
-
-## 🛠️ Tecnologías Utilizadas
-
-### Frontend
-- **React 19.1.0**: Framework principal
-- **React Router DOM**: Navegación SPA
-- **React Helmet Async**: SEO y meta tags
-- **Web Vitals**: Métricas de rendimiento
-- **Workbox**: Service Worker y PWA
-
-### Backend
-- **Node.js + Express**: Servidor y API REST
-- **MongoDB + Mongoose**: Base de datos
-- **JWT**: Autenticación segura
-- **Multer**: Manejo de archivos
-
-### SEO y Performance
-- **Sitemap dinámico**: Generación automática
-- **Structured Data**: Schema.org markup
-- **PWA**: Service Worker + Manifest
-- **Critical CSS**: Inline de estilos críticos
-- **Lazy Loading**: Carga bajo demanda
-
-## 📦 Instalación y Configuración
-
-### Prerrequisitos
-- Node.js 16+ 
-- MongoDB 4.4+
-- npm o yarn
-
-### Instalación
-
-1. **Clonar el repositorio**
-```bash
-git clone https://github.com/g1ann0/estaciongian.git
-cd estaciongian
-```
-
-2. **Instalar dependencias del backend**
-```bash
-cd backend
-npm install
-```
-
-3. **Instalar dependencias del frontend**
-```bash
-cd ../frontend
-npm install
-```
-
-4. **Configurar variables de entorno**
-```bash
-# backend/.env
-MONGODB_URI=mongodb://localhost:27017/estacionamiento
-JWT_SECRET=tu_jwt_secret_muy_seguro
-PORT=3000
-NODE_ENV=development
-BASE_URL=http://localhost:3000
-```
-
-5. **Inicializar la base de datos**
-```bash
-cd backend
-npm run setup
-```
-
-## 🚀 Scripts Disponibles
-
-### Backend
-```bash
-# Desarrollo
-npm start                    # Iniciar servidor
-npm run dev                  # Desarrollo con nodemon
-npm run setup               # Configurar sistema inicial
-npm run clean               # Limpiar base de datos
-npm run seo:optimize        # Optimizar SEO
-
-# Producción
-npm run prod                # Iniciar en producción
-```
-
-### Frontend
-```bash
-# Desarrollo
-npm start                   # Servidor de desarrollo
-npm run start:local        # Solo localhost
-npm run start:host         # Red local
-
-# Construcción y análisis
-npm run build              # Build para producción
-npm run serve              # Servir build localmente
-npm run analyze            # Análisis de bundle
-npm run lighthouse         # Auditoría de rendimiento
-npm run test:seo          # Test completo de SEO
-```
-
-## 📈 Comandos de Optimización SEO
-
-### Análisis de Rendimiento
-```bash
-# Auditoría completa con Lighthouse
-npm run lighthouse
-
-# Análisis de tamaño de bundle
-npm run analyze
-
-# Test de SEO completo
-npm run test:seo
-
-# Optimización automática
-npm run seo:optimize
-```
-
-### Generación de Reportes
-```bash
-# Generar sitemap
-node scripts/generateSitemap.js
-
-# Optimizar SEO
-node scripts/optimizeSEO.js
-
-# Análisis de Core Web Vitals
-node scripts/webVitalsReport.js
-```
-
-## 🔧 Configuración Avanzada
-
-### PWA Configuration
-```json
-{
-  "name": "Sistema de Gestión de Estacionamiento",
-  "short_name": "Estacionamiento",
-  "theme_color": "#007bff",
-  "background_color": "#ffffff",
-  "display": "standalone",
-  "orientation": "portrait",
-  "scope": "/",
-  "start_url": "/"
-}
-```
-
-### Service Worker
-- Cache strategies optimizadas
-- Offline functionality
-- Background sync
-- Push notifications ready
-
-### SEO Meta Tags
-```javascript
-<SEO 
-  title="Tu Título - Sistema de Estacionamiento"
-  description="Descripción optimizada para SEO"
-  keywords="estacionamiento, gestión, control"
-  canonical="/ruta-canonica"
-/>
-```
-
-## 📊 Métricas y Monitoring
-
-### Core Web Vitals Targets
-- **LCP**: < 2.5 segundos
-- **FID**: < 100 milisegundos  
-- **CLS**: < 0.1
-- **FCP**: < 1.8 segundos
-- **TTFB**: < 600 milisegundos
-
-### Performance Budget
-- **Total Bundle Size**: < 500KB
-- **Critical CSS**: < 50KB
-- **Images**: WebP optimized
-- **Fonts**: Subset and preloaded
-
-## 🌐 Deploy y Producción
-
-### Variables de Entorno Producción
-```bash
-NODE_ENV=production
-MONGODB_URI=mongodb://tu-servidor/estacionamiento
-JWT_SECRET=tu_jwt_secret_production
-BASE_URL=https://tu-dominio.com
-```
-
-### Optimizaciones de Servidor
-- Compresión gzip/brotli habilitada
-- Headers de seguridad configurados
-- HTTPS enforced
-- Cache headers optimizados
-
-## 🐛 Debugging y Logs
-
-### Logs de Performance
-```javascript
-// Web Vitals en consola (desarrollo)
-console.log('🔍 Web Vitals:', metric);
-
-// Errores de JavaScript
-console.error('🚨 Error JS:', error);
-
-// Métricas de navegación
-console.log('📊 Performance:', metrics);
-```
-
-### Herramientas de Debug
-- React DevTools
-- Lighthouse DevTools
-- Performance tab
-- Network throttling
-- Coverage analysis
-
-## 🤝 Contribución
-
-1. Fork el proyecto
-2. Crea tu feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit tus cambios (`git commit -m 'Add some AmazingFeature'`)
-4. Push al branch (`git push origin feature/AmazingFeature`)
-5. Abre un Pull Request
-
-## 📄 Licencia
-
-Este proyecto está bajo la Licencia MIT - ver el archivo [LICENSE.md](LICENSE.md) para detalles.
-
-## 📞 Soporte
-
-- **Documentación**: [Wiki del proyecto](https://github.com/g1ann0/estaciongian/wiki)
-- **Issues**: [GitHub Issues](https://github.com/g1ann0/estaciongian/issues)
-- **Discusiones**: [GitHub Discussions](https://github.com/g1ann0/estaciongian/discussions)
-
-## 🎯 Roadmap
-
-- [ ] Notificaciones push
-- [ ] Modo offline completo
-- [ ] Geolocalización de estacionamientos
-- [ ] Integración con sistemas de pago
-- [ ] API REST pública
-- [ ] Dashboard de analytics avanzado
+Está pensado para que el turno cuadre. Todo lo que se cobra deja asiento, todo lo que sale deja comprobante, y todo cambio sensible —precio, saldo, vehículo, configuración— queda auditado con quién, cuándo y por qué.
 
 ---
 
-**Desarrollado con ❤️ para la gestión eficiente de estacionamientos**
+## Qué hace
 
-![SEO Optimized](https://img.shields.io/badge/SEO-Optimized-green)
-![PWA Ready](https://img.shields.io/badge/PWA-Ready-blue)
-![Performance](https://img.shields.io/badge/Performance-A+-brightgreen)
-![Accessibility](https://img.shields.io/badge/A11y-AAA-success)
+- **Terminal de mostrador.** Una patente resuelve todo: si el auto está adentro dice cuánto se cobra y con qué medios de pago; si está afuera, lo hace entrar. Sin cuenta de cliente de por medio.
+- **Cobro** en efectivo, tarjeta, QR/transferencia o saldo prepago. El cobro por caja exige turno abierto: ese dinero necesita dónde conciliarse.
+- **Caja y turnos** con apertura, movimientos manuales, arqueo a ciegas y cierre con diferencia. El operador cuenta el cajón sin ver el total esperado; el dueño ve todo después.
+- **Facturación electrónica ARCA** (WSAA + WSFE), con emisión diferida —el cobro no espera a ARCA—, reintentos, anulación por nota de crédito y reconciliación automática.
+- **Tarifas** por tipo de cliente y de vehículo, con fracción de cobro, recargo nocturno, de fin de semana y de feriado, y tope diario. Todo configurable y todo apagado por defecto.
+- **App del conductor** para ver sus vehículos, sus estadías y sus comprobantes.
+- **Auditoría** de todas las operaciones sensibles, en un solo lugar.
+
+## Stack
+
+Node + Express 5 y MongoDB (Mongoose 9) en el backend. React 19 con Vite en el frontend. Sin framework de UI: el sistema de diseño es propio y vive en `frontend/src/styles/`.
+
+MongoDB tiene que ser un **replica set**, aunque sea de un solo nodo: un cobro son cinco escrituras y sin transacciones no hay forma de revertirlas juntas.
+
+## Cómo se levanta
+
+```bash
+# Backend
+cd backend
+npm install
+cp .env.example .env        # completar JWT_SECRET y MONGODB_URI
+node server.js              # http://localhost:3000
+
+# Frontend (otra terminal)
+cd frontend
+npm install
+npm run dev                 # http://localhost:3001
+```
+
+El primer administrador se crea a mano — no hay credencial por defecto:
+
+```bash
+node scripts/crear-admin.js <email> <dni> <contraseña>
+```
+
+## Scripts
+
+Todos se corren desde `backend/`.
+
+| Para qué | Comando |
+|---|---|
+| Crear o promover un administrador | `node scripts/crear-admin.js <email> <dni> <pass>` |
+| Ver y aplicar migraciones de datos | `node scripts/migrar.js` · `node scripts/migrar.js aplicar` |
+| Usuarios de prueba para las verificaciones | `node scripts/seed-test-users.js` · `... cleanup` |
+| Estado de los servicios de ARCA | `node scripts/arca-estado.js` |
+| Generar clave privada y CSR | `node scripts/arca-generar-csr.js <CUIT> <alias>` |
+| Probar el login contra ARCA | `node scripts/arca-probar-login.js` |
+| Verificar producción **sin emitir nada** | `ARCA_AMBIENTE=produccion node scripts/arca-verificar-produccion.js` |
+
+### Verificaciones
+
+No hay framework de tests: hay scripts que ejercitan el sistema real contra la base y la API, y dicen en castellano qué falló. Necesitan el servidor levantado con `RATE_LIMIT_OFF=true`.
+
+```bash
+node scripts/seed-test-users.js
+BASE_URL=http://localhost:3000 node scripts/verify-seguridad.js   # los agujeros cerrados
+BASE_URL=http://localhost:3000 node scripts/verify-authz.js       # permisos por rol y endpoint
+BASE_URL=http://localhost:3000 node scripts/verify-etapa7.js      # cierres, IDOR de turno, rate limit
+node scripts/verify-tarifas.js                                    # motor de tarifas (no necesita servidor)
+ARCA_MOCK=true node scripts/verify-etapa6.js                      # facturación electrónica
+```
+
+`verify-etapa1` … `verify-etapa7`, `verify-resolver`, `verify-concurrencia` y `verify-excepcion` cubren el resto por etapa.
+
+## Documentación
+
+| Documento | Para qué |
+|---|---|
+| [`PRODUCT.md`](PRODUCT.md) | Qué es el producto, para quién, y qué está decidido |
+| [`docs/despliegue-produccion.md`](docs/despliegue-produccion.md) | Checklist del primer despliegue real |
+| [`docs/tarifas.md`](docs/tarifas.md) | Cómo se calcula lo que se cobra |
+| [`docs/auditoria-seguridad.md`](docs/auditoria-seguridad.md) | Los agujeros que había, cómo se cerraron y qué queda |
+| [`docs/analisis-gap-cgas/08-PLAN-IMPLEMENTACION.md`](docs/analisis-gap-cgas/08-PLAN-IMPLEMENTACION.md) | El plan por etapas y su estado |
+| [`docs/analisis-gap-cgas/10-ARCA-...`](docs/analisis-gap-cgas/10-ARCA-COMO-OBTENER-EL-CERTIFICADO.md) | Certificado de ARCA e instalación en un cliente |
+| [`docs/analisis-gap-cgas/`](docs/analisis-gap-cgas/) 01-07, 09 | El análisis que fundamenta cada decisión del diseño |
+| [`docs/rediseno-admin/`](docs/rediseno-admin/) | El rediseño del panel: propuesta, poda y auditoría de modelos |
+
+## Estado
+
+Etapas 0 a 7 implementadas y verificadas. La integración con ARCA está probada contra **homologación real** (factura B con CAE y su nota de crédito, 2026-08-12).
+
+Lo único pendiente es el pasaje a **producción**, que no es código: el certificado y el punto de venta se emiten contra el CUIT de quien va a facturar. El circuito completo para el día de la instalación está en el documento 10.

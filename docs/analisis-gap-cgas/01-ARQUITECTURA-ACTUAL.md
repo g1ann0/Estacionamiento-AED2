@@ -1,6 +1,6 @@
 # 01 — Arquitectura Actual del Sistema de Estacionamiento
 
-> Alcance: `Estacionamiento-AED2/` (backend + frontend). Fuente: código real, no documentación. Proyecto confirmado como trabajo académico (Instituto Superior Juan XXIII, Tecnicatura en Análisis de Sistemas, "Algoritmos y Estructuras de Datos 2", 2025 — ver [Informe_Tecnico_Limpio.md](../../Informe_Tecnico_Limpio.md)).
+> Alcance: `Estacionamiento-AED2/` (backend + frontend). Fuente: código real, no documentación. Proyecto nacido como trabajo académico (Instituto Superior Juan XXIII, Tecnicatura en Análisis de Sistemas, "Algoritmos y Estructuras de Datos 2", 2025); el informe de la cursada ya no vive en el repositorio.
 
 ## 1. Stack tecnológico confirmado
 
