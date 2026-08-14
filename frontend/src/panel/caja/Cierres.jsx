@@ -188,7 +188,7 @@ export default function Cierres() {
       )}
 
       {resumen && resumen.porOperador.length > 1 && operadorId === TODOS && (
-        <section className="turno-movimientos" aria-label="Diferencias por operador">
+        <section className="turno-movimientos bloque-resumen" aria-label="Diferencias por operador">
           <h2 className="pantalla-subtitulo">Por operador</h2>
           <div className="tabla-contenedor">
             <table className="tabla">

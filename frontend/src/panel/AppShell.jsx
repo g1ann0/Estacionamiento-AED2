@@ -68,6 +68,11 @@ function Sidebar({ colapsada, navegacion, abiertos, alternarGrupo }) {
                   <NavLink
                     key={item.ruta}
                     to={item.ruta}
+                    // `end`: sin esto, el ítem cuya ruta es prefijo de las demás queda marcado
+                    // como activo junto con la pantalla real. Se veía en Configuración, donde
+                    // "Empresa y facturación" (/admin/configuracion) se encendía al entrar a
+                    // Cajas, Usuarios o Feriados, y el menú indicaba dos lugares a la vez.
+                    end
                     className={({ isActive }) => `panel-nav-subitem${isActive ? ' es-activo' : ''}`}
                   >
                     {item.etiqueta}

@@ -9,6 +9,65 @@ const { TIPOS_TARIFA_AUTOMATICA } = require('../utils/tiposTarifa');
 // en vez de arrastrar el modelo entero solo por el formato de respuesta.
 const ACCIONES_PRECIO = ['precio_creacion', 'precio_modificacion', 'precio_eliminacion'];
 
+const TIPOS_VEHICULO = ['todos', 'auto', 'moto'];
+const HORA_VALIDA = /^([01]?\d|2[0-3]):[0-5]\d$/;
+
+// Reglas de cobro que llegan del formulario de tarifas. Todas son opcionales: lo que no viene
+// conserva el comportamiento histórico —hora entera, sin recargos ni tope—, así que una tarifa
+// creada como siempre sigue cobrando como siempre.
+//
+// Se validan acá y no en el modelo porque el mensaje importa: "la fracción debe estar entre 1 y
+// 1440 minutos" se puede leer en el mostrador; un error de validación de Mongoose, no.
+const normalizarReglas = (cuerpo = {}) => {
+  const tipoVehiculo = cuerpo.tipoVehiculo ?? 'todos';
+  if (!TIPOS_VEHICULO.includes(tipoVehiculo)) {
+    return { error: `tipoVehiculo inválido. Debe ser uno de: ${TIPOS_VEHICULO.join(', ')}` };
+  }
+
+  const fraccionMinutos = cuerpo.fraccionMinutos == null || cuerpo.fraccionMinutos === ''
+    ? 60
+    : Number(cuerpo.fraccionMinutos);
+  if (!Number.isFinite(fraccionMinutos) || fraccionMinutos < 1 || fraccionMinutos > 1440) {
+    return { error: 'La fracción de cobro debe ser un número entre 1 y 1440 minutos' };
+  }
+
+  const topeDiario = cuerpo.topeDiario == null || cuerpo.topeDiario === '' ? null : Number(cuerpo.topeDiario);
+  if (topeDiario !== null && (!Number.isFinite(topeDiario) || topeDiario < 0)) {
+    return { error: 'El tope diario debe ser un número mayor o igual a 0, o quedar vacío' };
+  }
+
+  const porcentaje = (valor) => {
+    if (valor == null || valor === '') return 0;
+    const numero = Number(valor);
+    return Number.isFinite(numero) && numero >= 0 ? numero : null;
+  };
+
+  const recargosEntrada = cuerpo.recargos ?? {};
+  const nocturno = porcentaje(recargosEntrada.nocturno?.porcentaje);
+  const finDeSemana = porcentaje(recargosEntrada.finDeSemana?.porcentaje);
+  const feriado = porcentaje(recargosEntrada.feriado?.porcentaje);
+  if (nocturno === null || finDeSemana === null || feriado === null) {
+    return { error: 'Los recargos deben ser porcentajes mayores o iguales a 0' };
+  }
+
+  const desde = recargosEntrada.nocturno?.desde ?? '22:00';
+  const hasta = recargosEntrada.nocturno?.hasta ?? '06:00';
+  if (nocturno > 0 && (!HORA_VALIDA.test(desde) || !HORA_VALIDA.test(hasta))) {
+    return { error: 'El horario nocturno debe tener el formato HH:MM (por ejemplo 22:00)' };
+  }
+
+  return {
+    tipoVehiculo,
+    fraccionMinutos,
+    topeDiario,
+    recargos: {
+      nocturno: { porcentaje: nocturno, desde, hasta },
+      finDeSemana: { porcentaje: finDeSemana },
+      feriado: { porcentaje: feriado }
+    }
+  };
+};
+
 const aFormaHistorialPrecio = (registro) => ({
   _id: registro._id,
   tipoUsuario: registro.entidadId,
@@ -73,6 +132,14 @@ const actualizarPrecio = async (req, res) => {
     const { precioPorHora, descripcion, motivo } = req.body;
     const { dni } = req.usuario; // Del middleware de auth
 
+    // Reglas de cobro (tipo de vehículo, fracción, tope diario y recargos). Se validan y se
+    // normalizan acá: son las que después decide `tarifaEngine`, y un valor absurdo —fracción
+    // 0, recargo negativo— no se ve hasta que alguien cobra mal.
+    const reglas = normalizarReglas(req.body);
+    if (reglas.error) {
+      return res.status(400).json({ success: false, mensaje: reglas.error });
+    }
+
     // Se puede editar cualquiera de las dos tarifas automáticas, o cualquier tarifa con nombre
     // que ya exista. Lo que no se puede es "actualizar" una que nunca se creó: antes, la lista
     // de tipos válidos estaba hardcodeada y arrastraba nombres de prueba.
@@ -96,31 +163,32 @@ const actualizarPrecio = async (req, res) => {
     // Obtener datos del usuario que modifica
     const usuarioModificador = await Usuario.findOne({ dni }).select('-password');
     if (!usuarioModificador) {
-      console.log('ERROR: Usuario modificador no encontrado:', dni);
       return res.status(400).json({
         success: false,
         mensaje: 'Usuario no encontrado'
       });
     }
 
-    console.log('Usuario modificador encontrado:', usuarioModificador.nombre);
 
     // Obtener configuración actual para el log
-    const configuracionActual = await ConfiguracionPrecio.findOne({ tipoUsuario });
-    console.log('Configuración actual:', configuracionActual);
-    
+    const configuracionActual = await ConfiguracionPrecio.findOne({ tipoUsuario, tipoVehiculo: reglas.tipoVehiculo });
+
     // Buscar y actualizar o crear si no existe
     const precioActualizado = await ConfiguracionPrecio.findOneAndUpdate(
-      { tipoUsuario },
+      { tipoUsuario, tipoVehiculo: reglas.tipoVehiculo },
       {
         precioPorHora: Number(precioPorHora),
         descripcion: descripcion || '',
         fechaActualizacion: new Date(),
-        actualizadoPor: dni
+        actualizadoPor: dni,
+        tipoVehiculo: reglas.tipoVehiculo,
+        fraccionMinutos: reglas.fraccionMinutos,
+        topeDiario: reglas.topeDiario,
+        recargos: reglas.recargos
       },
-      { 
-        returnDocument: 'after', 
-        upsert: true 
+      {
+        returnDocument: 'after',
+        upsert: true
       }
     );
 
@@ -135,7 +203,7 @@ const actualizarPrecio = async (req, res) => {
         precioPorHora: configuracionActual ? configuracionActual.precioPorHora : null,
         descripcion: configuracionActual ? configuracionActual.descripcion : ''
       },
-      datosNuevos: { precioPorHora: Number(precioPorHora), descripcion: descripcion || '' },
+      datosNuevos: { precioPorHora: Number(precioPorHora), descripcion: descripcion || '', ...reglas },
       motivo: motivo || ''
     });
 
@@ -346,15 +414,24 @@ const crearPrecio = async (req, res) => {
       });
     }
 
-    // Verificar que no exista ya un precio para este tipo de usuario
-    const precioExistente = await ConfiguracionPrecio.findOne({ 
-      tipoUsuario: tipoUsuario.trim().toLowerCase() 
+    const reglas = normalizarReglas(req.body);
+    if (reglas.error) {
+      return res.status(400).json({ success: false, mensaje: reglas.error });
+    }
+
+    // La unicidad es por tipo de cliente Y tipo de vehículo: "asociado / moto" y
+    // "asociado / auto" son dos tarifas distintas y legítimas.
+    const precioExistente = await ConfiguracionPrecio.findOne({
+      tipoUsuario: tipoUsuario.trim().toLowerCase(),
+      tipoVehiculo: reglas.tipoVehiculo
     });
-    
+
     if (precioExistente) {
       return res.status(400).json({
         success: false,
-        mensaje: 'Ya existe una configuración de precio para este tipo de usuario'
+        mensaje: reglas.tipoVehiculo === 'todos'
+          ? 'Ya existe una configuración de precio para este tipo de usuario'
+          : `Ya existe una tarifa de ${reglas.tipoVehiculo} para este tipo de usuario`
       });
     }
 
@@ -374,7 +451,11 @@ const crearPrecio = async (req, res) => {
       descripcion: descripcion || '',
       actualizadoPor: dni,
       fechaCreacion: new Date(),
-      fechaActualizacion: new Date()
+      fechaActualizacion: new Date(),
+      tipoVehiculo: reglas.tipoVehiculo,
+      fraccionMinutos: reglas.fraccionMinutos,
+      topeDiario: reglas.topeDiario,
+      recargos: reglas.recargos
     });
 
     await nuevoPrecio.save();

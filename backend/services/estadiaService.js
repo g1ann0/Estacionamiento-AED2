@@ -21,6 +21,8 @@ const auditoriaService = require('./auditoriaService');
 const comprobanteEstadiaService = require('./comprobanteEstadiaService');
 const turnoService = require('./turnoService');
 const Caja = require('../models/Caja');
+const Feriado = require('../models/Feriado');
+const tarifaEngine = require('./tarifaEngine');
 
 // Si no se pasa sucursalId explícitamente, resuelve a la sucursal principal (despliegue
 // de un solo local). Devuelve null si todavía no hay ninguna sucursal sembrada —
@@ -37,7 +39,21 @@ async function resolverSucursalId(sucursalId, session) {
 // Devuelve además QUÉ nivel de la cascada resolvió el precio: la terminal de caja tiene que
 // poder mostrar por qué se cobra lo que se cobra ("$1.500/h · Asociado"), y sin el origen
 // sería un número sin defensa frente al cliente del otro lado del mostrador.
-async function obtenerTarifaDetallada(usuario) {
+// Las reglas de cobro que viajan con la tarifa. Se separan del documento para que el resto del
+// servicio no dependa de si vino de Mongoose o de un objeto armado a mano.
+const reglasDe = (tarifa) => ({
+  fraccionMinutos: tarifa?.fraccionMinutos ?? 60,
+  topeDiario: tarifa?.topeDiario ?? null,
+  recargos: tarifa?.recargos ?? {}
+});
+
+const SIN_CONFIGURAR = { fraccionMinutos: 60, topeDiario: null, recargos: {} };
+
+// La cascada ahora tiene un escalón más: el tipo de vehículo. Antes auto y moto pagaban lo
+// mismo porque la tarifa solo se resolvía por tipo de cliente — un gap que estaba anotado como
+// "a decidir" desde el rediseño. Una tarifa específica de moto le gana a la general; si no hay
+// específica, se usa la de siempre, así que una playa que no configura nada no cambia nada.
+async function obtenerTarifaDetallada(usuario, tipoVehiculo = null) {
   try {
     if (usuario.tarifaAsignada) {
       const tarifaEspecifica = usuario.tarifaAsignada.precioPorHora !== undefined
@@ -47,38 +63,54 @@ async function obtenerTarifaDetallada(usuario) {
         return {
           precioPorHora: tarifaEspecifica.precioPorHora,
           origen: 'asignada',
-          etiqueta: tarifaEspecifica.descripcion || 'Tarifa asignada'
+          etiqueta: tarifaEspecifica.descripcion || 'Tarifa asignada',
+          reglas: reglasDe(tarifaEspecifica)
         };
       }
     }
 
     const tipoUsuario = usuario.asociado ? 'asociado' : 'no_asociado';
-    const configuracion = await ConfiguracionPrecio.findOne({ tipoUsuario, activo: true });
+
+    // Primero la tarifa del tipo de vehículo concreto; después la general ('todos').
+    const candidatas = await ConfiguracionPrecio.find({
+      tipoUsuario,
+      activo: true,
+      tipoVehiculo: { $in: tipoVehiculo ? [tipoVehiculo, 'todos'] : ['todos'] }
+    });
+    const especifica = tipoVehiculo ? candidatas.find((t) => t.tipoVehiculo === tipoVehiculo) : null;
+    // `tipoVehiculo` puede faltar en los documentos anteriores al campo: ausente es 'todos'.
+    const general = candidatas.find((t) => (t.tipoVehiculo ?? 'todos') === 'todos');
+    const configuracion = especifica ?? general;
+
     if (configuracion) {
+      const etiquetaBase = usuario.asociado ? 'Asociado' : 'General';
       return {
         precioPorHora: configuracion.precioPorHora,
-        origen: tipoUsuario,
-        etiqueta: usuario.asociado ? 'Asociado' : 'General'
+        origen: especifica ? `${tipoUsuario}_${tipoVehiculo}` : tipoUsuario,
+        etiqueta: especifica ? `${etiquetaBase} · ${tipoVehiculo === 'moto' ? 'Moto' : 'Auto'}` : etiquetaBase,
+        reglas: reglasDe(configuracion)
       };
     }
 
     return {
       precioPorHora: usuario.asociado ? 250 : 500,
       origen: 'default',
-      etiqueta: usuario.asociado ? 'Asociado (sin configurar)' : 'General (sin configurar)'
+      etiqueta: usuario.asociado ? 'Asociado (sin configurar)' : 'General (sin configurar)',
+      reglas: SIN_CONFIGURAR
     };
   } catch (error) {
     console.error('Error al obtener tarifa:', error);
     return {
       precioPorHora: usuario.asociado ? 250 : 500,
       origen: 'default',
-      etiqueta: 'General (error al resolver)'
+      etiqueta: 'General (error al resolver)',
+      reglas: SIN_CONFIGURAR
     };
   }
 }
 
-async function obtenerTarifa(usuario) {
-  const { precioPorHora } = await obtenerTarifaDetallada(usuario);
+async function obtenerTarifa(usuario, tipoVehiculo = null) {
+  const { precioPorHora } = await obtenerTarifaDetallada(usuario, tipoVehiculo);
   return precioPorHora;
 }
 
@@ -86,19 +118,31 @@ async function obtenerTarifa(usuario) {
 // hay tarifa asignada ni condición de asociado, así que cae en la tarifa general.
 const USUARIO_OCASIONAL = { asociado: false, tarifaAsignada: null };
 
+// Los feriados se leen una vez por minuto y no en cada cobro: son un puñado de filas que casi
+// nunca cambian, y la terminal recalcula el importe cada vez que alguien tipea una patente.
+let feriadosCache = { valores: new Set(), vence: 0 };
+async function feriadosVigentes(session) {
+  if (Date.now() < feriadosCache.vence) return feriadosCache.valores;
+  const filas = await Feriado.find({}, 'fecha').session(session ?? null).lean();
+  feriadosCache = { valores: new Set(filas.map((f) => f.fecha)), vence: Date.now() + 60 * 1000 };
+  return feriadosCache.valores;
+}
+
 // Única fuente del cálculo de duración e importe. La previsualización de la terminal
 // (resolverPatente) y el cobro real (finalizarEstadia) llaman a esta misma función: si el
 // redondeo viviera duplicado, la pantalla podría prometer un importe y la caja cobrar otro.
-// Regla vigente: fracciones hacia arriba, hora entera (sin fracción mínima ni tope diario).
-function calcularCobro({ horaInicio, horaFin, precioPorHora }) {
-  const duracionMs = horaFin - horaInicio;
-  const duracionHorasReal = duracionMs / (1000 * 60 * 60);
-  const duracionHoras = Math.ceil(duracionHorasReal);
-  return {
-    duracionHorasReal,
-    duracionHoras,
-    montoTotal: duracionHoras * precioPorHora
-  };
+//
+// La regla ya no es una sola: fracción configurable, recargos por momento y tope diario viven
+// en services/tarifaEngine.js. Sin configuración, el resultado es idéntico al anterior —hora
+// entera hacia arriba— y por eso el nombre y la forma de la respuesta no cambian.
+async function calcularCobro({ horaInicio, horaFin, precioPorHora, reglas = SIN_CONFIGURAR, session = null }) {
+  return tarifaEngine.calcularCobro({
+    horaInicio,
+    horaFin,
+    precioPorHora,
+    tarifa: reglas,
+    feriados: await feriadosVigentes(session)
+  });
 }
 
 // dni: presente → canal 'app' (cliente registrado), requiere Vehiculo pre-existente y
@@ -185,7 +229,9 @@ async function iniciarEstadia({
       { session }
     );
 
-    const tarifa = await obtenerTarifa(usuario || USUARIO_OCASIONAL);
+    // La tarifa que se anota en el ingreso es informativa —el importe se calcula al salir—,
+    // pero se resuelve con el tipo de vehículo igual, para que diga lo mismo que va a cobrarse.
+    const tarifa = await obtenerTarifa(usuario || USUARIO_OCASIONAL, vehiculo?.tipo ?? null);
     const [nuevaTransaccion] = await Transaccion.create(
       [{
         tipo: 'ingreso',
@@ -305,11 +351,16 @@ async function finalizarEstadia({ dominio, medioPago = null, sucursalId = null, 
 
     // Misma función que usa la previsualización de la terminal (resolverPatente): el importe
     // que se cobra acá es el que la pantalla mostró antes de que el cajero apretara COBRAR.
-    const tarifa = await obtenerTarifa(usuario || USUARIO_OCASIONAL);
-    const { duracionHorasReal, duracionHoras, montoTotal } = calcularCobro({
+    // El tipo de vehículo entra en la resolución: desde ahora una moto puede tener su tarifa.
+    const vehiculoDeLaEstadia = await Vehiculo.findOne({ dominio }).session(session);
+    const detalleTarifa = await obtenerTarifaDetallada(usuario || USUARIO_OCASIONAL, vehiculoDeLaEstadia?.tipo ?? null);
+    const tarifa = detalleTarifa.precioPorHora;
+    const { duracionHorasReal, duracionHoras, montoTotal, recargosAplicados, topeAplicado } = await calcularCobro({
       horaInicio: estacionamientoPrevio.horaInicio,
       horaFin,
-      precioPorHora: tarifa
+      precioPorHora: tarifa,
+      reglas: detalleTarifa.reglas,
+      session
     });
 
     if (medioPagoResuelto === 'saldo_prepago') {
@@ -460,7 +511,7 @@ async function resolverPatente({ dominio, sucursalId = null }) {
             .lean()
         : null);
 
-  const tarifa = await obtenerTarifaDetallada(usuario || USUARIO_OCASIONAL);
+  const tarifa = await obtenerTarifaDetallada(usuario || USUARIO_OCASIONAL, vehiculo?.tipo ?? null);
 
   const cliente = usuario
     ? {
@@ -501,10 +552,11 @@ async function resolverPatente({ dominio, sucursalId = null }) {
     };
   }
 
-  const cobro = calcularCobro({
+  const cobro = await calcularCobro({
     horaInicio: estadiaActiva.horaInicio,
     horaFin: ahora,
-    precioPorHora: tarifa.precioPorHora
+    precioPorHora: tarifa.precioPorHora,
+    reglas: tarifa.reglas
   });
 
   // Estado del turno resuelto acá y no al confirmar: el cajero tiene que ver el bloqueo antes
@@ -565,8 +617,15 @@ async function resolverPatente({ dominio, sucursalId = null }) {
       duracionHoras: cobro.duracionHoras,
       montoTotal: cobro.montoTotal,
       // La terminal muestra el redondeo explícito ("2h 12m → se cobran 3h") para que el cajero
-      // pueda defender el importe sin llamar al dueño.
-      redondeo: 'hora_hacia_arriba'
+      // pueda defender el importe sin llamar al dueño. Con fracción distinta de la hora, el
+      // texto lo arma la pantalla con estos dos datos.
+      redondeo: cobro.fraccionMinutos === 60 ? 'hora_hacia_arriba' : 'fraccion_hacia_arriba',
+      fraccionMinutos: cobro.fraccionMinutos,
+      fracciones: cobro.fracciones,
+      // Por qué se cobra de más, o por qué se cobra menos de lo que daría la cuenta simple:
+      // sin esto el importe es un número sin defensa frente al cliente del otro lado.
+      recargos: cobro.recargosAplicados,
+      topeAplicado: cobro.topeAplicado
     },
     turno,
     mediosPago

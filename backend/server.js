@@ -99,6 +99,7 @@ const estadiasRoutes = require('./routes/estadias');
 const comprobantesEstadiaRoutes = require('./routes/comprobantesEstadia');
 const sucursalesRoutes = require('./routes/sucursales');
 const reportesRoutes = require('./routes/reportes');
+const feriadosRoutes = require('./routes/feriados');
 
 // Ruta de prueba
 app.get('/', (req, res) => {
@@ -125,6 +126,7 @@ app.use('/api/estadias', estadiasRoutes);
 app.use('/api/comprobantes-estadia', comprobantesEstadiaRoutes);
 app.use('/api/sucursales', sucursalesRoutes);
 app.use('/api/reportes', reportesRoutes);
+app.use('/api/feriados', feriadosRoutes);
 
 // Rutas SEO (superficie pública: home, login, registro)
 app.use('/', seoRoutes);

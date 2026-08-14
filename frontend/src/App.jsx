@@ -6,6 +6,7 @@ import Terminal from './panel/terminal/Terminal';
 import TurnoActual from './panel/caja/TurnoActual';
 import Movimientos from './panel/caja/Movimientos';
 import Cierres from './panel/caja/Cierres';
+import Feriados from './panel/configuracion/Feriados';
 import ComprobantesEstadia from './panel/comprobantes/ComprobantesEstadia';
 import Recargas from './panel/comprobantes/Recargas';
 import Facturas from './panel/comprobantes/Facturas';
@@ -156,6 +157,7 @@ function App() {
                 <Route path="configuracion" element={<Empresa />} />
                 <Route path="configuracion/sucursales" element={<Sucursales />} />
                 <Route path="configuracion/cajas" element={<CajasConfig />} />
+                <Route path="configuracion/feriados" element={<Feriados />} />
                 <Route path="configuracion/usuarios" element={<UsuariosConfig />} />
                 <Route path="auditoria" element={<Auditoria />} />
               </Route>

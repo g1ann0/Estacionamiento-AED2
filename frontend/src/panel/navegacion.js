@@ -98,7 +98,8 @@ export const NAVEGACION = [
       { etiqueta: 'Empresa y facturación', ruta: '/admin/configuracion' },
       { etiqueta: 'Sucursales', ruta: '/admin/configuracion/sucursales' },
       { etiqueta: 'Cajas', ruta: '/admin/configuracion/cajas' },
-      { etiqueta: 'Usuarios y roles', ruta: '/admin/configuracion/usuarios' }
+      { etiqueta: 'Usuarios y roles', ruta: '/admin/configuracion/usuarios' },
+      { etiqueta: 'Feriados', ruta: '/admin/configuracion/feriados' }
     ]
   },
   {

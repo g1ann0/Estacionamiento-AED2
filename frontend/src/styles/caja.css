@@ -75,6 +75,16 @@
   border-radius: var(--radio);
 }
 
+/* Cuando la pantalla tiene dos tablas, la de resumen mide lo que ocupan sus filas y el alto
+   sobrante se lo queda la lista principal. Sin esto las dos se repartían el espacio y el
+   resumen —cuatro filas como mucho— quedaba con medio metro de vacío adentro. */
+.bloque-resumen {
+  flex: 0 0 auto;
+  padding: 12px 12px 0;
+}
+
+.bloque-resumen .tabla-contenedor { flex: 0 0 auto; }
+
 .turno-desde { margin-left: auto; color: var(--text-subtle); font-size: var(--texto-sm); }
 
 /* El egreso se lee como plata que sale sin pintarse de rojo: rojo es error, no salida. */

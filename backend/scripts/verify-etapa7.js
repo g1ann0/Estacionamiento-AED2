@@ -200,7 +200,9 @@ const diasAtras = (dias) => {
   r = await llamar('GET', `/api/turnos?${soloA}&estado=cerrado,anulado`, tokenAdmin);
   check(r.body?.total === 3, 'lista los cierres de la caja pedida', `${r.body?.total}`);
 
-  r = await llamar('GET', `/api/turnos?operadorId=${operador2._id}&estado=cerrado,anulado`, tokenAdmin);
+  // Acotado a la caja de prueba: la base de desarrollo puede tener turnos de estos mismos
+  // operadores en otras cajas, y una verificación que se rompe por datos vecinos no dice nada.
+  r = await llamar('GET', `/api/turnos?${soloB}&operadorId=${operador2._id}&estado=cerrado,anulado`, tokenAdmin);
   check(r.body?.total === 2, 'filtra por operador e incluye el anulado en la lista', `${r.body?.total}`);
   check(
     (r.body?.turnos ?? []).every((t) => String(t.operadorId?._id ?? t.operadorId) === String(operador2._id)),

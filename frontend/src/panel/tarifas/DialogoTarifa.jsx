@@ -12,6 +12,17 @@ export default function DialogoTarifa({ abierto, tarifa, guardando, error, onGua
   const [descripcion, setDescripcion] = useState('');
   const [motivo, setMotivo] = useState('');
 
+  // Reglas de cobro. Todas nacen neutras: hora entera, sin tope y sin recargos, que es como
+  // cobraba el sistema antes de que existieran. Quien no las toca no cambia nada.
+  const [tipoVehiculo, setTipoVehiculo] = useState('todos');
+  const [fraccionMinutos, setFraccionMinutos] = useState('60');
+  const [topeDiario, setTopeDiario] = useState('');
+  const [recargoNocturno, setRecargoNocturno] = useState('0');
+  const [nocturnoDesde, setNocturnoDesde] = useState('22:00');
+  const [nocturnoHasta, setNocturnoHasta] = useState('06:00');
+  const [recargoFinDeSemana, setRecargoFinDeSemana] = useState('0');
+  const [recargoFeriado, setRecargoFeriado] = useState('0');
+
   const editando = Boolean(tarifa);
 
   useEffect(() => {
@@ -22,6 +33,14 @@ export default function DialogoTarifa({ abierto, tarifa, guardando, error, onGua
       setPrecioPorHora(tarifa ? String(tarifa.precioPorHora) : '');
       setDescripcion(tarifa?.descripcion ?? '');
       setMotivo('');
+      setTipoVehiculo(tarifa?.tipoVehiculo ?? 'todos');
+      setFraccionMinutos(String(tarifa?.fraccionMinutos ?? 60));
+      setTopeDiario(tarifa?.topeDiario == null ? '' : String(tarifa.topeDiario));
+      setRecargoNocturno(String(tarifa?.recargos?.nocturno?.porcentaje ?? 0));
+      setNocturnoDesde(tarifa?.recargos?.nocturno?.desde ?? '22:00');
+      setNocturnoHasta(tarifa?.recargos?.nocturno?.hasta ?? '06:00');
+      setRecargoFinDeSemana(String(tarifa?.recargos?.finDeSemana?.porcentaje ?? 0));
+      setRecargoFeriado(String(tarifa?.recargos?.feriado?.porcentaje ?? 0));
       elemento.showModal();
     }
     if (!abierto && elemento.open) elemento.close();
@@ -36,7 +55,15 @@ export default function DialogoTarifa({ abierto, tarifa, guardando, error, onGua
       tipoUsuario: tipoUsuario.trim().toLowerCase(),
       precioPorHora: precio,
       descripcion: descripcion.trim(),
-      motivo: motivo.trim()
+      motivo: motivo.trim(),
+      tipoVehiculo,
+      fraccionMinutos: Number(fraccionMinutos) || 60,
+      topeDiario: topeDiario === '' ? null : Number(topeDiario),
+      recargos: {
+        nocturno: { porcentaje: Number(recargoNocturno) || 0, desde: nocturnoDesde, hasta: nocturnoHasta },
+        finDeSemana: { porcentaje: Number(recargoFinDeSemana) || 0 },
+        feriado: { porcentaje: Number(recargoFeriado) || 0 }
+      }
     });
   };
 
@@ -89,6 +116,87 @@ export default function DialogoTarifa({ abierto, tarifa, guardando, error, onGua
             autoFocus={editando}
           />
         </label>
+
+        <div className="formulario-fila">
+          <label className="campo">
+            <span>Se aplica a</span>
+            <select className="control" value={tipoVehiculo} onChange={(e) => setTipoVehiculo(e.target.value)} disabled={guardando}>
+              <option value="todos">Todos los vehículos</option>
+              <option value="auto">Solo autos</option>
+              <option value="moto">Solo motos</option>
+            </select>
+            {tipoVehiculo !== 'todos' && (
+              <em>Le gana a la tarifa general del mismo tipo de cliente.</em>
+            )}
+          </label>
+
+          <label className="campo">
+            <span>Se cobra cada</span>
+            <select className="control" value={fraccionMinutos} onChange={(e) => setFraccionMinutos(e.target.value)} disabled={guardando}>
+              <option value="60">Hora completa</option>
+              <option value="30">Media hora</option>
+              <option value="15">15 minutos</option>
+            </select>
+            <em>Siempre hacia arriba. La pantalla de cobro lo muestra explícito.</em>
+          </label>
+        </div>
+
+        <label className="campo">
+          <span>Tope por día <em>opcional</em></span>
+          <input
+            className="control numerico"
+            type="number"
+            min="0"
+            step="1"
+            inputMode="numeric"
+            value={topeDiario}
+            onChange={(e) => setTopeDiario(e.target.value)}
+            placeholder="Sin tope"
+            disabled={guardando}
+          />
+          <em>Máximo por cada 24 horas de estadía. Evita el importe impagable del auto olvidado.</em>
+        </label>
+
+        {/* Los recargos son el único lugar donde un número mal puesto se cobra de más sin que
+            nadie lo note hasta el reclamo. Van juntos, con su porcentaje visible, y en cero. */}
+        <fieldset className="formulario-bloque">
+          <legend>Recargos <em>se aplica solo el mayor, nunca la suma</em></legend>
+
+          {/* El porcentaje va solo y las dos horas juntas: tres columnas no entran en el ancho
+              del diálogo y "Hasta" caía sola en la fila siguiente, lejos de su "Desde". */}
+          <label className="campo">
+            <span>Nocturno %</span>
+            <input className="control numerico" type="number" min="0" step="5" value={recargoNocturno}
+              onChange={(e) => setRecargoNocturno(e.target.value)} disabled={guardando} />
+          </label>
+
+          <div className="formulario-fila">
+            <label className="campo">
+              <span>Desde</span>
+              <input className="control" type="time" value={nocturnoDesde}
+                onChange={(e) => setNocturnoDesde(e.target.value)} disabled={guardando || Number(recargoNocturno) === 0} />
+            </label>
+            <label className="campo">
+              <span>Hasta</span>
+              <input className="control" type="time" value={nocturnoHasta}
+                onChange={(e) => setNocturnoHasta(e.target.value)} disabled={guardando || Number(recargoNocturno) === 0} />
+            </label>
+          </div>
+
+          <div className="formulario-fila">
+            <label className="campo">
+              <span>Fin de semana %</span>
+              <input className="control numerico" type="number" min="0" step="5" value={recargoFinDeSemana}
+                onChange={(e) => setRecargoFinDeSemana(e.target.value)} disabled={guardando} />
+            </label>
+            <label className="campo">
+              <span>Feriado %</span>
+              <input className="control numerico" type="number" min="0" step="5" value={recargoFeriado}
+                onChange={(e) => setRecargoFeriado(e.target.value)} disabled={guardando} />
+              <em>Los días se cargan en Configuración → Feriados.</em>
+            </label>
+          </div>
+        </fieldset>
 
         <label className="campo">
           <span>Descripción <em>opcional</em></span>
