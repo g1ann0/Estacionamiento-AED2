@@ -2,10 +2,9 @@ import CONFIG from '../config/config.js';
 
 const API_URL = `${CONFIG.BACKEND_URL}/api/comprobantes-estadia`;
 
-const authHeaders = () => ({
-  'Authorization': `Bearer ${localStorage.getItem('token')}`,
-  'Content-Type': 'application/json'
-});
+// La sesión viaja en una cookie HttpOnly que el navegador adjunta sola: el token ya no está
+// al alcance de este código, que es todo el punto. Solo queda declarar el tipo de contenido.
+const authHeaders = () => ({ 'Content-Type': 'application/json' });
 
 export const listarComprobantes = async ({ desde, hasta, medioPago, estado, q, pagina = 1, limite = 25 } = {}) => {
   const params = new URLSearchParams({ pagina: String(pagina), limite: String(limite) });
@@ -15,7 +14,7 @@ export const listarComprobantes = async ({ desde, hasta, medioPago, estado, q, p
   if (estado) params.set('estado', estado);
   if (q) params.set('q', q);
 
-  const res = await fetch(`${API_URL}?${params}`, { headers: authHeaders() });
+  const res = await fetch(`${API_URL}?${params}`, { credentials: 'include', headers: authHeaders() });
   if (!res.ok) throw new Error((await res.json()).mensaje || 'Error al listar los comprobantes');
   return await res.json();
 };
@@ -24,7 +23,7 @@ export const listarComprobantes = async ({ desde, hasta, medioPago, estado, q, p
 // que el PDF se trae por fetch y se entrega como blob. El object URL se revoca en cuanto el
 // navegador tomó el archivo — si no, cada descarga deja el PDF entero retenido en memoria.
 export const descargarComprobante = async (id, nombre) => {
-  const res = await fetch(`${API_URL}/${id}/pdf`, { headers: authHeaders() });
+  const res = await fetch(`${API_URL}/${id}/pdf`, { credentials: 'include', headers: authHeaders() });
   if (!res.ok) throw new Error('No se pudo generar el PDF del comprobante');
 
   const blob = await res.blob();
@@ -42,13 +41,13 @@ export const descargarComprobante = async (id, nombre) => {
 // comprobantes esperan CAE o quedaron con error. La emisión es diferida, así que esa cola
 // existe siempre — lo que no puede pasar es que crezca sin que nadie la vea.
 export const estadoFiscal = async () => {
-  const res = await fetch(`${API_URL}/fiscal/estado`, { headers: authHeaders() });
+  const res = await fetch(`${API_URL}/fiscal/estado`, { credentials: 'include', headers: authHeaders() });
   if (!res.ok) throw new Error((await res.json()).mensaje || 'No se pudo consultar el estado fiscal');
   return await res.json();
 };
 
 export const reintentarCae = async (id) => {
-  const res = await fetch(`${API_URL}/${id}/reintentar-cae`, { method: 'POST', headers: authHeaders() });
+  const res = await fetch(`${API_URL}/${id}/reintentar-cae`, { method: 'POST', credentials: 'include', headers: authHeaders() });
   const data = await res.json();
   // 409 es un rechazo de ARCA, no una falla del sistema: el mensaje es para leer.
   if (!res.ok) throw new Error(data.mensaje || 'ARCA no autorizó el comprobante');
@@ -60,7 +59,7 @@ export const reintentarCae = async (id) => {
 export const anularComprobante = async (id, motivo) => {
   const res = await fetch(`${API_URL}/${id}/anular`, {
     method: 'POST',
-    headers: authHeaders(),
+    credentials: 'include', headers: authHeaders(),
     body: JSON.stringify({ motivo })
   });
   const data = await res.json();
@@ -71,7 +70,7 @@ export const anularComprobante = async (id, motivo) => {
 export const enviarComprobante = async (id, email) => {
   const res = await fetch(`${API_URL}/${id}/enviar`, {
     method: 'POST',
-    headers: authHeaders(),
+    credentials: 'include', headers: authHeaders(),
     body: JSON.stringify(email ? { email } : {})
   });
   const data = await res.json();

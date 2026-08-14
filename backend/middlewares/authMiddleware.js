@@ -1,8 +1,11 @@
 const jwt = require('jsonwebtoken');
 const Usuario = require('../models/Usuario');
+const { tokenDelRequest } = require('./cookies');
 
 async function verificarToken(req, res, next) {
-  const token = req.headers['authorization']?.split(' ')[1];
+  // Cabecera `Authorization` o cookie de sesión: el navegador usa la cookie HttpOnly, que el
+  // JavaScript de la página no puede leer; los scripts y las integraciones siguen con Bearer.
+  const token = tokenDelRequest(req);
   if (!token) return res.status(401).json({ mensaje: 'Token no proporcionado' });
 
   jwt.verify(token, process.env.JWT_SECRET, async (err, decoded) => {

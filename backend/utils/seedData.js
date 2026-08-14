@@ -40,33 +40,71 @@ const inicializarDatosPorDefecto = async () => {
 };
 
 /**
- * Crear usuario administrador por defecto
+ * Primer administrador del sistema.
+ *
+ * Antes esto creaba `admin@estacionamiento.com` con la contraseña `admin123` en cualquier base
+ * vacía, y la imprimía en el log. Una credencial por defecto, conocida y publicada en el
+ * README: el primero que abre el sistema recién instalado entra como administrador. En
+ * producción eso es la puerta abierta, no un detalle de comodidad.
+ *
+ * Ahora:
+ *   · Si ya hay un admin, no se toca nada.
+ *   · Con ADMIN_EMAIL, ADMIN_DNI y ADMIN_PASSWORD definidos, se crea ese.
+ *   · Sin esas variables, en desarrollo se crea uno con contraseña ALEATORIA, impresa una sola
+ *     vez en el log de arranque. En producción no se crea ninguno: se explica cómo hacerlo.
  */
 const crearAdminPorDefecto = async () => {
   try {
-    // Verificar si ya existe un admin
     const adminExistente = await Usuario.findOne({ rol: 'admin' });
-    
-    if (!adminExistente) {
-      const passwordHash = await bcrypt.hash('admin123', 10);
-      
-      const adminDefault = new Usuario({
-        dni: '12345678',
+    if (adminExistente) return;
+
+    const email = process.env.ADMIN_EMAIL;
+    const dni = process.env.ADMIN_DNI;
+    const passwordConfigurada = process.env.ADMIN_PASSWORD;
+
+    if (!email || !dni || !passwordConfigurada) {
+      if (process.env.NODE_ENV === 'production') {
+        console.warn(
+          '⚠️  No hay ningún administrador y no se creó uno por defecto (en producción nunca se crea).\n' +
+          '    Creá el primero con: node scripts/crear-admin.js <email> <dni> <contraseña>'
+        );
+        return;
+      }
+      // Desarrollo: cuenta utilizable, pero con una contraseña que no está escrita en ningún
+      // archivo del repositorio.
+      const passwordAleatoria = require('crypto').randomBytes(9).toString('base64url');
+      await new Usuario({
+        dni: dni || '12345678',
         nombre: 'Administrador',
         apellido: 'Sistema',
-        email: 'admin@estacionamiento.com',
-        password: passwordHash,
+        email: email || 'admin@estacionamiento.com',
+        password: await bcrypt.hash(passwordAleatoria, 10),
         rol: 'admin',
         asociado: true,
         montoDisponible: 0,
         verificado: true
-      });
-
-      await adminDefault.save();
-      console.log('👤 Usuario administrador creado: admin@estacionamiento.com / admin123');
+      }).save();
+      console.log(
+        `👤 Administrador de desarrollo creado: ${email || 'admin@estacionamiento.com'} / ${passwordAleatoria}\n` +
+        '    (contraseña aleatoria, se muestra una sola vez — anotala o cambiala desde el perfil)'
+      );
+      return;
     }
+
+    await new Usuario({
+      dni,
+      nombre: process.env.ADMIN_NOMBRE || 'Administrador',
+      apellido: process.env.ADMIN_APELLIDO || 'Sistema',
+      email,
+      password: await bcrypt.hash(passwordConfigurada, 10),
+      rol: 'admin',
+      asociado: true,
+      montoDisponible: 0,
+      verificado: true
+    }).save();
+    console.log(`👤 Administrador creado desde las variables de entorno: ${email}`);
   } catch (error) {
-    console.error('Error creando admin por defecto:', error);
+    console.error('Error creando el administrador inicial:', error);
   }
 };
 

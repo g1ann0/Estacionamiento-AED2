@@ -101,9 +101,16 @@ npm run build (frontend)     OK
 
 ---
 
-## Queda pendiente (decisión de producto, no defectos)
+## Queda pendiente
 
-- **El token JWT vive en `localStorage`**: cualquier XSS lo lee. Moverlo a una cookie `HttpOnly` + `SameSite` implica tocar el flujo de login del frontend y el manejo de CSRF; es un cambio de arquitectura, no un parche.
-- **El primer usuario activo que se registra queda como admin.** Con la base ya sembrada no es explotable, pero conviene reemplazarlo por un alta explícita.
-- **Emails sensibles a mayúsculas**: `Juan@x.com` y `juan@x.com` son dos cuentas distintas. Normalizarlo requiere migrar los datos existentes, no solo cambiar el código.
-- **Sin migraciones versionadas** (`migrate-mongo`), ya anotado en el plan de implementación.
+- **Las migraciones no corren solas al arrancar.** Existen y están versionadas (`node scripts/migrar.js`), pero hay que ejecutarlas a mano en cada despliegue. Está en la checklist de [despliegue](despliegue-produccion.md).
+
+---
+
+## Cerrado después de la auditoría
+
+Lo que quedaba anotado como deuda de arquitectura ya se resolvió:
+
+- **El JWT salió de `localStorage`.** La sesión viaja en una cookie `HttpOnly` + `SameSite=Lax` que el JavaScript de la página no puede leer, así que un XSS ya no se lleva la credencial; `SameSite=Lax` es además la defensa contra CSRF. La cabecera `Authorization` sigue funcionando para scripts e integraciones, y `POST /api/auth/logout` borra la cookie del lado del servidor — antes "salir" solo olvidaba el nombre en pantalla y la sesión seguía viva.
+- **Emails insensibles a mayúsculas**, con migración de los existentes (`migraciones/001-emails-en-minuscula.js`) que no fusiona las cuentas que colisionan: eso necesita una decisión humana.
+- **El primer usuario que se registra ya no queda como admin**, y el seed dejó de crear `admin@estacionamiento.com / admin123` — una credencial por defecto, conocida y publicada en el repositorio. El primer administrador se crea con `node scripts/crear-admin.js`; en desarrollo, si no hay ninguno, se crea uno con contraseña aleatoria que se imprime una sola vez.

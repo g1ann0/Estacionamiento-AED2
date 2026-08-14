@@ -4,7 +4,12 @@ const UsuarioSchema = new mongoose.Schema({
   dni: { type: String, required: true, unique: true },
   nombre: String,
   apellido: String,
-  email: { type: String, required: true, unique: true },
+  // Normalizado al guardar. `Juan@Gmail.com` y `juan@gmail.com` son la misma casilla en el
+  // mundo real, pero eran dos cuentas distintas acá: la persona se registraba dos veces, o
+  // pedía recuperar la contraseña de la cuenta que no era y el sistema le decía que no existe.
+  // Mongoose 9 NO aplica este setter a las consultas, así que los lugares que buscan por email
+  // normalizan el valor a mano — está anotado en cada uno.
+  email: { type: String, required: true, unique: true, lowercase: true, trim: true },
   password: { type: String }, // se setea luego de verificación
   verificado: { type: Boolean, default: false },
   activo: { type: Boolean, default: true }, // Para control de activación/desactivación

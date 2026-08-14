@@ -23,8 +23,9 @@ export default function ClienteLayout() {
   const navegar = useNavigate();
   const IconoTema = ICONO_TEMA[tema];
 
-  const salir = () => {
-    logout();
+  // `logout` ahora le avisa al servidor que borre la cookie de sesión, así que hay que esperarlo.
+  const salir = async () => {
+    await logout();
     navegar('/');
   };
 

@@ -346,7 +346,11 @@ const obtenerTodosLosVehiculos = async (req, res) => {
 const modificarUsuario = async (req, res) => {
   try {
     const { dni } = req.params;
-    const { nombre, apellido, email, rol, asociado, montoDisponible, motivo } = req.body;
+    const { nombre, apellido, rol, asociado, montoDisponible, motivo } = req.body;
+    // El email se normaliza igual que en el alta: el modelo lo guarda en minúsculas y Mongoose
+    // no aplica ese setter a las consultas, así que sin esto el control de "ya está en uso"
+    // dejaría pasar el mismo correo escrito con otras mayúsculas.
+    const email = req.body.email ? aTexto(req.body.email).trim().toLowerCase() : undefined;
     const adminDni = req.usuario.dni; // Del middleware de auth
 
     // Buscar el usuario
@@ -507,7 +511,9 @@ const obtenerUsuariosDesactivados = async (req, res) => {
 // Reactivar usuario
 const reactivarUsuario = async (req, res) => {
   try {
-    const { dni, nuevoEmail } = req.body;
+    const { dni } = req.body;
+    // Normalizado, por lo mismo que en `modificarUsuario`.
+    const nuevoEmail = req.body.nuevoEmail ? aTexto(req.body.nuevoEmail).trim().toLowerCase() : req.body.nuevoEmail;
 
     // Buscar el usuario desactivado por su DNI original
     const usuario = await Usuario.findOne({ 

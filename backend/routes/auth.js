@@ -11,10 +11,12 @@ const {
   login,
   solicitarRecuperacionPassword,
   validarTokenRecuperacion,
-  restablecerPassword
+  restablecerPassword,
+  logout
 } = require('../controllers/authController');
 
 const rateLimit = require('../middlewares/rateLimit');
+const { tokenDelRequest } = require('../middlewares/cookies');
 
 // Los tres límites de la superficie sin token. Los números son de mostrador, no de laboratorio:
 // un cajero que se equivoca de contraseña tres veces seguidas sigue entrando al cuarto intento,
@@ -44,7 +46,8 @@ const limiteToken = limite({
 
 // Middleware para verificar JWT
 const verificarJWT = async (req, res, next) => {
-  const token = req.headers.authorization?.split(' ')[1];
+  // Cabecera o cookie de sesión, igual que el middleware principal.
+  const token = tokenDelRequest(req);
   
   if (!token) {
     return res.status(401).json({ mensaje: 'No se proporcionó token de acceso' });
@@ -76,6 +79,10 @@ router.post('/setear-password', limiteToken, setearPassword);
 
 // Login
 router.post('/login', limiteLogin, login);
+
+// Cerrar sesión: borra la cookie. No pide token — si la sesión ya venció, "salir" tiene que
+// funcionar igual, no devolver un 401 y dejar la cookie puesta.
+router.post('/logout', logout);
 
 // Solicitar recuperación de contraseña (envía email)
 router.post('/solicitar-recuperacion', limiteMail, solicitarRecuperacionPassword);

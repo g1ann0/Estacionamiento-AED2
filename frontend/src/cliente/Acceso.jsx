@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { SquareParking } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import CONFIG from '../config/config.js';
+import { entrar } from '../services/accesoService';
 import SEO from '../components/SEO';
 import '../styles/tokens.css';
 import '../styles/cliente.css';
@@ -30,24 +30,15 @@ export default function Acceso() {
     setEntrando(true);
     setError(null);
     try {
-      const res = await fetch(`${CONFIG.API_BASE_URL}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
-      });
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.mensaje || 'No pudimos iniciar tu sesión.');
-        return;
-      }
-
+      // El token no vuelve a este código: el servidor abre la sesión con una cookie HttpOnly.
+      // Acá solo queda quién entró, para saber a qué pantalla mandarlo y qué menú dibujar.
+      const data = await entrar({ email, password });
       const usuario = { ...data.usuario, rol: data.usuario.rol || 'usuario' };
-      login(data.token, usuario);
-      navegar(usuario.rol === 'admin' ? '/admin' : '/dashboard');
-    } catch {
+      login(usuario);
+      navegar(usuario.rol === 'admin' || usuario.rol === 'operador' ? '/admin' : '/dashboard');
+    } catch (fallo) {
       // El mensaje nombra el problema y la salida, no el stack.
-      setError('No pudimos conectarnos con el servidor. Revisá tu conexión y probá de nuevo.');
+      setError(fallo?.message || 'No pudimos conectarnos con el servidor. Revisá tu conexión y probá de nuevo.');
     } finally {
       setEntrando(false);
     }

@@ -41,3 +41,28 @@ export const setearPassword = async ({ dni, password, token }) =>
   leer(await fetch(`${API}/setear-password`, {
     method: 'POST', headers: json, body: JSON.stringify({ dni, password, token })
   }), 'No pudimos establecer tu contraseña');
+
+// Entrar y salir. La sesión la abre y la cierra el servidor con una cookie HttpOnly: acá no
+// se guarda ningún token, justamente para que un XSS no tenga nada que llevarse.
+// `credentials: 'include'` es lo que hace que el navegador acepte esa cookie y la devuelva.
+export const entrar = async ({ email, password }) =>
+  leer(await fetch(`${API}/login`, {
+    method: 'POST', credentials: 'include', headers: json, body: JSON.stringify({ email, password })
+  }), 'No pudimos iniciar sesión');
+
+export const salir = async () => {
+  // Que falle el pedido no puede dejar a alguien encerrado en su propia sesión: la pantalla
+  // sigue adelante y limpia lo suyo igual.
+  try {
+    await fetch(`${API}/logout`, { method: 'POST', credentials: 'include', headers: json });
+  } catch {
+    /* sin red: la cookie vence sola en dos horas */
+  }
+};
+
+// La sesión vigente se pregunta al servidor, que es el único que puede leer la cookie.
+export const sesionActual = async () => {
+  const res = await fetch(`${API}/verificar`, { credentials: 'include', headers: json });
+  if (!res.ok) return null;
+  return (await res.json()).usuario ?? null;
+};

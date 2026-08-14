@@ -8,11 +8,17 @@ const jwt = require('jsonwebtoken');
 // se manda por mail: una sola configuración SMTP para todo el sistema.
 const { transporter } = require('../services/mailService');
 const { aTexto } = require('../utils/consultas');
+const { guardarSesion, borrarSesion } = require('../middlewares/cookies');
 
 // Los valores que entran a una consulta de autenticación se fuerzan a texto. El middleware
 // global ya rechaza los operadores de Mongo; esto es el cinturón además del tirante, en el
 // único lugar del sistema donde una consulta que se amplía de más significa entrar como otro.
 const texto = (valor) => aTexto(valor).trim();
+
+// El email se normaliza en todas las consultas: el modelo lo guarda en minúsculas, pero
+// Mongoose 9 no aplica ese setter a los filtros, así que buscar `Juan@X.com` tal cual no
+// encontraría la cuenta guardada como `juan@x.com`.
+const emailNormalizado = (valor) => texto(valor).toLowerCase();
 
 // Dónde vive el frontend. Estaba escrito a mano como `http://localhost:3001` dentro de cada
 // mail: en cuanto el sistema deja la notebook del desarrollador, los links de verificación y
@@ -31,7 +37,7 @@ const registrarConEmail = async (req, res) => {
   try {
     const { nombre, apellido } = req.body;
     const dni = texto(req.body?.dni);
-    const email = texto(req.body?.email);
+    const email = emailNormalizado(req.body?.email);
 
     if (!dni || !email) {
       return res.status(400).json({ mensaje: 'DNI y email son obligatorios' });
@@ -49,9 +55,11 @@ const registrarConEmail = async (req, res) => {
       return res.status(400).json({ mensaje: 'Ya existe un usuario activo con ese DNI' });
     }
 
-    // Si es el primer usuario activo => admin, si no => cliente
-    const totalUsuarios = await Usuario.countDocuments({ activo: true });
-    const rol = totalUsuarios === 0 ? 'admin' : 'cliente';
+    // Todo el que se registra por acá es cliente. Antes, "el primer usuario activo queda como
+    // admin" convertía cualquier momento con la base vacía —una instalación nueva, una
+    // restauración a medias— en una ventana para que un desconocido se quedara con el sistema.
+    // El primer administrador se crea a mano: `node scripts/crear-admin.js`.
+    const rol = 'cliente';
 
     // Generar token de verificación
     const tokenVerificacion = randomUUID();
@@ -213,7 +221,7 @@ const setearPassword = async (req, res) => {
 const login = async (req, res) => {
   try {
     const { password } = req.body ?? {};
-    const email = texto(req.body?.email);
+    const email = emailNormalizado(req.body?.email);
     const usuario = await Usuario.findOne({ email, activo: true });
 
     // Mismo mensaje y mismo código para "no existe" y "contraseña incorrecta". Antes el
@@ -235,6 +243,11 @@ const login = async (req, res) => {
       email: usuario.email
     }, process.env.JWT_SECRET, { expiresIn: '2h' });
 
+    // La sesión del navegador viaja en una cookie HttpOnly: el JavaScript de la página no la
+    // puede leer, así que un XSS ya no se lleva la credencial. El token sigue viniendo también
+    // en el cuerpo para los scripts de verificación y las integraciones, que no tienen cookies.
+    guardarSesion(res, token);
+
     res.status(200).json({
       mensaje: 'Login exitoso',
       token,
@@ -255,7 +268,7 @@ const login = async (req, res) => {
 // RECUPERAR CONTRASEÑA - Paso 1: solicitar reset de contraseña
 const solicitarRecuperacionPassword = async (req, res) => {
   try {
-    const email = texto(req.body?.email);
+    const email = emailNormalizado(req.body?.email);
 
     if (!email) {
       return res.status(400).json({ mensaje: 'Email es requerido' });
@@ -449,7 +462,15 @@ const restablecerPassword = async (req, res) => {
   }
 };
 
+// Cerrar sesión: borra la cookie del lado del servidor. Sin esto, "salir" en el navegador solo
+// olvidaba el nombre del usuario en la pantalla y la sesión seguía viva hasta que venciera.
+const logout = async (req, res) => {
+  borrarSesion(res);
+  res.status(200).json({ mensaje: 'Sesión cerrada' });
+};
+
 module.exports = {
+  logout,
   registrarConEmail,
   confirmarEmail,
   setearPassword,

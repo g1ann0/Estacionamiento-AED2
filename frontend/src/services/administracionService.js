@@ -2,10 +2,9 @@ import CONFIG from '../config/config.js';
 
 const API = `${CONFIG.BACKEND_URL}/api`;
 
-const authHeaders = () => ({
-  'Authorization': `Bearer ${localStorage.getItem('token')}`,
-  'Content-Type': 'application/json'
-});
+// La sesión viaja en una cookie HttpOnly que el navegador adjunta sola: el token ya no está
+// al alcance de este código, que es todo el punto. Solo queda declarar el tipo de contenido.
+const authHeaders = () => ({ 'Content-Type': 'application/json' });
 
 const leer = async (res, mensajePorDefecto) => {
   const data = await res.json();
@@ -24,21 +23,21 @@ const query = (params) => {
 // ------------------------------------------------------------------ Estadías --
 
 export const listarHistorialEstadias = async (filtros = {}) =>
-  leer(await fetch(`${API}/estadias/historial?${query(filtros)}`, { headers: authHeaders() }), 'Error al listar el historial de estadías');
+  leer(await fetch(`${API}/estadias/historial?${query(filtros)}`, { credentials: 'include', headers: authHeaders() }), 'Error al listar el historial de estadías');
 
 export const listarActivas = async () =>
-  leer(await fetch(`${API}/estadias/activas`, { headers: authHeaders() }), 'Error al listar los vehículos dentro');
+  leer(await fetch(`${API}/estadias/activas`, { credentials: 'include', headers: authHeaders() }), 'Error al listar los vehículos dentro');
 
 // ------------------------------------------------------------------ Clientes --
 
 // `/admin/usuarios` devuelve la colección entera, sin paginar. Es la forma que ya tiene el
 // backend y para el volumen de clientes de una playa alcanza: el filtrado vive en la pantalla.
 export const listarClientes = async () =>
-  (await leer(await fetch(`${API}/admin/usuarios`, { headers: authHeaders() }), 'Error al listar los clientes')).usuarios;
+  (await leer(await fetch(`${API}/admin/usuarios`, { credentials: 'include', headers: authHeaders() }), 'Error al listar los clientes')).usuarios;
 
 export const actualizarCliente = async (dni, cambios) =>
   leer(await fetch(`${API}/admin/usuarios/${encodeURIComponent(dni)}`, {
-    method: 'PUT', headers: authHeaders(), body: JSON.stringify(cambios)
+    method: 'PUT', credentials: 'include', headers: authHeaders(), body: JSON.stringify(cambios)
   }), 'No se pudo actualizar el cliente');
 
 // Rol, condición de asociado y tarifa asignada viajan por `/usuarios/:dni`, que es el que
@@ -46,11 +45,11 @@ export const actualizarCliente = async (dni, cambios) =>
 // personales y el saldo, que son otra cosa.
 export const actualizarRolYTarifa = async (dni, { rol, asociado, tarifaAsignada }) =>
   leer(await fetch(`${API}/usuarios/${encodeURIComponent(dni)}`, {
-    method: 'PUT', headers: authHeaders(), body: JSON.stringify({ rol, asociado, tarifaAsignada })
+    method: 'PUT', credentials: 'include', headers: authHeaders(), body: JSON.stringify({ rol, asociado, tarifaAsignada })
   }), 'No se pudo actualizar el usuario');
 
 export const listarTarifasAsignables = async () => {
-  const res = await fetch(`${API}/usuarios/tarifas/disponibles`, { headers: authHeaders() });
+  const res = await fetch(`${API}/usuarios/tarifas/disponibles`, { credentials: 'include', headers: authHeaders() });
   if (!res.ok) throw new Error('Error al listar las tarifas asignables');
   return await res.json();
 };
@@ -59,71 +58,71 @@ export const listarTarifasAsignables = async () => {
 // dejó estadías, comprobantes y movimientos de caja no se puede borrar sin romper el rastro.
 export const darDeBajaCliente = async (dni) =>
   leer(await fetch(`${API}/admin/usuarios/${encodeURIComponent(dni)}`, {
-    method: 'DELETE', headers: authHeaders()
+    method: 'DELETE', credentials: 'include', headers: authHeaders()
   }), 'No se pudo dar de baja al cliente');
 
 export const listarClientesDeBaja = async () =>
-  (await leer(await fetch(`${API}/admin/usuarios/desactivados`, { headers: authHeaders() }), 'Error al listar las bajas')).usuarios;
+  (await leer(await fetch(`${API}/admin/usuarios/desactivados`, { credentials: 'include', headers: authHeaders() }), 'Error al listar las bajas')).usuarios;
 
 export const reactivarCliente = async (dni, nuevoEmail) =>
   leer(await fetch(`${API}/admin/usuarios/reactivar`, {
-    method: 'POST', headers: authHeaders(), body: JSON.stringify(nuevoEmail ? { dni, nuevoEmail } : { dni })
+    method: 'POST', credentials: 'include', headers: authHeaders(), body: JSON.stringify(nuevoEmail ? { dni, nuevoEmail } : { dni })
   }), 'No se pudo reactivar al cliente');
 
 export const listarVehiculos = async () =>
-  (await leer(await fetch(`${API}/admin/vehiculos`, { headers: authHeaders() }), 'Error al listar los vehículos')).vehiculos;
+  (await leer(await fetch(`${API}/admin/vehiculos`, { credentials: 'include', headers: authHeaders() }), 'Error al listar los vehículos')).vehiculos;
 
 // Las tres acciones sobre vehículos exigen motivo en el backend, y con razón: cambiar el
 // dominio de un vehículo reescribe a qué auto apuntan las estadías que ya se cobraron.
 export const crearVehiculoAdmin = async (datos) =>
-  leer(await fetch(`${API}/admin/vehiculos`, { method: 'POST', headers: authHeaders(), body: JSON.stringify(datos) }), 'No se pudo agregar el vehículo');
+  leer(await fetch(`${API}/admin/vehiculos`, { method: 'POST', credentials: 'include', headers: authHeaders(), body: JSON.stringify(datos) }), 'No se pudo agregar el vehículo');
 
 export const actualizarVehiculoAdmin = async (dominio, datos) =>
   leer(await fetch(`${API}/admin/vehiculos/${encodeURIComponent(dominio)}`, {
-    method: 'PUT', headers: authHeaders(), body: JSON.stringify(datos)
+    method: 'PUT', credentials: 'include', headers: authHeaders(), body: JSON.stringify(datos)
   }), 'No se pudo modificar el vehículo');
 
 export const eliminarVehiculoAdmin = async (dominio, motivo) =>
   leer(await fetch(`${API}/admin/vehiculos/${encodeURIComponent(dominio)}`, {
-    method: 'DELETE', headers: authHeaders(), body: JSON.stringify({ motivo })
+    method: 'DELETE', credentials: 'include', headers: authHeaders(), body: JSON.stringify({ motivo })
   }), 'No se pudo eliminar el vehículo');
 
 export const listarHistorialSaldos = async (filtros = {}) =>
-  leer(await fetch(`${API}/admin/saldos/historial?${query(filtros)}`, { headers: authHeaders() }), 'Error al listar el historial de saldos');
+  leer(await fetch(`${API}/admin/saldos/historial?${query(filtros)}`, { credentials: 'include', headers: authHeaders() }), 'Error al listar el historial de saldos');
 
 // --------------------------------------------------------------- Sucursales --
 
 export const listarSucursales = async () =>
-  (await leer(await fetch(`${API}/sucursales`, { headers: authHeaders() }), 'Error al listar las sucursales')).sucursales;
+  (await leer(await fetch(`${API}/sucursales`, { credentials: 'include', headers: authHeaders() }), 'Error al listar las sucursales')).sucursales;
 
 export const crearSucursal = async (datos) =>
-  leer(await fetch(`${API}/sucursales`, { method: 'POST', headers: authHeaders(), body: JSON.stringify(datos) }), 'No se pudo crear la sucursal');
+  leer(await fetch(`${API}/sucursales`, { method: 'POST', credentials: 'include', headers: authHeaders(), body: JSON.stringify(datos) }), 'No se pudo crear la sucursal');
 
 export const actualizarSucursal = async (id, datos) =>
-  leer(await fetch(`${API}/sucursales/${id}`, { method: 'PUT', headers: authHeaders(), body: JSON.stringify(datos) }), 'No se pudo actualizar la sucursal');
+  leer(await fetch(`${API}/sucursales/${id}`, { method: 'PUT', credentials: 'include', headers: authHeaders(), body: JSON.stringify(datos) }), 'No se pudo actualizar la sucursal');
 
 // -------------------------------------------------------------------- Cajas --
 
 export const crearCaja = async (datos) =>
-  leer(await fetch(`${API}/cajas`, { method: 'POST', headers: authHeaders(), body: JSON.stringify(datos) }), 'No se pudo crear la caja');
+  leer(await fetch(`${API}/cajas`, { method: 'POST', credentials: 'include', headers: authHeaders(), body: JSON.stringify(datos) }), 'No se pudo crear la caja');
 
 export const actualizarCaja = async (id, datos) =>
-  leer(await fetch(`${API}/cajas/${id}`, { method: 'PUT', headers: authHeaders(), body: JSON.stringify(datos) }), 'No se pudo actualizar la caja');
+  leer(await fetch(`${API}/cajas/${id}`, { method: 'PUT', credentials: 'include', headers: authHeaders(), body: JSON.stringify(datos) }), 'No se pudo actualizar la caja');
 
 // ----------------------------------------------------------------- Reportes --
 
 export const reporteRecaudacion = async (rango = {}) =>
-  leer(await fetch(`${API}/reportes/recaudacion?${query(rango)}`, { headers: authHeaders() }), 'Error al calcular la recaudación');
+  leer(await fetch(`${API}/reportes/recaudacion?${query(rango)}`, { credentials: 'include', headers: authHeaders() }), 'Error al calcular la recaudación');
 
 export const reporteOcupacion = async (rango = {}) =>
-  leer(await fetch(`${API}/reportes/ocupacion?${query(rango)}`, { headers: authHeaders() }), 'Error al calcular la ocupación');
+  leer(await fetch(`${API}/reportes/ocupacion?${query(rango)}`, { credentials: 'include', headers: authHeaders() }), 'Error al calcular la ocupación');
 
 // Diferencias de caja acumuladas, con los mismos filtros que el histórico de cierres: la
 // pantalla muestra las filas y este endpoint el total de esas mismas filas.
 export const reporteCierres = async (filtros = {}) =>
-  leer(await fetch(`${API}/reportes/cierres?${query(filtros)}`, { headers: authHeaders() }), 'Error al calcular las diferencias de caja');
+  leer(await fetch(`${API}/reportes/cierres?${query(filtros)}`, { credentials: 'include', headers: authHeaders() }), 'Error al calcular las diferencias de caja');
 
 // ---------------------------------------------------------------- Auditoría --
 
 export const listarAuditoria = async (filtros = {}) =>
-  leer(await fetch(`${API}/admin/auditoria?${query(filtros)}`, { headers: authHeaders() }), 'Error al listar la auditoría');
+  leer(await fetch(`${API}/admin/auditoria?${query(filtros)}`, { credentials: 'include', headers: authHeaders() }), 'Error al listar la auditoría');
