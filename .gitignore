@@ -18,6 +18,9 @@ backend/certs/
 # Reporte generado por scripts/optimizeSEO.js: es una salida, no una fuente.
 SEO_REPORT.json
 
+# Cachés de herramientas de diseño (skill impeccable)
+.impeccable/
+
 # Logs
 *.log
 npm-debug.log*

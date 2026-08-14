@@ -8,8 +8,8 @@
 // Uso: node scripts/arca-probar-login.js
 
 require('dotenv').config();
-const { leerConfig } = require('../services/arca/config');
-const { obtenerTicket, olvidarTicket } = require('../services/arca/wsaa');
+const { leerConfig } = require('../../services/arca/config');
+const { obtenerTicket, olvidarTicket } = require('../../services/arca/wsaa');
 
 // Los errores del WSAA no dicen qué hacer. Esta tabla traduce los que realmente aparecen.
 const TRADUCCIONES = [

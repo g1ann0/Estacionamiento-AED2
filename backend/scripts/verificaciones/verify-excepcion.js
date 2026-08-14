@@ -9,19 +9,19 @@ const DOM_ACTIVA = 'EXCEP02';
 (async () => {
   await mongoose.connect(process.env.MONGODB_URI);
 
-  const Usuario = require('../models/Usuario');
-  const Vehiculo = require('../models/Vehiculo');
-  const Estacionamiento = require('../models/Estacionamiento');
-  const Transaccion = require('../models/Transaccion');
-  const Sucursal = require('../models/Sucursal');
-  const Caja = require('../models/Caja');
-  const Turno = require('../models/Turno');
-  const MovimientoCaja = require('../models/MovimientoCaja');
-  const ComprobanteEstadia = require('../models/ComprobanteEstadia');
-  const AuditLog = require('../models/AuditLog');
-  const estadiaService = require('../services/estadiaService');
-  const turnoService = require('../services/turnoService');
-  const { TEST_ADMIN } = require('./seed-test-users');
+  const Usuario = require('../../models/Usuario');
+  const Vehiculo = require('../../models/Vehiculo');
+  const Estacionamiento = require('../../models/Estacionamiento');
+  const Transaccion = require('../../models/Transaccion');
+  const Sucursal = require('../../models/Sucursal');
+  const Caja = require('../../models/Caja');
+  const Turno = require('../../models/Turno');
+  const MovimientoCaja = require('../../models/MovimientoCaja');
+  const ComprobanteEstadia = require('../../models/ComprobanteEstadia');
+  const AuditLog = require('../../models/AuditLog');
+  const estadiaService = require('../../services/estadiaService');
+  const turnoService = require('../../services/turnoService');
+  const { TEST_ADMIN } = require('../seed-test-users');
 
   let fallos = 0;
   const check = (cond, msg) => {

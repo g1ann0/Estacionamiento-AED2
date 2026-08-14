@@ -1,6 +1,6 @@
 # Auditoría de seguridad, bugs y rendimiento — 2026-08-13
 
-Revisión completa del backend y del frontend (`backend/` 15k líneas, `frontend/src/` 8,6k). Todo lo listado acá se reprodujo primero y se corrigió después; la verificación automática vive en `backend/scripts/verify-seguridad.js` (24 comprobaciones) y en la matriz ampliada de `verify-authz.js`.
+Revisión completa del backend y del frontend (`backend/` 15k líneas, `frontend/src/` 8,6k). Todo lo listado acá se reprodujo primero y se corrigió después; la verificación automática vive en `backend/scripts/verificaciones/verify-seguridad.js` (24 comprobaciones) y en la matriz ampliada de `verificaciones/verify-authz.js`.
 
 Para correr las verificaciones: servidor levantado con `RATE_LIMIT_OFF=true` y usuarios de `scripts/seed-test-users.js`.
 

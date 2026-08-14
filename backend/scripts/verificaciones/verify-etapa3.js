@@ -2,7 +2,7 @@
 // Uso: BASE_URL=http://localhost:3999 node scripts/verify-etapa3.js
 require('dotenv').config();
 const mongoose = require('mongoose');
-const { TEST_CLIENTE, TEST_ADMIN, PASSWORD } = require('./seed-test-users');
+const { TEST_CLIENTE, TEST_ADMIN, PASSWORD } = require('../seed-test-users');
 
 // Dominio propio de este script, distinto del TEST_DOMINIO compartido por seed-test-users
 // (TEST001) — este script borra y recrea su Vehiculo repetidas veces, así que reutilizar
@@ -32,12 +32,12 @@ async function llamar(method, path, token, body) {
 
 (async () => {
   await mongoose.connect(process.env.MONGODB_URI);
-  const Usuario = require('../models/Usuario');
-  const Vehiculo = require('../models/Vehiculo');
-  const Estacionamiento = require('../models/Estacionamiento');
-  const Transaccion = require('../models/Transaccion');
-  const ComprobanteEstadia = require('../models/ComprobanteEstadia');
-  const estadiaService = require('../services/estadiaService');
+  const Usuario = require('../../models/Usuario');
+  const Vehiculo = require('../../models/Vehiculo');
+  const Estacionamiento = require('../../models/Estacionamiento');
+  const Transaccion = require('../../models/Transaccion');
+  const ComprobanteEstadia = require('../../models/ComprobanteEstadia');
+  const estadiaService = require('../../services/estadiaService');
 
   let fallos = 0;
   const check = (cond, msg) => {
@@ -143,8 +143,8 @@ async function llamar(method, path, token, body) {
 
   // Desde Etapa 4, cobrar en efectivo fuera del canal 'app' requiere un turno abierto en
   // la caja de la sucursal — ver scripts/verify-etapa4.js para el detalle de esa regla.
-  const Caja = require('../models/Caja');
-  const Turno = require('../models/Turno');
+  const Caja = require('../../models/Caja');
+  const Turno = require('../../models/Turno');
   const caja = await Caja.findOne({ nombre: 'Caja Principal' });
   const tokenAdmin = await login(TEST_ADMIN.email, PASSWORD);
   await llamar('POST', '/api/turnos/abrir', tokenAdmin, { cajaId: caja._id.toString(), montoInicial: 0 });

@@ -4,7 +4,7 @@ Hasta acá la tarifa era una multiplicación: horas hacia arriba por precio por 
 
 Esto documenta las reglas que ahora existen. **Todas nacen apagadas**: una playa que no configura nada sigue cobrando exactamente como antes — hora entera hacia arriba, precio único, sin recargos ni tope. Ningún número de este documento es un precio sugerido; los ejemplos usan valores redondos para que la cuenta se vea.
 
-Motor: [`backend/services/tarifaEngine.js`](../backend/services/tarifaEngine.js) · Verificación: `node scripts/verify-tarifas.js` (23 casos).
+Motor: [`backend/services/tarifaEngine.js`](../backend/services/tarifaEngine.js) · Verificación: `node scripts/verificaciones/verify-tarifas.js` (23 casos).
 
 ---
 

@@ -1,7 +1,7 @@
 # 09 — Etapa 6: integración real con ARCA
 
 > **Estado:** implementada y verificada contra el mock (73 verificaciones en
-> `verify-etapa6.js`). El WSAA está probado contra ARCA real. Falta el certificado de
+> `verificaciones/verify-etapa6.js`). El WSAA está probado contra ARCA real. Falta el certificado de
 > homologación —el portal WSASS estaba caído— y con él la prueba de emisión punta a punta.
 
 Diseño de la facturación electrónica del Estacionamiento, tomando como base la

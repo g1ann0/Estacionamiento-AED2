@@ -9,12 +9,12 @@ const TEST_DOMINIO = 'TESTOCAS';
 
 (async () => {
   await mongoose.connect(process.env.MONGODB_URI);
-  const Vehiculo = require('../models/Vehiculo');
-  const Estacionamiento = require('../models/Estacionamiento');
-  const Transaccion = require('../models/Transaccion');
-  const Sucursal = require('../models/Sucursal');
-  const estadiaService = require('../services/estadiaService');
-  const { crearSucursalPrincipalPorDefecto } = require('../utils/seedData');
+  const Vehiculo = require('../../models/Vehiculo');
+  const Estacionamiento = require('../../models/Estacionamiento');
+  const Transaccion = require('../../models/Transaccion');
+  const Sucursal = require('../../models/Sucursal');
+  const estadiaService = require('../../services/estadiaService');
+  const { crearSucursalPrincipalPorDefecto } = require('../../utils/seedData');
 
   // Este script conecta directo a Mongo sin pasar por server.js, así que el seed
   // automático de arranque no corrió — lo disparamos acá (es idempotente).
@@ -79,8 +79,8 @@ const TEST_DOMINIO = 'TESTOCAS';
   }
 
   // --- Regresión: el canal app (con dni) sigue funcionando igual que antes ---
-  const { TEST_CLIENTE, TEST_DOMINIO: DOM_APP, PASSWORD } = require('./seed-test-users');
-  const Usuario = require('../models/Usuario');
+  const { TEST_CLIENTE, TEST_DOMINIO: DOM_APP, PASSWORD } = require('../seed-test-users');
+  const Usuario = require('../../models/Usuario');
   await Estacionamiento.deleteMany({ vehiculoDominio: DOM_APP });
   await Transaccion.deleteMany({ 'vehiculo.dominio': DOM_APP });
   await Vehiculo.updateOne({ dominio: DOM_APP }, { $set: { estActivo: false } });

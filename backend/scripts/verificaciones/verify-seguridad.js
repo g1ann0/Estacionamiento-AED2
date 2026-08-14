@@ -6,7 +6,7 @@
 
 require('dotenv').config();
 const mongoose = require('mongoose');
-const { TEST_ADMIN, TEST_CLIENTE, TEST_CLIENTE2, TEST_OPERADOR, PASSWORD } = require('./seed-test-users');
+const { TEST_ADMIN, TEST_CLIENTE, TEST_CLIENTE2, TEST_OPERADOR, PASSWORD } = require('../seed-test-users');
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3999';
 const DOMINIO_VICTIMA = 'SEGVICT1';
@@ -47,10 +47,10 @@ async function llamar(method, path, token, body) {
 (async () => {
   await mongoose.connect(process.env.MONGODB_URI);
 
-  const Usuario = require('../models/Usuario');
-  const Vehiculo = require('../models/Vehiculo');
-  const Estacionamiento = require('../models/Estacionamiento');
-  const Transaccion = require('../models/Transaccion');
+  const Usuario = require('../../models/Usuario');
+  const Vehiculo = require('../../models/Vehiculo');
+  const Estacionamiento = require('../../models/Estacionamiento');
+  const Transaccion = require('../../models/Transaccion');
 
   const limpiar = async () => {
     await Estacionamiento.deleteMany({ vehiculoDominio: { $in: [DOMINIO_VICTIMA, DOMINIO_PROPIO] } });

@@ -2,7 +2,7 @@
 // Uso: BASE_URL=http://localhost:3999 node scripts/verify-etapa1.js
 require('dotenv').config();
 const mongoose = require('mongoose');
-const { TEST_ADMIN, TEST_CLIENTE, TEST_DOMINIO, PASSWORD } = require('./seed-test-users');
+const { TEST_ADMIN, TEST_CLIENTE, TEST_DOMINIO, PASSWORD } = require('../seed-test-users');
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3999';
 
@@ -27,11 +27,11 @@ async function llamar(method, path, token, body) {
 
 (async () => {
   await mongoose.connect(process.env.MONGODB_URI);
-  const Usuario = require('../models/Usuario');
-  const AuditLog = require('../models/AuditLog');
-  const Estacionamiento = require('../models/Estacionamiento');
-  const Transaccion = require('../models/Transaccion');
-  const Vehiculo = require('../models/Vehiculo');
+  const Usuario = require('../../models/Usuario');
+  const AuditLog = require('../../models/AuditLog');
+  const Estacionamiento = require('../../models/Estacionamiento');
+  const Transaccion = require('../../models/Transaccion');
+  const Vehiculo = require('../../models/Vehiculo');
 
   let fallos = 0;
   const tokenAdmin = await login(TEST_ADMIN.email, PASSWORD);

@@ -19,10 +19,10 @@
 //   ARCA_AMBIENTE=produccion ARCA_MOCK=false node scripts/arca-verificar-produccion.js [puntoVenta]
 
 require('dotenv').config();
-const { leerConfig } = require('../services/arca/config');
-const { obtenerTicket } = require('../services/arca/wsaa');
-const { ultimoNumeroAutorizado, consultarComprobante } = require('../services/arca/wsfe');
-const catalogos = require('../services/arca/catalogos');
+const { leerConfig } = require('../../services/arca/config');
+const { obtenerTicket } = require('../../services/arca/wsaa');
+const { ultimoNumeroAutorizado, consultarComprobante } = require('../../services/arca/wsfe');
+const catalogos = require('../../services/arca/catalogos');
 const mongoose = require('mongoose');
 
 // Este script NO llama a solicitarCAE. Está escrito así a propósito y conviene que siga así:
@@ -66,7 +66,7 @@ const mongoose = require('mongoose');
   let condicion = null;
   try {
     await mongoose.connect(process.env.MONGODB_URI);
-    const ConfiguracionEmpresa = require('../models/ConfiguracionEmpresa');
+    const ConfiguracionEmpresa = require('../../models/ConfiguracionEmpresa');
     const empresa = await ConfiguracionEmpresa.obtenerConfiguracionActiva();
     condicion = empresa?.condicionIva ?? null;
     if (!puntoVenta) puntoVenta = Number(empresa?.puntoVenta ?? 1);

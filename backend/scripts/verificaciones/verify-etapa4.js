@@ -2,7 +2,7 @@
 // Uso: BASE_URL=http://localhost:3999 node scripts/verify-etapa4.js
 require('dotenv').config();
 const mongoose = require('mongoose');
-const { TEST_ADMIN, PASSWORD } = require('./seed-test-users');
+const { TEST_ADMIN, PASSWORD } = require('../seed-test-users');
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3999';
 const DOM_OCAS = 'TESTETAPA4';
@@ -28,14 +28,14 @@ async function llamar(method, path, token, body) {
 
 (async () => {
   await mongoose.connect(process.env.MONGODB_URI);
-  const Caja = require('../models/Caja');
-  const Turno = require('../models/Turno');
-  const MovimientoCaja = require('../models/MovimientoCaja');
-  const Estacionamiento = require('../models/Estacionamiento');
-  const Transaccion = require('../models/Transaccion');
-  const Vehiculo = require('../models/Vehiculo');
-  const Usuario = require('../models/Usuario');
-  const estadiaService = require('../services/estadiaService');
+  const Caja = require('../../models/Caja');
+  const Turno = require('../../models/Turno');
+  const MovimientoCaja = require('../../models/MovimientoCaja');
+  const Estacionamiento = require('../../models/Estacionamiento');
+  const Transaccion = require('../../models/Transaccion');
+  const Vehiculo = require('../../models/Vehiculo');
+  const Usuario = require('../../models/Usuario');
+  const estadiaService = require('../../services/estadiaService');
 
   let fallos = 0;
   const check = (cond, msg) => {

@@ -15,17 +15,17 @@ const DOM_OCAS = 'RESOLV03';    // estadía de cliente ocasional
 (async () => {
   await mongoose.connect(process.env.MONGODB_URI);
 
-  const Usuario = require('../models/Usuario');
-  const Vehiculo = require('../models/Vehiculo');
-  const Estacionamiento = require('../models/Estacionamiento');
-  const Transaccion = require('../models/Transaccion');
-  const Caja = require('../models/Caja');
-  const Turno = require('../models/Turno');
-  const MovimientoCaja = require('../models/MovimientoCaja');
-  const ComprobanteEstadia = require('../models/ComprobanteEstadia');
-  const estadiaService = require('../services/estadiaService');
-  const turnoService = require('../services/turnoService');
-  const { TEST_CLIENTE, TEST_ADMIN } = require('./seed-test-users');
+  const Usuario = require('../../models/Usuario');
+  const Vehiculo = require('../../models/Vehiculo');
+  const Estacionamiento = require('../../models/Estacionamiento');
+  const Transaccion = require('../../models/Transaccion');
+  const Caja = require('../../models/Caja');
+  const Turno = require('../../models/Turno');
+  const MovimientoCaja = require('../../models/MovimientoCaja');
+  const ComprobanteEstadia = require('../../models/ComprobanteEstadia');
+  const estadiaService = require('../../services/estadiaService');
+  const turnoService = require('../../services/turnoService');
+  const { TEST_CLIENTE, TEST_ADMIN } = require('../seed-test-users');
 
   let fallos = 0;
   const check = (cond, msg) => {
@@ -127,8 +127,8 @@ const DOM_OCAS = 'RESOLV03';    // estadía de cliente ocasional
   await Usuario.updateOne({ _id: cliente._id }, { $set: { montoDisponible: saldoOriginal } });
 
   // --- 7. Ocupación: sin capacidad configurada no se inventa denominador ---
-  const Sucursal = require('../models/Sucursal');
-  const estadiaManualController = require('../controllers/estadiaManualController');
+  const Sucursal = require('../../models/Sucursal');
+  const estadiaManualController = require('../../controllers/estadiaManualController');
   const respuesta = { status: null, cuerpo: null };
   const resFalso = { status(c) { respuesta.status = c; return this; }, json(b) { respuesta.cuerpo = b; } };
 

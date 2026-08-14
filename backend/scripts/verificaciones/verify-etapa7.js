@@ -17,7 +17,7 @@
 
 require('dotenv').config();
 const mongoose = require('mongoose');
-const { TEST_ADMIN, TEST_CLIENTE, TEST_OPERADOR, TEST_OPERADOR2, PASSWORD } = require('./seed-test-users');
+const { TEST_ADMIN, TEST_CLIENTE, TEST_OPERADOR, TEST_OPERADOR2, PASSWORD } = require('../seed-test-users');
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3999';
 const CAJA_A = 'Caja Verify E7 A';
@@ -75,10 +75,10 @@ const diasAtras = (dias) => {
 (async () => {
   await mongoose.connect(process.env.MONGODB_URI);
 
-  const Usuario = require('../models/Usuario');
-  const Caja = require('../models/Caja');
-  const Turno = require('../models/Turno');
-  const MovimientoCaja = require('../models/MovimientoCaja');
+  const Usuario = require('../../models/Usuario');
+  const Caja = require('../../models/Caja');
+  const Turno = require('../../models/Turno');
+  const MovimientoCaja = require('../../models/MovimientoCaja');
 
   const operador1 = await Usuario.findOne({ dni: TEST_OPERADOR.dni });
   const operador2 = await Usuario.findOne({ dni: TEST_OPERADOR2.dni });
@@ -277,7 +277,7 @@ const diasAtras = (dias) => {
   // -------------------------------------------------------- 7.2 límite de intentos --
   console.log('\n— 7.2 · Límite de intentos —');
 
-  const rateLimit = require('../middlewares/rateLimit');
+  const rateLimit = require('../../middlewares/rateLimit');
   const correr = (middleware, ruta = '/login', ip = '10.0.0.1') => new Promise((resolver) => {
     const req = { ip, baseUrl: '/api/auth', path: ruta };
     const res = {

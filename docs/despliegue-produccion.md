@@ -59,12 +59,12 @@ Plantilla de variables: [`backend/.env.production.example`](../backend/.env.prod
 - [ ] Tramitar el certificado de producción con el mismo CSR (ver [`docs/analisis-gap-cgas/10-ARCA-COMO-OBTENER-EL-CERTIFICADO.md`](analisis-gap-cgas/10-ARCA-COMO-OBTENER-EL-CERTIFICADO.md)) y dejarlo en `backend/certs/arca-produccion.crt`.
 - [ ] Verificar la instalación **sin emitir ningún comprobante** (autentica y lee; el detalle del circuito de venta está en la sección "Instalación en un cliente" de [10-ARCA](analisis-gap-cgas/10-ARCA-COMO-OBTENER-EL-CERTIFICADO.md)):
   ```bash
-  ARCA_AMBIENTE=produccion ARCA_MOCK=false node scripts/arca-verificar-produccion.js
+  ARCA_AMBIENTE=produccion ARCA_MOCK=false node scripts/arca/arca-verificar-produccion.js
   ```
 - [ ] Si algo falla antes de eso, revisar que WSFE de producción responda — el 2026-08-12 daba `EPROTO` mientras homologación andaba entera:
   ```bash
-  ARCA_AMBIENTE=produccion node scripts/arca-estado.js
-  ARCA_AMBIENTE=produccion node scripts/arca-probar-login.js
+  ARCA_AMBIENTE=produccion node scripts/arca/arca-estado.js
+  ARCA_AMBIENTE=produccion node scripts/arca/arca-probar-login.js
   ```
 - [ ] `ARCA_MOCK=false`. Con `true` el sistema inventa un CAE que ante ARCA no existe.
 - [ ] Confirmar con el contador qué tipo de comprobante corresponde emitir. Hoy se resuelve por la condición de IVA de la empresa (monotributo → factura C, responsable inscripto → factura B).
@@ -76,8 +76,8 @@ Plantilla de variables: [`backend/.env.production.example`](../backend/.env.prod
 - [ ] Correr la batería contra el entorno real, **con un servidor de prueba**, no contra producción con datos de clientes:
   ```bash
   node scripts/seed-test-users.js
-  BASE_URL=... node scripts/verify-authz.js
-  BASE_URL=... node scripts/verify-seguridad.js
+  BASE_URL=... node scripts/verificaciones/verify-authz.js
+  BASE_URL=... node scripts/verificaciones/verify-seguridad.js
   node scripts/seed-test-users.js cleanup
   ```
 - [ ] Dar de alta el usuario administrador real y **eliminar los usuarios de prueba** (`node scripts/seed-test-users.js cleanup`).

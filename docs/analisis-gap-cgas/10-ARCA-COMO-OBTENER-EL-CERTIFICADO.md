@@ -33,7 +33,7 @@ y un certificado de un ambiente **no funciona** en el otro. Siempre se empieza p
 En una terminal, dentro de `backend/`:
 
 ```bash
-node scripts/arca-generar-csr.js 20442422924 "CASTELPARK"
+node scripts/arca/arca-generar-csr.js 20442422924 "CASTELPARK"
 ```
 
 (El CUIT es el que ya figura en tu certificado actual.)
@@ -98,7 +98,7 @@ corta, y desde el navegador se parece bastante a un problema propio. Antes de pe
 configuración:
 
 ```bash
-node scripts/arca-estado.js
+node scripts/arca/arca-estado.js
 ```
 
 Consulta los seis servicios que hacen falta y hace la distinción que importa: si los **web
@@ -136,7 +136,7 @@ ARCA_MOCK=false
 ## Paso 5 — Probar
 
 ```bash
-node scripts/arca-probar-login.js
+node scripts/arca/arca-probar-login.js
 ```
 
 Si sale **✅ ARCA autorizó el acceso**, el certificado, la clave, el CUIT y el ambiente están
@@ -236,7 +236,7 @@ En el servidor donde va a correr el sistema (no en tu notebook, si es distinto):
 
 ```bash
 # 1 · Clave privada + CSR, con el CUIT DEL CLIENTE
-node scripts/arca-generar-csr.js <CUIT_DEL_CLIENTE> "NOMBRE-DE-LA-PLAYA"
+node scripts/arca/arca-generar-csr.js <CUIT_DEL_CLIENTE> "NOMBRE-DE-LA-PLAYA"
 
 # 2 · El .csr se lo pasás al dueño (o lo subís vos, si te delegó el acceso).
 #     Vuelve un .crt, que va a:
@@ -244,7 +244,7 @@ node scripts/arca-generar-csr.js <CUIT_DEL_CLIENTE> "NOMBRE-DE-LA-PLAYA"
 #     La clave privada ya está en backend/certs/arca.key y NO se mueve de ahí.
 
 # 3 · Verificar la instalación SIN emitir nada
-ARCA_AMBIENTE=produccion ARCA_MOCK=false node scripts/arca-verificar-produccion.js
+ARCA_AMBIENTE=produccion ARCA_MOCK=false node scripts/arca/arca-verificar-produccion.js
 ```
 
 Ese último script es el que cierra la instalación. Hace tres cosas y ninguna emite:

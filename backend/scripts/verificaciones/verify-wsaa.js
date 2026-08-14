@@ -70,7 +70,7 @@ async function main() {
     process.env.ARCA_CUIT = '20123456786';
     const {
       construirTRA, firmarCMS, leerCertificadoP12, leerCertificadoPEM, horaArgentina
-    } = require('../services/arca/wsaa');
+    } = require('../../services/arca/wsaa');
 
     const certificado = leerCertificadoP12(rutaP12, CLAVE);
     check(Boolean(certificado.clave && certificado.certificado), 'se lee el par clave + certificado del .p12');

@@ -30,7 +30,8 @@ if (!/^\d{11}$/.test(cuit)) {
   process.exit(1);
 }
 
-const carpeta = path.join(__dirname, '..', 'certs');
+// backend/certs/, dos niveles arriba de scripts/arca/.
+const carpeta = path.join(__dirname, '..', '..', 'certs');
 const rutaKey = path.join(carpeta, 'arca.key');
 const rutaCsr = path.join(carpeta, 'arca.csr');
 

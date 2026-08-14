@@ -2,7 +2,7 @@
 // Uso: BASE_URL=http://localhost:3999 node scripts/verify-etapa5.js
 require('dotenv').config();
 const mongoose = require('mongoose');
-const { TEST_ADMIN, TEST_CLIENTE, PASSWORD } = require('./seed-test-users');
+const { TEST_ADMIN, TEST_CLIENTE, PASSWORD } = require('../seed-test-users');
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3999';
 const DOM_MANUAL = 'TESTETAPA5';
@@ -28,13 +28,13 @@ async function llamar(method, path, token, body) {
 
 (async () => {
   await mongoose.connect(process.env.MONGODB_URI);
-  const Usuario = require('../models/Usuario');
-  const Caja = require('../models/Caja');
-  const Turno = require('../models/Turno');
-  const MovimientoCaja = require('../models/MovimientoCaja');
-  const Estacionamiento = require('../models/Estacionamiento');
-  const Transaccion = require('../models/Transaccion');
-  const Vehiculo = require('../models/Vehiculo');
+  const Usuario = require('../../models/Usuario');
+  const Caja = require('../../models/Caja');
+  const Turno = require('../../models/Turno');
+  const MovimientoCaja = require('../../models/MovimientoCaja');
+  const Estacionamiento = require('../../models/Estacionamiento');
+  const Transaccion = require('../../models/Transaccion');
+  const Vehiculo = require('../../models/Vehiculo');
 
   let fallos = 0;
   const check = (cond, msg) => {
@@ -111,7 +111,7 @@ async function llamar(method, path, token, body) {
   // Limpieza: cerrar el egreso de este último caso vía canal app normal para no dejar el vehículo activo.
   await estadiaServiceCierre();
   async function estadiaServiceCierre() {
-    const estadiaService = require('../services/estadiaService');
+    const estadiaService = require('../../services/estadiaService');
     try { await estadiaService.finalizarEstadia({ dominio: DOM_MANUAL, medioPago: 'saldo_prepago' }); } catch (e) { /* puede fallar por saldo, no crítico para el test */ }
   }
 

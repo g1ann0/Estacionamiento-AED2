@@ -5,7 +5,7 @@
 // Uso: BASE_URL=http://localhost:3999 node scripts/verify-concurrencia.js
 require('dotenv').config();
 const mongoose = require('mongoose');
-const { TEST_CLIENTE, TEST_DOMINIO, PASSWORD, seed } = require('./seed-test-users');
+const { TEST_CLIENTE, TEST_DOMINIO, PASSWORD, seed } = require('../seed-test-users');
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3999';
 
@@ -30,10 +30,10 @@ async function llamar(method, path, token, body) {
 
 (async () => {
   await mongoose.connect(process.env.MONGODB_URI);
-  const Vehiculo = require('../models/Vehiculo');
-  const Estacionamiento = require('../models/Estacionamiento');
-  const Transaccion = require('../models/Transaccion');
-  const Usuario = require('../models/Usuario');
+  const Vehiculo = require('../../models/Vehiculo');
+  const Estacionamiento = require('../../models/Estacionamiento');
+  const Transaccion = require('../../models/Transaccion');
+  const Usuario = require('../../models/Usuario');
 
   await Estacionamiento.deleteMany({ vehiculoDominio: TEST_DOMINIO });
   await Transaccion.deleteMany({ 'vehiculo.dominio': TEST_DOMINIO });

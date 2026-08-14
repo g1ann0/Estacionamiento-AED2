@@ -151,34 +151,41 @@ async function limpiarBaseDatos() {
 }
 
 // Función para confirmar la acción (solo en modo interactivo)
-async function confirmarLimpieza() {
-  console.log('⚠️  ADVERTENCIA: Este script eliminará TODOS los datos de la base de datos');
-  console.log('📋 Esto incluye:');
-  console.log('   - Todos los usuarios');
-  console.log('   - Todas las transacciones');
-  console.log('   - Todos los vehículos');
-  console.log('   - Todos los comprobantes y facturas');
-  console.log('   - Toda la configuración');
-  console.log('   - Todos los logs');
-  console.log('');
-  console.log('💡 Después de la limpieza, deberás ejecutar:');
-  console.log('   node scripts/setupSystem.js init');
-  console.log('');
-  
-  // Si se ejecuta directamente, proceder automáticamente
+// La "confirmación" imprimía una advertencia y devolvía `true` igual: no confirmaba nada.
+// Correr el script era borrar la base entera, sin escala. Ahora hay que decirlo explícito.
+const CONFIRMACION = '--si-borrar-todo';
+
+function confirmarLimpieza() {
+  console.log('⚠️  ADVERTENCIA: este script elimina TODOS los datos de la base:');
+  console.log('   usuarios, estadías, transacciones, vehículos, comprobantes, facturas,');
+  console.log('   turnos, movimientos de caja, configuración y auditoría.\n');
+
+  if (process.env.NODE_ENV === 'production') {
+    console.log('❌ NODE_ENV=production. Este script no corre contra producción, y punto.');
+    return false;
+  }
+
+  if (!process.argv.includes(CONFIRMACION)) {
+    console.log(`❌ Falta la confirmación. Si es lo que querés:\n`);
+    console.log(`   node scripts/limpiarBaseDatos.js ${CONFIRMACION}\n`);
+    console.log(`   Base apuntada: ${process.env.MONGODB_URI ?? '(sin MONGODB_URI)'}`);
+    return false;
+  }
+
+  console.log(`🗑️  Confirmado. Limpiando ${process.env.MONGODB_URI}\n`);
+  console.log('💡 Después: levantar el servidor una vez — siembra sola la configuración por defecto.\n');
   return true;
 }
 
-// Ejecutar la limpieza
+// Solo cuando se lo invoca a mano. Nunca al importarlo: `scripts/clean.js` llamaba a esta
+// función en el cuerpo del módulo, así que con solo importar ese archivo —por ejemplo
+// desde una herramienta que recorre archivos para ver si cargan— borraba la base sin preguntar
+// nada. Ese script ya no existe, y este comentario está para que no vuelva.
 if (require.main === module) {
-  confirmarLimpieza().then(confirmado => {
-    if (confirmado) {
-      limpiarBaseDatos();
-    } else {
-      console.log('❌ Operación cancelada');
-      process.exit(0);
-    }
-  });
+  if (!confirmarLimpieza()) {
+    process.exit(1);
+  }
+  limpiarBaseDatos();
 }
 
 module.exports = limpiarBaseDatos;

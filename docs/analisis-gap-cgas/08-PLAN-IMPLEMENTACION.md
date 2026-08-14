@@ -2,7 +2,7 @@
 
 > Documento más importante del análisis. Orden determinado por **dependencias técnicas reales** detectadas en los documentos 01-07, no por una plantilla genérica. Cada etapa indica objetivo, estado actual, qué implementar, impacto en Database/Backend/Frontend, dependencias, riesgos, reutilización y criterios de aceptación.
 >
-> **Nota de progreso**: las Etapas 0 a 7 están implementadas y verificadas end-to-end con requests reales — ver commits y `backend/scripts/verify-*.js` (`verify-etapa1..7`, `verify-authz`, `verify-concurrencia`, `verify-resolver`, `verify-excepcion`). La Etapa 6 además se probó contra **ARCA homologación real** el 2026-08-12 (factura B PV 1 N° 4, CAE 86320756083025; nota de crédito B PV 1 N° 1, CAE 86320756083083). Lo único pendiente del plan es el pasaje de ARCA a **producción**, que no es código y **no se puede adelantar**: el certificado y el punto de venta se emiten contra el CUIT de quien va a facturar, y en producción cada CAE es una factura fiscal real. El circuito completo para el día de la instalación —qué se le pide al dueño, qué se genera del lado del sistema, y cómo verificar la instalación sin emitir ni un comprobante— está en [10-ARCA, sección "Instalación en un cliente"](10-ARCA-COMO-OBTENER-EL-CERTIFICADO.md#instalación-en-un-cliente--cuando-el-sistema-se-vende).
+> **Nota de progreso**: las Etapas 0 a 7 están implementadas y verificadas end-to-end con requests reales — ver commits y `backend/scripts/verificaciones/verify-*.js` (`verify-etapa1..7`, `verify-authz`, `verify-concurrencia`, `verify-resolver`, `verify-excepcion`). La Etapa 6 además se probó contra **ARCA homologación real** el 2026-08-12 (factura B PV 1 N° 4, CAE 86320756083025; nota de crédito B PV 1 N° 1, CAE 86320756083083). Lo único pendiente del plan es el pasaje de ARCA a **producción**, que no es código y **no se puede adelantar**: el certificado y el punto de venta se emiten contra el CUIT de quien va a facturar, y en producción cada CAE es una factura fiscal real. El circuito completo para el día de la instalación —qué se le pide al dueño, qué se genera del lado del sistema, y cómo verificar la instalación sin emitir ni un comprobante— está en [10-ARCA, sección "Instalación en un cliente"](10-ARCA-COMO-OBTENER-EL-CERTIFICADO.md#instalación-en-un-cliente--cuando-el-sistema-se-vende).
 
 ## Cómo se determinó el orden
 
@@ -252,7 +252,7 @@
 
 ## ETAPA 7 — Auditoría avanzada y cierre del ciclo — ✅ IMPLEMENTADA
 
-Verificación: `node scripts/verify-etapa7.js` (44/44) y `node scripts/verify-authz.js` (matriz de 3 roles × 20 endpoints + IDOR). Los dos necesitan el servidor levantado con `RATE_LIMIT_OFF=true` y los usuarios de `seed-test-users.js`.
+Verificación: `node scripts/verificaciones/verify-etapa7.js` (44/44) y `node scripts/verificaciones/verify-authz.js` (matriz de 3 roles × 20 endpoints + IDOR). Los dos necesitan el servidor levantado con `RATE_LIMIT_OFF=true` y los usuarios de `seed-test-users.js`.
 
 ### Tarea 7.1 — Reportes de cierre de turno y diferencias históricas — ✅
 - **Objetivo**: pantallas de histórico de cierres y diferencias de caja (requisito del pedido).
@@ -272,7 +272,7 @@ Verificación: `node scripts/verify-etapa7.js` (44/44) y `node scripts/verify-au
   - **Ids mal formados devolvían 500.** `cajaId`, `operadorId`, fechas y estados inválidos ahora responden 400; un turno o comprobante inexistente responde 404.
   - **Paginación sin techo.** `limite=999999` convertía una pantalla paginada en un volcado de la colección.
   - Secretos: verificado que `.gitignore` cubre `.env`, `backend/certs/`, `*.key`, `*.crt` y `*.p12`, y que no hay ninguno versionado.
-- **Criterios de aceptación**: cumplidos — `verify-authz.js` cubre ahora las 20 rutas de la superficie nueva contra los tres roles, más IDOR y acceso sin token.
+- **Criterios de aceptación**: cumplidos — `verificaciones/verify-authz.js` cubre ahora las 20 rutas de la superficie nueva contra los tres roles, más IDOR y acceso sin token.
 
 ### Tarea 6.2 (cierre) — reconciliación automática — ✅
 La reconciliación con ARCA existía como acción manual del panel. Un descuadre fiscal que solo se detecta cuando alguien se acuerda de apretar el botón no se detecta: ahora el worker la corre cada 6 horas (`ARCA_RECONCILIACION_INTERVALO_MS`, `0` la apaga), compartiendo cerrojo con la emisión para no pisar la numeración correlativa de ARCA. Los huérfanos se registran en el log para revisión manual, nunca se inventan datos.

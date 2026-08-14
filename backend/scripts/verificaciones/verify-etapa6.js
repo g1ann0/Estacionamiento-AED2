@@ -28,8 +28,8 @@ const check = (condicion, descripcion, detalle = '') => {
 // Las pruebas usan su propio punto de venta para no mezclarse jamás con comprobantes reales.
 const PV_PRUEBA = '09999';
 
-const catalogos = require('../services/arca/catalogos');
-const mock = require('../services/arca/mock');
+const catalogos = require('../../services/arca/catalogos');
+const mock = require('../../services/arca/mock');
 
 async function verificarCatalogos() {
   console.log('\n— Catálogos y desglose de importes —');
@@ -125,9 +125,9 @@ async function verificarEmision() {
   console.log('\n— Emisión diferida sobre la base real —');
 
   await mongoose.connect(process.env.MONGODB_URI);
-  const ComprobanteEstadia = require('../models/ComprobanteEstadia');
-  const Estacionamiento = require('../models/Estacionamiento');
-  const { emitirComprobante, procesarPendientes, construirPedido } = require('../services/facturacionElectronicaService');
+  const ComprobanteEstadia = require('../../models/ComprobanteEstadia');
+  const Estacionamiento = require('../../models/Estacionamiento');
+  const { emitirComprobante, procesarPendientes, construirPedido } = require('../../services/facturacionElectronicaService');
 
   mock.reiniciar();
 
@@ -250,7 +250,7 @@ async function verificarEmision() {
 async function verificarPdf() {
   console.log('\n— Lo que dice el PDF en cada estado —');
 
-  const { leyendaFiscal, generarBuffer, numeroFormateado } = require('../services/comprobanteEstadiaPdf');
+  const { leyendaFiscal, generarBuffer, numeroFormateado } = require('../../services/comprobanteEstadiaPdf');
 
   const base = {
     numero: 42,
@@ -352,9 +352,9 @@ async function verificarReconciliacion() {
   console.log('\n— Reconciliación: ARCA autorizó y nosotros no nos enteramos —');
 
   await mongoose.connect(process.env.MONGODB_URI);
-  const ComprobanteEstadia = require('../models/ComprobanteEstadia');
-  const Estacionamiento = require('../models/Estacionamiento');
-  const { emitirComprobante, reconciliar } = require('../services/facturacionElectronicaService');
+  const ComprobanteEstadia = require('../../models/ComprobanteEstadia');
+  const Estacionamiento = require('../../models/Estacionamiento');
+  const { emitirComprobante, reconciliar } = require('../../services/facturacionElectronicaService');
 
   mock.reiniciar();
   await ComprobanteEstadia.deleteMany({ puntoVenta: PV_PRUEBA });
@@ -444,11 +444,11 @@ async function verificarNotaCredito() {
   console.log('\n— Anulación con nota de crédito —');
 
   await mongoose.connect(process.env.MONGODB_URI);
-  const ComprobanteEstadia = require('../models/ComprobanteEstadia');
-  const Estacionamiento = require('../models/Estacionamiento');
-  const Talonario = require('../models/Talonario');
-  const Sucursal = require('../models/Sucursal');
-  const { emitirComprobante, anularComprobante, procesarPendientes } = require('../services/facturacionElectronicaService');
+  const ComprobanteEstadia = require('../../models/ComprobanteEstadia');
+  const Estacionamiento = require('../../models/Estacionamiento');
+  const Talonario = require('../../models/Talonario');
+  const Sucursal = require('../../models/Sucursal');
+  const { emitirComprobante, anularComprobante, procesarPendientes } = require('../../services/facturacionElectronicaService');
 
   mock.reiniciar();
   await ComprobanteEstadia.deleteMany({ puntoVenta: PV_PRUEBA });

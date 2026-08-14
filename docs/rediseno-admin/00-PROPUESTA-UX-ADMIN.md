@@ -746,14 +746,14 @@ Ordenado por bloqueo:
    - `services/estadiaService.js` → `resolverPatente()`, `obtenerTarifaDetallada()`, `calcularCobro()`
    - `controllers/estadiaManualController.js` → `resolverPatente`
    - `routes/estadias.js` → `GET /resolver/:dominio` (rol `operador`/`admin`)
-   - Verificación: `backend/scripts/verify-resolver.js` — 22 checks, incluida la garantía de que el importe previsualizado es idéntico al cobrado.
+   - Verificación: `backend/scripts/verificaciones/verify-resolver.js` — 22 checks, incluida la garantía de que el importe previsualizado es idéntico al cobrado.
    - **Cambio de comportamiento asociado:** el guard de saldo del ingreso ahora solo aplica al canal `app`. Un cliente registrado con saldo 0 puede ingresar desde caja, porque paga al salir por otro medio; antes quedaba trabado en la puerta por una regla que no correspondía a cómo iba a pagar (`estadiaService.js`, `iniciarEstadia`).
 2. ✅ **Lectura del turno sin romper la caja ciega** — **implementado** para la fase 2:
    - `GET /api/turnos/:id/movimientos` — las filas del turno, sin agregación de ningún tipo.
    - `GET /api/turnos/:id/contadores` — estadías cobradas, ingresos y egresos de la playa. **Cantidades, nunca importes**: es lo único que la Terminal y Turno actual pueden mostrar con el turno abierto.
    - `GET /api/turnos` acepta ahora varios estados (`?estado=cerrado,anulado`): un arqueo anulado es el que más se busca y filtrarlo lo hacía desaparecer de la única lista donde se lo encuentra.
    - `GET /api/turnos/actual` popula el operador: el turno tiene dueño y el header lo nombra.
-   - Verificación: `backend/scripts/verify-etapa4.js` — 21 checks, verdes después del cambio.
+   - Verificación: `backend/scripts/verificaciones/verify-etapa4.js` — 21 checks, verdes después del cambio.
 3. ✅ **Capacidad por sucursal y API de configuración** — **implementado** en la fase 4. `Sucursal` tenía `capacidad` y `tarifaExcepcion` en el modelo desde la Etapa 2 y **ninguna ruta**: los dos valores solo se podían cambiar entrando a Mongo a mano, aunque uno decide si la playa puede marcarse completa y el otro si el cobro de ticket perdido existe. Ahora `GET/POST/PUT /api/sucursales`, con el cambio auditado con su antes y su después.
    - También nuevos en la fase 4: `GET /api/estadias/historial` (lo que ya pasó, con filtros y paginación — `/activas` solo responde por el presente) y `GET /api/reportes/recaudacion` · `/ocupacion`, las dos agregaciones resueltas en la base y **solo para admin**: es exactamente la plata que la caja ciega le oculta al operador mientras cuenta.
 4. **Rol `operador`** (Etapa 1 del plan) para que el filtrado de navegación por rol sea seguridad y no decoración.

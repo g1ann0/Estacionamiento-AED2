@@ -3,7 +3,7 @@
 > Poda hecha con el contexto de cómo operan los sistemas profesionales del rubro (ver sección I de [`00-PROPUESTA-UX-ADMIN.md`](00-PROPUESTA-UX-ADMIN.md)).
 >
 > **ESTADO: ejecutada.** Aprobada explícitamente el 2026-08-09, grupos 1, 2 y 4 incluidos.
-> Verificación posterior: `node scripts/verify-resolver.js` (22/22) y `node scripts/verify-etapa2.js` (15/15), ambos verdes.
+> Verificación posterior: `node scripts/verificaciones/verify-resolver.js` (22/22) y `node scripts/verificaciones/verify-etapa2.js` (15/15), ambos verdes.
 
 ## Estado de ejecución
 

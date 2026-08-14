@@ -9,7 +9,7 @@
 //
 // Uso: node scripts/verify-tarifas.js
 
-const { calcularCobro } = require('../services/tarifaEngine');
+const { calcularCobro } = require('../../services/tarifaEngine');
 
 let ok = 0;
 let fallos = 0;

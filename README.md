@@ -52,10 +52,10 @@ Todos se corren desde `backend/`.
 | Crear o promover un administrador | `node scripts/crear-admin.js <email> <dni> <pass>` |
 | Ver y aplicar migraciones de datos | `node scripts/migrar.js` · `node scripts/migrar.js aplicar` |
 | Usuarios de prueba para las verificaciones | `node scripts/seed-test-users.js` · `... cleanup` |
-| Estado de los servicios de ARCA | `node scripts/arca-estado.js` |
-| Generar clave privada y CSR | `node scripts/arca-generar-csr.js <CUIT> <alias>` |
-| Probar el login contra ARCA | `node scripts/arca-probar-login.js` |
-| Verificar producción **sin emitir nada** | `ARCA_AMBIENTE=produccion node scripts/arca-verificar-produccion.js` |
+| Estado de los servicios de ARCA | `node scripts/arca/arca-estado.js` |
+| Generar clave privada y CSR | `node scripts/arca/arca-generar-csr.js <CUIT> <alias>` |
+| Probar el login contra ARCA | `node scripts/arca/arca-probar-login.js` |
+| Verificar producción **sin emitir nada** | `ARCA_AMBIENTE=produccion node scripts/arca/arca-verificar-produccion.js` |
 
 ### Verificaciones
 
@@ -63,14 +63,36 @@ No hay framework de tests: hay scripts que ejercitan el sistema real contra la b
 
 ```bash
 node scripts/seed-test-users.js
-BASE_URL=http://localhost:3000 node scripts/verify-seguridad.js   # los agujeros cerrados
-BASE_URL=http://localhost:3000 node scripts/verify-authz.js       # permisos por rol y endpoint
-BASE_URL=http://localhost:3000 node scripts/verify-etapa7.js      # cierres, IDOR de turno, rate limit
-node scripts/verify-tarifas.js                                    # motor de tarifas (no necesita servidor)
-ARCA_MOCK=true node scripts/verify-etapa6.js                      # facturación electrónica
+BASE_URL=http://localhost:3000 node scripts/verificaciones/verify-seguridad.js   # los agujeros cerrados
+BASE_URL=http://localhost:3000 node scripts/verificaciones/verify-authz.js       # permisos por rol y endpoint
+BASE_URL=http://localhost:3000 node scripts/verificaciones/verify-etapa7.js      # cierres, IDOR de turno, rate limit
+node scripts/verificaciones/verify-tarifas.js                                    # motor de tarifas (no necesita servidor)
+ARCA_MOCK=true node scripts/verificaciones/verify-etapa6.js                      # facturación electrónica
 ```
 
 `verify-etapa1` … `verify-etapa7`, `verify-resolver`, `verify-concurrencia` y `verify-excepcion` cubren el resto por etapa.
+
+## Estructura
+
+```
+backend/
+  controllers/      HTTP: traducen request ↔ servicio, sin reglas de negocio propias
+  services/         las reglas: estadía, turno, tarifas, comprobantes, ARCA
+  models/           esquemas de Mongo, con sus índices y sus guardas
+  middlewares/      autenticación, roles, pertenencia, sanitización, límite de intentos
+  migraciones/      cambios de datos versionados — los aplica scripts/migrar.js
+  utils/            helpers compartidos: consultas, filtros, errores
+  scripts/          herramientas de línea de comandos
+    arca/           certificado, estado de servicios, verificación de producción
+    verificaciones/ la batería que prueba el sistema contra la base y la API
+frontend/src/
+  panel/            el mostrador y la administración, por área
+  cliente/          la app del conductor
+  services/         un archivo por área de la API
+  styles/           el sistema de diseño: tokens, componentes, pantallas
+```
+
+La regla que ordena el backend: **las reglas de negocio viven en `services/`**. Un controlador que decide algo importante está en el lugar equivocado — así fue como el mismo flujo de ingreso llegó a tener tres implementaciones distintas, que es lo que resolvió la Etapa 0.
 
 ## Documentación
 
