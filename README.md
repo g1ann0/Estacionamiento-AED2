@@ -99,6 +99,7 @@ La regla que ordena el backend: **las reglas de negocio viven en `services/`**. 
 | Documento | Para qué |
 |---|---|
 | [`PRODUCT.md`](PRODUCT.md) | Qué es el producto, para quién, y qué está decidido |
+| [`docs/pendientes.md`](docs/pendientes.md) | Lo que falta para que esto se use en una playa de verdad |
 | [`docs/despliegue-produccion.md`](docs/despliegue-produccion.md) | Checklist del primer despliegue real |
 | [`docs/tarifas.md`](docs/tarifas.md) | Cómo se calcula lo que se cobra |
 | [`docs/auditoria-seguridad.md`](docs/auditoria-seguridad.md) | Los agujeros que había, cómo se cerraron y qué queda |
@@ -109,6 +110,6 @@ La regla que ordena el backend: **las reglas de negocio viven en `services/`**. 
 
 ## Estado
 
-Etapas 0 a 7 implementadas y verificadas. La integración con ARCA está probada contra **homologación real** (factura B con CAE y su nota de crédito, 2026-08-12).
+Etapas 0 a 7 implementadas y verificadas. La integración con ARCA está probada contra **homologación real** (factura B con CAE y su nota de crédito, 2026-08-12); el pasaje a producción se hace con el CUIT de quien va a facturar y está detallado en el documento 10.
 
-Lo único pendiente es el pasaje a **producción**, que no es código: el certificado y el punto de venta se emiten contra el CUIT de quien va a facturar. El circuito completo para el día de la instalación está en el documento 10.
+Falta, sobre todo, el **mostrador físico**: no hay impresión de tickets, el ingreso no entrega comprobante, y no hay modo degradado si se cae la conexión. Todo lo pendiente, con su porqué y un orden sugerido, está en [`docs/pendientes.md`](docs/pendientes.md).
