@@ -167,3 +167,132 @@ es el punto de venta. Vale la pena revisarlo antes de perder una tarde.
 
 El número que se configure acá tiene que coincidir con el `puntoVenta` de la configuración de
 empresa del sistema.
+
+---
+---
+
+# Instalación en un cliente — cuando el sistema se vende
+
+Todo lo de arriba se hizo con el CUIT del desarrollo, contra homologación. Esta parte es lo que
+falta el día que el sistema se instala en una playa de verdad, y conviene leerla **antes** de
+prometerle fechas a nadie.
+
+## Por qué no se puede adelantar
+
+El certificado de producción se emite **contra un CUIT**, y en producción cada CAE es una
+**factura fiscal real**: queda en el historial impositivo de ese CUIT, genera IVA débito o
+ingreso de monotributo, y no se borra — se anula con una nota de crédito, que es otro
+comprobante fiscal.
+
+De ahí salen las dos consecuencias que ordenan todo lo demás:
+
+1. **El certificado y el punto de venta son del cliente, no del desarrollador.** Quien factura
+   es el dueño de la playa.
+2. **No existe "probar la emisión" en producción.** Cualquier factura de prueba es una factura
+   de verdad. Lo que se prueba antes es todo el circuito *hasta un paso antes del CAE*; la
+   emisión se estrena con la primera venta real.
+
+Lo que sí se puede hacer sin cliente —y ya está hecho— es dejar el circuito entero probado en
+homologación. Eso es lo que cierra la Etapa 6: WSAA, WSFE, factura B con CAE real de prueba y
+nota de crédito asociada.
+
+## Los dos caminos posibles
+
+| | **A · Certificado del cliente** | **B · Delegación al desarrollador** |
+|---|---|---|
+| Quién tramita el certificado | El dueño, con su clave fiscal | El dueño autoriza tu certificado a operar por él |
+| Qué necesitás de él | El `.crt` que descarga | Que te dé de alta como representante |
+| Cuándo conviene | Instalación única, cliente con contador que lo maneja | Varias playas, o un dueño que no quiere entrar al portal |
+| Dónde queda la clave privada | En el servidor de la playa (la generás vos ahí) | En tu máquina/servidor |
+
+En los dos casos **la clave privada se genera del lado de quien va a firmar y nunca se manda por
+mail ni por WhatsApp.** Lo que viaja es el CSR (público) y el certificado (público).
+
+> La delegación se hace desde **Administrador de Relaciones de Clave Fiscal** del CUIT del
+> cliente: nueva relación → Facturación Electrónica → representante. Los nombres de los menús
+> cambiaron con el pase de AFIP a ARCA — **confirmá el circuito con el contador del cliente
+> antes de comprometer una fecha.** Es el único paso de todo esto donde equivocarse cuesta
+> tiempo de otra persona.
+
+## Qué le pedís al dueño
+
+Una sola lista, para mandarle tal cual:
+
+- [ ] **CUIT** de la playa (el que va a facturar).
+- [ ] **Clave fiscal nivel 3** — hace falta para tramitar certificados. Si tiene nivel 2, se
+      sube en el banco o en un cajero.
+- [ ] **Condición frente al IVA**: monotributo o responsable inscripto. Define qué comprobante
+      se emite (C o B) y no lo decide el sistema por su cuenta.
+- [ ] **Un punto de venta nuevo**, dado de alta para **"Factura Electrónica - Web Services"**.
+      Nuevo y no uno que ya use: si comparte numeración con "Comprobantes en línea" o con una
+      controladora fiscal, los números se pisan.
+- [ ] **Razón social, domicilio comercial e inicio de actividades**, para el encabezado del
+      comprobante.
+- [ ] Si va por el camino B: que te **delegue el servicio** de facturación electrónica.
+
+## Qué hacés vos
+
+En el servidor donde va a correr el sistema (no en tu notebook, si es distinto):
+
+```bash
+# 1 · Clave privada + CSR, con el CUIT DEL CLIENTE
+node scripts/arca-generar-csr.js <CUIT_DEL_CLIENTE> "NOMBRE-DE-LA-PLAYA"
+
+# 2 · El .csr se lo pasás al dueño (o lo subís vos, si te delegó el acceso).
+#     Vuelve un .crt, que va a:
+#     backend/certs/arca-produccion.crt
+#     La clave privada ya está en backend/certs/arca.key y NO se mueve de ahí.
+
+# 3 · Verificar la instalación SIN emitir nada
+ARCA_AMBIENTE=produccion ARCA_MOCK=false node scripts/arca-verificar-produccion.js
+```
+
+Ese último script es el que cierra la instalación. Hace tres cosas y ninguna emite:
+
+1. Se autentica contra el WSAA de producción — prueba certificado, clave, CUIT y ambiente.
+2. Le pregunta al WSFE el último número autorizado del punto de venta — **prueba que el punto
+   de venta esté habilitado para Web Services**, que es el error que más tiempo hace perder
+   porque ARCA no lo nombra cuando falla.
+3. Lee el último comprobante emitido, si hay alguno.
+
+Si los tres pasan, lo único sin probar es la emisión. Y esa se estrena con una venta real.
+
+## El `.env` de esa instalación
+
+```
+ARCA_AMBIENTE=produccion
+ARCA_CUIT=<CUIT del cliente>
+ARCA_MOCK=false
+```
+
+El certificado y la clave se resuelven solos (`certs/arca-produccion.crt` + `certs/arca.key`).
+Nada de esto está escrito en el código: **una playa nueva es un `.env` y un certificado**, no
+una versión distinta del sistema. Si mañana son tres playas, son tres instalaciones, cada una
+con su CUIT, su certificado y su punto de venta.
+
+Y en el panel, antes de cobrar la primera vez: **Configuración → Empresa y facturación** con la
+razón social, el CUIT, la condición de IVA y el **mismo número de punto de venta** que se dio
+de alta en ARCA. Si ese número no coincide, la emisión falla con un error que tampoco lo
+menciona.
+
+## La primera factura real
+
+No es un paso técnico, es una decisión del dueño. Lo razonable es que la primera sea **una
+estadía de verdad, de importe chico**, y que alguien mire que salió bien:
+
+- el comprobante tiene CAE y vencimiento;
+- el PDF dice lo que tiene que decir (razón social, CUIT, condición, punto de venta, número);
+- el número sigue al último autorizado del punto de venta.
+
+Si algo salió mal, el camino es la **nota de crédito** —ya está implementada y probada contra
+homologación—, nunca borrar el registro.
+
+## Resumen de qué depende de quién
+
+| Paso | Depende de |
+|---|---|
+| Circuito ARCA probado punta a punta | ✅ Hecho, en homologación |
+| Certificado de producción | El CUIT del cliente |
+| Punto de venta para Web Services | El CUIT del cliente |
+| Verificación de la instalación (sin emitir) | `arca-verificar-produccion.js`, 5 minutos |
+| Primera factura real | La primera venta del negocio |

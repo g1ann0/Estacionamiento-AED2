@@ -57,7 +57,11 @@ Plantilla de variables: [`backend/.env.production.example`](../backend/.env.prod
 
 - [ ] Dar de alta el punto de venta para **"Factura Electrónica - Web Services"** en el portal de ARCA. El PV de homologación no sirve en producción.
 - [ ] Tramitar el certificado de producción con el mismo CSR (ver [`docs/analisis-gap-cgas/10-ARCA-COMO-OBTENER-EL-CERTIFICADO.md`](analisis-gap-cgas/10-ARCA-COMO-OBTENER-EL-CERTIFICADO.md)) y dejarlo en `backend/certs/arca-produccion.crt`.
-- [ ] Verificar que WSFE de producción responde — el 2026-08-12 daba `EPROTO` mientras homologación andaba entera:
+- [ ] Verificar la instalación **sin emitir ningún comprobante** (autentica y lee; el detalle del circuito de venta está en la sección "Instalación en un cliente" de [10-ARCA](analisis-gap-cgas/10-ARCA-COMO-OBTENER-EL-CERTIFICADO.md)):
+  ```bash
+  ARCA_AMBIENTE=produccion ARCA_MOCK=false node scripts/arca-verificar-produccion.js
+  ```
+- [ ] Si algo falla antes de eso, revisar que WSFE de producción responda — el 2026-08-12 daba `EPROTO` mientras homologación andaba entera:
   ```bash
   ARCA_AMBIENTE=produccion node scripts/arca-estado.js
   ARCA_AMBIENTE=produccion node scripts/arca-probar-login.js
@@ -77,7 +81,7 @@ Plantilla de variables: [`backend/.env.production.example`](../backend/.env.prod
   node scripts/seed-test-users.js cleanup
   ```
 - [ ] Dar de alta el usuario administrador real y **eliminar los usuarios de prueba** (`node scripts/seed-test-users.js cleanup`).
-- [ ] Abrir un turno, cobrar una estadía de prueba, cerrar el turno y confirmar que el arqueo cuadra.
+- [ ] Abrir un turno, cobrar una estadía y cerrar el turno confirmando que el arqueo cuadra. Ojo: con ARCA en producción **esa estadía emite una factura fiscal real**, así que no es una prueba — que sea la primera venta de verdad, de importe chico, y que alguien mire el comprobante emitido. Si sale mal, se corrige con nota de crédito, nunca borrando el registro.
 
 ## 6. Después de abrir
 
